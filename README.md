@@ -1,4 +1,4 @@
-# Project `rust-rfham`
+# Project RF-Ham
 
 Ham Radio libraries and tools for Rust.
 
@@ -8,18 +8,18 @@ Ham Radio libraries and tools for Rust.
 
 ## Crates
 
-| Name                | Crate | Docs | Description | Status |
-|---------------------|-------|------|-------------|--------|
-| **rfham**;          | [![crates.io](https://img.shields.io/crates/v/rfham.svg)](https://crates.io/crates/rfham)   | ...  | ...         | ...    |
-| **rfham-antennas**; | ...   | ...  | ...         | ...    |
-| **rfham-bands**;    | ...   | ...  | ...         | ...    |
-| **rfham-cli**;      | ...   | ...  | ...         | ...    |
-| **rfham-config**;   | ...   | ...  | ...         | ...    |
-| **rfham-core**;     | ...   | ...  | ...         | ...    |
-| **rfham-geo**;      | ...   | ...  | ...         | ...    |
-| **rfham-itu**;      | ...   | ...  | ...         | ...    |
-| **rfham-markdown**; | ...   | ...  | ...         | ...    |
-| **rfham-radios**;   | ...   | ...  | ...         | ...    |
+| Name               | Crate | Docs | Description | Status |
+|--------------------|-------|------|-------------|--------|
+| **rfham**          | [![crates.io](https://img.shields.io/crates/v/rfham.svg)](https://crates.io/crates/rfham)   | ...  | ...         | ...    |
+| **rfham-antennas** | ...   | ...  | ...         | ...    |
+| **rfham-bands**    | ...   | ...  | ...         | ...    |
+| **rfham-cli**      | ...   | ...  | ...         | ...    |
+| **rfham-config**   | ...   | ...  | ...         | ...    |
+| **rfham-core**     | ...   | ...  | ...         | ...    |
+| **rfham-geo**      | ...   | ...  | ...         | ...    |
+| **rfham-itu**      | ...   | ...  | ...         | ...    |
+| **rfham-markdown** | ...   | ...  | ...         | ...    |
+| **rfham-radios**   | ...   | ...  | ...         | ...    |
 
 ## Examples
 
