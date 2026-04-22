@@ -1,0 +1,16 @@
+[package]
+name = "rfham-markdown"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["std"]
+std = ["colored"]
+no-color = ["std", "colored/no-color"]
+
+[dependencies]
+colored = { version = "3.1", optional = true }
+rfham-core = { version = "0.1", path = "../rfham-core" }
+
+[lints]
+workspace = true

@@ -1,0 +1,10 @@
+[package]
+name = "rsham"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rfham-core = { version = "0.1", path = "../rfham-core" }
+
+[lints]
+workspace = true

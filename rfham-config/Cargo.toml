@@ -1,0 +1,22 @@
+[package]
+name = "rfham-config"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rfham-bands = { version = "0.1", path = "../rfham-bands" }
+rfham-core = { version = "0.1", path = "../rfham-core" }
+rfham-geo = { version = "0.1", path = "../rfham-geo" }
+rfham-itu = { version = "0.1", path = "../rfham-itu" }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_with = { version = "3.18", default-features = false, features = [
+    "alloc",
+    "macros",
+] }
+thiserror = { version = "2.0", default-features = false }
+toml = "1.1"
+tracing = "0.1"
+xdirs = "0.1"
+
+[lints]
+workspace = true
