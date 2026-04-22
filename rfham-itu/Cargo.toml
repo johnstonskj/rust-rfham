@@ -2,6 +2,24 @@
 name = "rfham-itu"
 version = "0.1.0"
 edition = "2024"
+description = "Data Types representing ITU standards underlying Ham operations."
+repository = "https://github.com/johnstonskj/rust-rfham"
+homepage = "https://rfham.github.io"
+license = "MIT OR Apache-2.0"
+keywords = ["ham", "radio"]
+readme = "../README.md"
+# Minimum Supported Rust Version
+rust-version = "1.94"
+
+[package.metadata.docs.rs]
+features = ["std"]
+rustdoc-args = ["--generate-link-to-definition"]
+
+[package.metadata.playground]
+features = ["std"]
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies.wasm-bindgen-test]
+version = "0.3"
 
 [dependencies]
 colored = { version = "3.1", optional = true }
