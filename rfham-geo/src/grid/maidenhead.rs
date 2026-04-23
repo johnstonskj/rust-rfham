@@ -74,7 +74,7 @@ pub struct Maidenhead {}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
-pub enum GridPrecision {
+pub enum MaidenheadPrecision {
     Square = 4,
     #[default]
     SubSquare = 6,
@@ -112,7 +112,7 @@ pub struct MaidenheadSquare {
 // Implementations ❯ Grid Precision
 // ------------------------------------------------------------------------------------------------
 
-impl Display for GridPrecision {
+impl Display for MaidenheadPrecision {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -127,7 +127,7 @@ impl Display for GridPrecision {
     }
 }
 
-impl TryFrom<usize> for GridPrecision {
+impl TryFrom<usize> for MaidenheadPrecision {
     type Error = GeoError;
 
     fn try_from(value: usize) -> Result<Self, Self::Error> {
@@ -144,7 +144,7 @@ impl TryFrom<usize> for GridPrecision {
     }
 }
 
-impl GridPrecision {
+impl MaidenheadPrecision {
     /// Returns `true` if the precision is an *extended* value, else `false`.
     pub fn is_extended(&self) -> bool {
         *self > Self::SubSquare
@@ -215,7 +215,7 @@ impl AsRef<str> for MaidenheadLocator {
 
 impl GridIdentifier for MaidenheadLocator {
     fn is_valid(s: &str) -> bool {
-        s.len() >= GridPrecision::Square as usize
+        s.len() >= MaidenheadPrecision::Square as usize
             && s.chars().enumerate().all(|(i, c)| match (i, c) {
                 (0..=1, 'A'..='R' | 'a'..='r') => true, // field
                 (2..=3, '0'..='9') => true,             // square
@@ -230,7 +230,7 @@ impl GridIdentifier for MaidenheadLocator {
 }
 
 impl MaidenheadLocator {
-    pub fn from_point_with_precision(point: Coordinate, precision: GridPrecision) -> Self {
+    pub fn from_point_with_precision(point: Coordinate, precision: MaidenheadPrecision) -> Self {
         let latitude: f64 = f64::from(point.latitude()) + 90.0;
         let longitude: f64 = f64::from(point.longitude()) + 180.0;
 
@@ -239,7 +239,7 @@ impl MaidenheadLocator {
             grid_field_string(latitude, longitude),
             grid_square_string(latitude, longitude)
         );
-        let grid_locator_string = if precision >= GridPrecision::SubSquare {
+        let grid_locator_string = if precision >= MaidenheadPrecision::SubSquare {
             format!(
                 "{}{}",
                 grid_locator_string,
@@ -248,7 +248,7 @@ impl MaidenheadLocator {
         } else {
             grid_locator_string
         };
-        let grid_locator_string = if precision >= GridPrecision::ExtendedSquare {
+        let grid_locator_string = if precision >= MaidenheadPrecision::ExtendedSquare {
             format!(
                 "{}{}",
                 grid_locator_string,
@@ -257,7 +257,7 @@ impl MaidenheadLocator {
         } else {
             grid_locator_string
         };
-        let grid_locator_string = if precision >= GridPrecision::ExtendedSubSquare {
+        let grid_locator_string = if precision >= MaidenheadPrecision::ExtendedSubSquare {
             format!(
                 "{}{}",
                 grid_locator_string,
@@ -331,8 +331,8 @@ impl MaidenheadLocator {
         ))
     }
 
-    pub fn precision(&self) -> GridPrecision {
-        GridPrecision::try_from(self.0.len()).unwrap()
+    pub fn precision(&self) -> MaidenheadPrecision {
+        MaidenheadPrecision::try_from(self.0.len()).unwrap()
     }
 
     pub fn field(&self) -> &str {
@@ -340,38 +340,38 @@ impl MaidenheadLocator {
     }
 
     pub fn square(&self) -> &str {
-        &self.0[0..GridPrecision::Square as usize]
+        &self.0[0..MaidenheadPrecision::Square as usize]
     }
 
     pub fn sub_square(&self) -> Option<&str> {
-        if self.precision() >= GridPrecision::SubSquare {
-            Some(&self.0[0..GridPrecision::SubSquare as usize])
+        if self.precision() >= MaidenheadPrecision::SubSquare {
+            Some(&self.0[0..MaidenheadPrecision::SubSquare as usize])
         } else {
             None
         }
     }
 
     pub fn is_extended(&self) -> bool {
-        self.precision() > GridPrecision::SubSquare
+        self.precision() > MaidenheadPrecision::SubSquare
     }
 
     pub fn extended_square(&self) -> Option<&str> {
-        if self.precision() >= GridPrecision::ExtendedSquare {
-            Some(&self.0[0..GridPrecision::ExtendedSquare as usize])
+        if self.precision() >= MaidenheadPrecision::ExtendedSquare {
+            Some(&self.0[0..MaidenheadPrecision::ExtendedSquare as usize])
         } else {
             None
         }
     }
 
     pub fn extended_sub_square(&self) -> Option<&str> {
-        if self.precision() >= GridPrecision::ExtendedSubSquare {
-            Some(&self.0[0..GridPrecision::ExtendedSubSquare as usize])
+        if self.precision() >= MaidenheadPrecision::ExtendedSubSquare {
+            Some(&self.0[0..MaidenheadPrecision::ExtendedSubSquare as usize])
         } else {
             None
         }
     }
 
-    pub fn trim_to_precision(&self, precision: GridPrecision) -> Self {
+    pub fn trim_to_precision(&self, precision: MaidenheadPrecision) -> Self {
         if self.precision() > precision {
             Self(self.0[0..precision as usize].to_string())
         } else {
@@ -509,7 +509,7 @@ fn grid_extended_sub_square_string(latitude: f64, longitude: f64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{GridPrecision, MaidenheadLocator};
+    use super::{MaidenheadLocator, MaidenheadPrecision};
     use lat_long::{Coordinate, Latitude, Longitude};
     use pretty_assertions::assert_eq;
     use std::str::FromStr;
@@ -523,7 +523,7 @@ mod tests {
                     Latitude::try_from(47.421375).unwrap(),
                     Longitude::try_from(-121.410118).unwrap()
                 ),
-                GridPrecision::SubSquare
+                MaidenheadPrecision::SubSquare
             )
             .as_ref()
         );
@@ -534,7 +534,7 @@ mod tests {
                     Latitude::try_from(47.421375).unwrap(),
                     Longitude::try_from(-121.410118).unwrap()
                 ),
-                GridPrecision::ExtendedSquare
+                MaidenheadPrecision::ExtendedSquare
             )
             .as_ref()
         );

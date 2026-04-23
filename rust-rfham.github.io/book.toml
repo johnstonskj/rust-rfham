@@ -1,1 +1,16 @@
+[book]
+authors = ["Simon Johnston <johnstonskj@gmail.com>"]
+language = "en"
+src = "src"
+title = "Amateur (Ham) Radio for Rust"
 
+[rust]
+edition = "2024"
+
+[build]
+build-dir = "mdbook"
+
+[output.html]
+git-repository-url = "https://github.com/johnstonskj/rust-rfham"
+additional-css = ["rfham.css"]
+mathjax-support = false

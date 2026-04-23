@@ -5,7 +5,7 @@ edition = "2024"
 description = "Core data types for RF-Ham libraries."
 license = "MIT OR Apache-2.0"
 keywords = ["ham", "radio"]
-readme = "../README.md"
+readme = "README.md"
 # Minimum Supported Rust Version
 rust-version = "1.94"
 

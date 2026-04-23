@@ -240,7 +240,7 @@ fn itu_map_lookup_inner(prefix: &str, map: &ItuSeriesMap) -> Option<ItuSeriesAll
             }
         }
         Some(ItuSeries::SubLevel(next)) => itu_map_lookup_inner(&prefix[1..], next),
-        None => None,
+        _ => None,
     }
 }
 

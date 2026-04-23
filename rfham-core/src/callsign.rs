@@ -63,7 +63,7 @@ static CALLSIGN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     .unwrap()
 });
 
-const ODD_CALLSIGN_PREFIXES: &[&str] = &[
+const ODD_CALLSIGN_PREFIXES: &[&str; 16] = &[
     "1A", // is used by the Sovereign Military Order of Malta
     "1B", // is used by the Turkish Republic of Northern Cyprus
     "1C", "1X", // are occasionally used by separatists in the Chechnya

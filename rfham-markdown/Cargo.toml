@@ -6,7 +6,7 @@ description = "Markdown writer (utility) for RF-Ham libraries."
 repository = "https://github.com/johnstonskj/rust-rfham"
 homepage = "https://rfham.github.io"
 license = "MIT OR Apache-2.0"
-readme = "../README.md"
+readme = "README.md"
 # Minimum Supported Rust Version
 rust-version = "1.94"
 
