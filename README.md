@@ -8,18 +8,18 @@ Ham Radio libraries and tools for Rust.
 
 ## Crates
 
-| Name               | Crate | Docs | Description | Status |
-|--------------------|-------|------|-------------|--------|
-| **rfham**          | [![crates.io](https://img.shields.io/crates/v/rfham.svg)](https://crates.io/crates/rfham)   | ...  | ...         | ...    |
-| **rfham-antennas** | ...   | ...  | ...         | ...    |
-| **rfham-bands**    | ...   | ...  | ...         | ...    |
-| **rfham-cli**      | ...   | ...  | ...         | ...    |
-| **rfham-config**   | ...   | ...  | ...         | ...    |
-| **rfham-core**     | ...   | ...  | ...         | ...    |
-| **rfham-geo**      | ...   | ...  | ...         | ...    |
-| **rfham-itu**      | ...   | ...  | ...         | ...    |
-| **rfham-markdown** | ...   | ...  | ...         | ...    |
-| **rfham-radios**   | ...   | ...  | ...         | ...    |
+| Name               | Crate                                                                                                       | Docs                                                                                   | Description                          | Status                   |
+|--------------------|-------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|--------------------------------------|--------------------------|
+| **rfham**          | [![crates.io](https://img.shields.io/crates/v/rfham.svg)](https://crates.io/crates/rfham)                   | [![docs.rs](https://docs.rs/rfham/badge.svg)](https://docs.rs/rfham)                   | Will act as *prelude* combination    | Not Started              |
+| **rfham-antennas** | [![crates.io](https://img.shields.io/crates/v/rfham-antennas.svg)](https://crates.io/crates/rfham-antennas) | [![docs.rs](https://docs.rs/rfham-antennas/badge.svg)](https://docs.rs/rfham-antennas) | Provides antenna models/calculations | Started                  |
+| **rfham-bands**    | [![crates.io](https://img.shields.io/crates/v/rfham-bands.svg)](https://crates.io/crates/rfham-bands)       | [![docs.rs](https://docs.rs/rfham/badge.svg)](https://docs.rs/rfham-bands)             | Country-specific band plans          | Complete for US          |
+| **rfham-cli**      | [![crates.io](https://img.shields.io/crates/v/rfham-cli.svg)](https://crates.io/crates/rfham-cli)           | [![docs.rs](https://docs.rs/rfham-cli/badge.svg)](https://docs.rs/rfham-cli)           | CLI for interacting with the rest    | Tracking complete        |
+| **rfham-config**   | [![crates.io](https://img.shields.io/crates/v/rfham-config.svg)](https://crates.io/crates/rfham-config)     | [![docs.rs](https://docs.rs/rfham-config/badge.svg)](https://docs.rs/rfham-config)     | Shared configuration file handling   | Tracking complete        |
+| **rfham-core**     | [![crates.io](https://img.shields.io/crates/v/rfham-core.svg)](https://crates.io/crates/rfham-core)         | [![docs.rs](https://docs.rs/rfham-core/badge.svg)](https://docs.rs/rfham-core)         | Core data types                      | Complete                 |
+| **rfham-geo**      | [![crates.io](https://img.shields.io/crates/v/rfham-geo.svg)](https://crates.io/crates/rfham-geo)           | [![docs.rs](https://docs.rs/rfham-geo/badge.svg)](https://docs.rs/rfham-geo)           | Grid locators and lookup             | Grid Complete, No Lookup |
+| **rfham-itu**      | [![crates.io](https://img.shields.io/crates/v/rfham-itu.svg)](https://crates.io/crates/rfham-itu)           | [![docs.rs](https://docs.rs/rfham-itu/badge.svg)](https://docs.rs/rfham-itu)           | ITU band allocations                 | Complete                 |
+| **rfham-markdown** | [![crates.io](https://img.shields.io/crates/v/rfham-markdown.svg)](https://crates.io/crates/rfham-markdown) | [![docs.rs](https://docs.rs/rfham-markdown/badge.svg)](https://docs.rs/rfham-markdown) | Utility crate for writing markdown   | Complete                 |
+| **rfham-radios**   | [![crates.io](https://img.shields.io/crates/v/rfham-radios.svg)](https://crates.io/crates/rfham-radios)     | [![docs.rs](https://docs.rs/rfham-radios/badge.svg)](https://docs.rs/rfham-radios)     | Provides radio models                | Not Started              |
 
 ## Examples
 
