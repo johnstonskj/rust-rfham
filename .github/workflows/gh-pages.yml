@@ -1,34 +1,37 @@
-name: mdbook to pages
+name: mdbook to Pages
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
-
-defaults:
-  run:
-    shell: bash
-    working-directory: ./rust-rfham.github.io
+    branches: [ main ]
 
 jobs:
-  deploy:
+  build:
+    name: Build, Test and Deploy
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # To push a branch 
+      pull-requests: write # To create a PR from that branch
+
     steps:
-      - uses: actions/checkout@v2.3.4
+      - name: Check out source
+        uses: actions/checkout@v4
 
-      - name: Setup mdBook
-        uses: peaceiris/actions-mdbook@v1.1.14
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
-          mdbook-version: "latest"
+          toolchain: stable
 
-      - name: Build
-        run: mdbook build
+      - name: Install mdbook binary via cargo
+        run: (test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.4" mdbook)
 
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3.8.0
+      - name: Build and test book
+        run: mdbook build && mdbook test # In case of custom book path: mdbook build path/to/mybook && mdbook test path/to/mybook
+
+      - name: Deploy to pages
+        uses: JamesIves/github-pages-deploy-action@4.1.7
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./rust-rfham.github.io/mdbook
+          branch: gh-pages # The branch the action should deploy to.
+          folder: rust-rfham.github.io/mdbook # The folder the action should deploy.
