@@ -2,7 +2,7 @@
 authors = ["Simon Johnston <johnstonskj@gmail.com>"]
 language = "en"
 src = "src"
-title = "Amateur (Ham) Radio for Rust"
+title = "Amateur (Ham) Radio tools for Rust"
 
 [rust]
 edition = "2024"
