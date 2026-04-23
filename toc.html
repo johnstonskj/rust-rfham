@@ -1,0 +1,57 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light" dir="ltr">
+    <head>
+        <!-- sidebar iframe generated using mdBook
+
+        This is a frame, and not included directly in the page, to control the total size of the
+        book. The TOC contains an entry for each page, so if each page includes a copy of the TOC,
+        the total size of the page becomes O(n**2).
+
+        The frame is only used as a fallback when JS is turned off. When it's on, the sidebar is
+        instead added to the main page by `toc.js` instead. The JavaScript mode is better
+        because, when running in a `file:///` URL, the iframed page would not be Same-Origin as
+        the rest of the page, so the sidebar and the main page theme would fall out of sync.
+        -->
+        <meta charset="UTF-8">
+        <meta name="robots" content="noindex">
+        <!-- Custom HTML head -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.45/dist/katex.min.css"
+            integrity="sha384-UA8juhPf75SzzAMA/4fo3yOU7sBJ0om7SCD2GHq0fZqZco6tr1UCV7nUbk9J90JM" crossorigin="anonymous">
+        
+        <!-- The loading of KaTeX is deferred to speed up page rendering -->
+        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.45/dist/katex.min.js"
+            integrity="sha384-Tt7wBxLKwSzFVRET4O4U9H6v8MNaQ/CjN2FMP4xFm0ErrFu6aNqoonRVW5W40iGI"
+            crossorigin="anonymous"></script>
+        
+        <!-- To automatically render math in text elements, include the auto-render extension: -->
+        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.45/dist/contrib/auto-render.min.js"
+            integrity="sha384-bjyGPfbij8/NDKJhSGZNP/khQVgtHUE5exjm4Ydllo42FwIgYsdLO2lXGmRBf5Mz" crossorigin="anonymous"
+            onload="renderMathInElement(document.body);"></script>
+        
+        <script defer>
+            document.addEventListener("DOMContentLoaded", function () {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        { left: "$$", right: "$$", display: true },
+                        { left: "\\(", right: "\\)", display: false },
+                        { left: "$", right: "$", display: false },
+                        { left: "\\[", right: "\\]", display: true }
+                    ]
+                });
+            });
+        </script>        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="rfham.css">
+    </head>
+    <body class="sidebar-iframe-inner">
+        <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html" target="_parent"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="crates/index.html" target="_parent"><strong aria-hidden="true">2.</strong> Crates</a></li><li class="chapter-item expanded "><a href="cli/index.html" target="_parent"><strong aria-hidden="true">3.</strong> Command-Line Interface (CLI)</a></li><li class="chapter-item expanded "><a href="references/index.html" target="_parent"><strong aria-hidden="true">4.</strong> References</a></li></ol>
+    </body>
+</html>
