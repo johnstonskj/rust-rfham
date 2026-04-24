@@ -6,6 +6,8 @@ Ham Radio libraries and tools for Rust.
 [![MIT License](https://img.shields.io/badge/license-mit-118811.svg)](https://opensource.org/license/mit)
 [![GitHub stars](https://img.shields.io/github/stars/johnstonskj/rust-rfham.svg)](<https://github.com/johnstonskj/rust-rfham/stargazers>)
 
+More details will be added the the [RF-Ham book](ps://simonkjohnston.life/rust-rfham).
+
 ## Crates
 
 | Name               | Crate                                                                                                       | Docs                                                                                   | Description                          | Status                   |
