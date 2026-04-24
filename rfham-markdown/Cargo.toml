@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "Markdown writer (utility) for RF-Ham libraries."
 repository = "https://github.com/johnstonskj/rust-rfham"
-homepage = "https://rfham.github.io"
+homepage = "https://simonkjohnston.life/rust-rfham"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 # Minimum Supported Rust Version
@@ -27,7 +27,7 @@ no-color = ["std", "colored/no-color"]
 
 [dependencies]
 colored = { version = "3.1", optional = true }
-rfham-core = { version = "0.1", path = "../rfham-core" }
+thiserror = { version = "2.0", default-features = false }
 
 [lints]
 workspace = true

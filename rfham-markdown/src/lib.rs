@@ -14,7 +14,6 @@
 //!
 
 use colored::Colorize as _;
-use rfham_core::error::CoreError;
 use std::{fmt::Display, io::Write};
 
 // ------------------------------------------------------------------------------------------------
@@ -26,8 +25,8 @@ use std::{fmt::Display, io::Write};
 // ------------------------------------------------------------------------------------------------
 
 pub trait ToMarkdown {
-    fn write_markdown<W: Write>(&self, writer: &mut W) -> Result<(), CoreError>;
-    fn to_markdown_string(&self) -> Result<String, CoreError> {
+    fn write_markdown<W: Write>(&self, writer: &mut W) -> Result<(), MarkdownError>;
+    fn to_markdown_string(&self) -> Result<String, MarkdownError> {
         let mut buffer = Vec::new();
         self.write_markdown(&mut buffer)?;
         Ok(String::from_utf8(buffer)?)
@@ -41,8 +40,8 @@ pub trait ToMarkdownWith {
         &self,
         writer: &mut W,
         context: Self::Context,
-    ) -> Result<(), CoreError>;
-    fn to_markdown_string_with(&self, context: Self::Context) -> Result<String, CoreError> {
+    ) -> Result<(), MarkdownError>;
+    fn to_markdown_string_with(&self, context: Self::Context) -> Result<String, MarkdownError> {
         let mut buffer = Vec::new();
         self.write_markdown_with(&mut buffer, context)?;
         Ok(String::from_utf8(buffer)?)
@@ -50,7 +49,7 @@ pub trait ToMarkdownWith {
 }
 
 impl<T: ToMarkdownWith<Context = C>, C: Default> ToMarkdown for T {
-    fn write_markdown<W: Write>(&self, writer: &mut W) -> Result<(), CoreError> {
+    fn write_markdown<W: Write>(&self, writer: &mut W) -> Result<(), MarkdownError> {
         self.write_markdown_with(writer, C::default())
     }
 }
@@ -93,17 +92,17 @@ const FMT_STRIKETHROUGH_DELIM: &str = "~~";
 const FMT_CODE_DELIM: &str = "`";
 const BLOCK_QUOTE_PREFIX: &str = ">";
 
-pub fn blank_line<W: Write>(w: &mut W) -> Result<(), CoreError> {
+pub fn blank_line<W: Write>(w: &mut W) -> Result<(), MarkdownError> {
     writeln!(w)?;
     Ok(())
 }
 
-pub fn plain_text<W: Write, S: AsRef<str>>(w: &mut W, content: S) -> Result<(), CoreError> {
+pub fn plain_text<W: Write, S: AsRef<str>>(w: &mut W, content: S) -> Result<(), MarkdownError> {
     writeln!(w, "{}", content.as_ref().normal())?;
     Ok(())
 }
 
-pub fn block_quote<W: Write, S: AsRef<str>>(w: &mut W, content: S) -> Result<(), CoreError> {
+pub fn block_quote<W: Write, S: AsRef<str>>(w: &mut W, content: S) -> Result<(), MarkdownError> {
     writeln!(w, "{} {}", BLOCK_QUOTE_PREFIX, content.as_ref().italic())?;
     Ok(())
 }
@@ -117,7 +116,7 @@ pub fn bold_to_string<S: AsRef<str>>(content: S) -> String {
     )
 }
 
-pub fn bold<W: Write, S: AsRef<str>>(w: &mut W, content: S) -> Result<(), CoreError> {
+pub fn bold<W: Write, S: AsRef<str>>(w: &mut W, content: S) -> Result<(), MarkdownError> {
     write!(w, "{}", bold_to_string(content))?;
     Ok(())
 }
@@ -131,7 +130,7 @@ pub fn code_to_string<S: AsRef<str>>(content: S) -> String {
     )
 }
 
-pub fn code<W: Write, S: AsRef<str>>(w: &mut W, content: S) -> Result<(), CoreError> {
+pub fn code<W: Write, S: AsRef<str>>(w: &mut W, content: S) -> Result<(), MarkdownError> {
     write!(w, "{}", code_to_string(content))?;
     Ok(())
 }
@@ -145,7 +144,7 @@ pub fn italic_to_string<S: AsRef<str>>(content: S) -> String {
     )
 }
 
-pub fn italic<W: Write, S: AsRef<str>>(w: &mut W, content: S) -> Result<(), CoreError> {
+pub fn italic<W: Write, S: AsRef<str>>(w: &mut W, content: S) -> Result<(), MarkdownError> {
     write!(w, "{}", italic_to_string(content))?;
     Ok(())
 }
@@ -159,7 +158,7 @@ pub fn strikethrough_to_string<S: AsRef<str>>(content: S) -> String {
     )
 }
 
-pub fn strikethrough<W: Write, S: AsRef<str>>(w: &mut W, content: S) -> Result<(), CoreError> {
+pub fn strikethrough<W: Write, S: AsRef<str>>(w: &mut W, content: S) -> Result<(), MarkdownError> {
     write!(w, "{}", strikethrough_to_string(content))?;
     Ok(())
 }
@@ -175,12 +174,16 @@ pub fn link<W: Write, S1: AsRef<str>, S2: AsRef<str>>(
     w: &mut W,
     text: S1,
     url: S2,
-) -> Result<(), CoreError> {
+) -> Result<(), MarkdownError> {
     write!(w, "{}", link_to_string(text, url))?;
     Ok(())
 }
 
-pub fn header<W: Write, S: AsRef<str>>(w: &mut W, level: u16, content: S) -> Result<(), CoreError> {
+pub fn header<W: Write, S: AsRef<str>>(
+    w: &mut W,
+    level: u16,
+    content: S,
+) -> Result<(), MarkdownError> {
     assert!(level > 0);
     writeln!(w, "{}", header_to_string(level, content))?;
     Ok(())
@@ -199,7 +202,7 @@ pub fn header_to_string<S: AsRef<str>>(level: u16, content: S) -> String {
 
 const CODE_FENCE_STR: &str = "```";
 
-pub fn fenced_code_block_start<W: Write>(w: &mut W) -> Result<(), CoreError> {
+pub fn fenced_code_block_start<W: Write>(w: &mut W) -> Result<(), MarkdownError> {
     writeln!(w, "{}", format!("{CODE_FENCE_STR}text").dimmed())?;
     Ok(())
 }
@@ -207,7 +210,7 @@ pub fn fenced_code_block_start<W: Write>(w: &mut W) -> Result<(), CoreError> {
 pub fn fenced_code_block_start_for<W: Write, S: AsRef<str>>(
     w: &mut W,
     language: S,
-) -> Result<(), CoreError> {
+) -> Result<(), MarkdownError> {
     writeln!(
         w,
         "{}",
@@ -216,7 +219,7 @@ pub fn fenced_code_block_start_for<W: Write, S: AsRef<str>>(
     Ok(())
 }
 
-pub fn fenced_code_block_end<W: Write>(w: &mut W) -> Result<(), CoreError> {
+pub fn fenced_code_block_end<W: Write>(w: &mut W) -> Result<(), MarkdownError> {
     writeln!(w, "{}", CODE_FENCE_STR.dimmed())?;
     Ok(())
 }
@@ -225,8 +228,8 @@ pub fn bulleted_list<W: Write, S: AsRef<str>>(
     w: &mut W,
     level: u16,
     content: &[S],
-) -> Result<(), CoreError> {
-    let result: Result<Vec<()>, CoreError> = content
+) -> Result<(), MarkdownError> {
+    let result: Result<Vec<()>, MarkdownError> = content
         .iter()
         .map(|content| bulleted_list_item(w, level, content))
         .collect();
@@ -237,7 +240,7 @@ pub fn bulleted_list_item<W: Write, S: AsRef<str>>(
     w: &mut W,
     level: u16,
     content: S,
-) -> Result<(), CoreError> {
+) -> Result<(), MarkdownError> {
     assert!(level > 0);
     writeln!(
         w,
@@ -257,8 +260,8 @@ pub fn numbered_list<W: Write, S: AsRef<str>>(
     w: &mut W,
     level: u16,
     content: &[S],
-) -> Result<(), CoreError> {
-    let result: Result<Vec<()>, CoreError> = content
+) -> Result<(), MarkdownError> {
+    let result: Result<Vec<()>, MarkdownError> = content
         .iter()
         .enumerate()
         .map(|(number, content)| numbered_list_item(w, level, number, content))
@@ -271,7 +274,7 @@ pub fn numbered_list_item<W: Write, S: AsRef<str>>(
     level: u16,
     number: usize,
     content: S,
-) -> Result<(), CoreError> {
+) -> Result<(), MarkdownError> {
     assert!(level > 0);
     writeln!(
         w,
@@ -292,7 +295,7 @@ pub fn definition_list_item<W: Write, S1: AsRef<str>, S2: AsRef<str>>(
     w: &mut W,
     term: S1,
     definition: S2,
-) -> Result<(), CoreError> {
+) -> Result<(), MarkdownError> {
     writeln!(
         w,
         "{}",
@@ -444,7 +447,7 @@ impl Table {
         self
     }
 
-    pub fn headers<W>(&self, w: &mut W) -> Result<(), CoreError>
+    pub fn headers<W>(&self, w: &mut W) -> Result<(), MarkdownError>
     where
         W: Write,
     {
@@ -464,7 +467,7 @@ impl Table {
         Ok(())
     }
 
-    pub fn data_row<W, S>(&self, w: &mut W, row: &[S]) -> Result<(), CoreError>
+    pub fn data_row<W, S>(&self, w: &mut W, row: &[S]) -> Result<(), MarkdownError>
     where
         W: Write,
         S: Into<String>,
@@ -482,7 +485,7 @@ impl Table {
         Ok(())
     }
 
-    fn write_row<W>(&self, w: &mut W, row: &[Column], is_header: bool) -> Result<(), CoreError>
+    fn write_row<W>(&self, w: &mut W, row: &[Column], is_header: bool) -> Result<(), MarkdownError>
     where
         W: Write,
     {
@@ -512,3 +515,5 @@ impl Table {
 // ------------------------------------------------------------------------------------------------
 // Modules
 // ------------------------------------------------------------------------------------------------
+
+pub mod error;
