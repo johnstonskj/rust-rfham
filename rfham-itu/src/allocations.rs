@@ -438,7 +438,7 @@ impl FrequencyAllocation {
 
             table.data_row(
                 writer,
-                &[
+                vec![
                     band.to_string(),
                     band.band().to_string(),
                     region_1
