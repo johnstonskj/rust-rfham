@@ -28,18 +28,6 @@ pub struct Power(BasePower);
 // Public Functions
 // ------------------------------------------------------------------------------------------------
 
-pub fn milliwatts(value: f64) -> Power {
-    Power(BasePower::new::<power_unit::milliwatt>(value))
-}
-
-pub fn watts(value: f64) -> Power {
-    Power(BasePower::new::<power_unit::watt>(value))
-}
-
-pub fn kilowatts(value: f64) -> Power {
-    Power(BasePower::new::<power_unit::kilowatt>(value))
-}
-
 // ------------------------------------------------------------------------------------------------
 // Implementations
 // ------------------------------------------------------------------------------------------------
@@ -86,7 +74,7 @@ impl From<BasePower> for Power {
 
 impl From<f64> for Power {
     fn from(value: f64) -> Self {
-        watts(value)
+        Self::watts(value)
     }
 }
 
@@ -109,16 +97,33 @@ impl AsRef<BasePower> for Power {
 }
 
 impl Power {
-    pub fn value(&self) -> f64 {
-        self.0.value
+    #[inline(always)]
+    pub fn milliwatts(value: f64) -> Self {
+        Self(BasePower::new::<power_unit::milliwatt>(value))
     }
 
+    #[inline(always)]
+    pub fn watts(value: f64) -> Self {
+        Self(BasePower::new::<power_unit::watt>(value))
+    }
+
+    #[inline(always)]
+    pub fn kilowatts(value: f64) -> Self {
+        Self(BasePower::new::<power_unit::kilowatt>(value))
+    }
+
+    #[inline(always)]
     pub fn from_dc_circuit(voltage: f64, current: f64) -> Self {
-        watts(voltage * current)
+        Self::watts(voltage * current)
     }
 
+    #[inline(always)]
     pub fn from_ac_circuit(voltage: f64, current: f64, factor: f64) -> Self {
         assert!((0.0..=1.0).contains(&factor));
-        watts(voltage * current * factor)
+        Self::watts(voltage * current * factor)
+    }
+
+    pub const fn value(&self) -> f64 {
+        self.0.value
     }
 }

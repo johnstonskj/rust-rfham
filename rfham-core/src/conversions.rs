@@ -1,10 +1,9 @@
-use std::fmt::Display;
-
 use num_rational::Rational32;
 use num_traits::{
     ConstZero,
     cast::{FromPrimitive, ToPrimitive},
 };
+use std::fmt::Display;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct LengthInFeet {

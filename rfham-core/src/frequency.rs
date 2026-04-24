@@ -43,35 +43,6 @@ pub struct FrequencyRange(Range<Frequency>);
 // Public Functions
 // ------------------------------------------------------------------------------------------------
 
-pub fn gigahertz(value: f64) -> Frequency {
-    Frequency(BaseFrequency::new::<frequency_unit::gigahertz>(value))
-}
-pub fn megahertz(value: f64) -> Frequency {
-    Frequency(BaseFrequency::new::<frequency_unit::megahertz>(value))
-}
-pub fn kilohertz(value: f64) -> Frequency {
-    Frequency(BaseFrequency::new::<frequency_unit::kilohertz>(value))
-}
-pub fn hertz(value: f64) -> Frequency {
-    Frequency(BaseFrequency::new::<frequency_unit::hertz>(value))
-}
-
-pub fn millimeters(value: f64) -> Wavelength {
-    Wavelength(BaseLength::new::<length_unit::millimeter>(value))
-}
-
-pub fn centimeters(value: f64) -> Wavelength {
-    Wavelength(BaseLength::new::<length_unit::centimeter>(value))
-}
-
-pub fn meters(value: f64) -> Wavelength {
-    Wavelength(BaseLength::new::<length_unit::meter>(value))
-}
-
-pub fn kilometers(value: f64) -> Wavelength {
-    Wavelength(BaseLength::new::<length_unit::kilometer>(value))
-}
-
 // ------------------------------------------------------------------------------------------------
 // Private Macros
 // ------------------------------------------------------------------------------------------------
@@ -135,7 +106,7 @@ impl From<BaseFrequency> for Frequency {
 
 impl From<f64> for Frequency {
     fn from(value: f64) -> Self {
-        megahertz(value)
+        Frequency::megahertz(value)
     }
 }
 
@@ -158,12 +129,25 @@ impl AsRef<BaseFrequency> for Frequency {
 }
 
 impl Frequency {
-    pub fn value(&self) -> f64 {
+    pub fn gigahertz(value: f64) -> Self {
+        Self(BaseFrequency::new::<frequency_unit::gigahertz>(value))
+    }
+    pub fn megahertz(value: f64) -> Self {
+        Self(BaseFrequency::new::<frequency_unit::megahertz>(value))
+    }
+    pub fn kilohertz(value: f64) -> Self {
+        Self(BaseFrequency::new::<frequency_unit::kilohertz>(value))
+    }
+    pub fn hertz(value: f64) -> Self {
+        Self(BaseFrequency::new::<frequency_unit::hertz>(value))
+    }
+
+    pub const fn value(&self) -> f64 {
         self.0.value
     }
 
     pub fn to_wavelength(&self) -> Wavelength {
-        meters(SPEED_OF_LIGHT / self.value())
+        Wavelength::meters(SPEED_OF_LIGHT / self.value())
     }
 }
 
@@ -187,7 +171,10 @@ impl From<Range<Frequency>> for FrequencyRange {
 
 impl From<Range<f64>> for FrequencyRange {
     fn from(range: Range<f64>) -> Self {
-        Self::new(megahertz(range.start), megahertz(range.end))
+        Self::new(
+            Frequency::megahertz(range.start),
+            Frequency::megahertz(range.end),
+        )
     }
 }
 
@@ -199,7 +186,7 @@ impl From<(Frequency, Frequency)> for FrequencyRange {
 
 impl From<(f64, f64)> for FrequencyRange {
     fn from(range: (f64, f64)) -> Self {
-        Self::new(megahertz(range.0), megahertz(range.1))
+        Self::new(Frequency::megahertz(range.0), Frequency::megahertz(range.1))
     }
 }
 
@@ -224,7 +211,7 @@ impl FrequencyRange {
         Self(Range { start, end })
     }
     pub fn new_mhz(start: f64, end: f64) -> Self {
-        Self::new(megahertz(start), megahertz(end))
+        Self::new(Frequency::megahertz(start), Frequency::megahertz(end))
     }
 
     pub const fn start(&self) -> Frequency {
@@ -235,8 +222,12 @@ impl FrequencyRange {
         self.0.end
     }
 
+    pub fn bandwith(&self) -> Frequency {
+        Frequency::hertz(self.0.end.value() - self.0.start.value())
+    }
+
     pub fn mid_band(&self) -> Frequency {
-        hertz(self.0.start.value() + ((self.0.end.value() - self.0.start.value()) / 2.0))
+        Frequency::hertz(self.0.start.value() + (self.bandwith().value() / 2.0))
     }
 
     pub fn contains(&self, frequency: Frequency) -> bool {
@@ -244,7 +235,7 @@ impl FrequencyRange {
     }
 
     pub fn contains_mhz(&self, frequency: f64) -> bool {
-        self.0.contains(&megahertz(frequency))
+        self.0.contains(&Frequency::megahertz(frequency))
     }
 
     pub fn is_empty(&self) -> bool {
@@ -327,7 +318,7 @@ impl From<BaseLength> for Wavelength {
 
 impl From<f64> for Wavelength {
     fn from(value: f64) -> Self {
-        meters(value)
+        Wavelength::meters(value)
     }
 }
 
@@ -350,12 +341,28 @@ impl AsRef<BaseLength> for Wavelength {
 }
 
 impl Wavelength {
-    pub fn value(&self) -> f64 {
+    pub fn millimeters(value: f64) -> Self {
+        Self(BaseLength::new::<length_unit::millimeter>(value))
+    }
+
+    pub fn centimeters(value: f64) -> Self {
+        Self(BaseLength::new::<length_unit::centimeter>(value))
+    }
+
+    pub fn meters(value: f64) -> Self {
+        Self(BaseLength::new::<length_unit::meter>(value))
+    }
+
+    pub fn kilometers(value: f64) -> Self {
+        Self(BaseLength::new::<length_unit::kilometer>(value))
+    }
+
+    pub const fn value(&self) -> f64 {
         self.0.value
     }
 
     pub fn to_frequency(&self) -> Frequency {
-        megahertz(SPEED_OF_LIGHT / self.value())
+        Frequency::megahertz(SPEED_OF_LIGHT / self.value())
     }
 }
 
@@ -373,70 +380,73 @@ impl Wavelength {
 
 #[cfg(test)]
 mod tests {
-    use super::FrequencyRange;
+    use super::{Frequency, FrequencyRange};
     use pretty_assertions::assert_eq;
 
     #[test]
     fn test_default_fmt_frequency() {
-        assert_eq!("0.000001 MHz", &super::hertz(1.0).to_string());
-        assert_eq!("0.001 MHz", &super::kilohertz(1.0).to_string());
-        assert_eq!("1 MHz", &super::megahertz(1.0).to_string());
-        assert_eq!("1000 MHz", &super::gigahertz(1.0).to_string());
+        assert_eq!("0.000001 MHz", &Frequency::hertz(1.0).to_string());
+        assert_eq!("0.001 MHz", &Frequency::kilohertz(1.0).to_string());
+        assert_eq!("1 MHz", &Frequency::megahertz(1.0).to_string());
+        assert_eq!("1000 MHz", &Frequency::gigahertz(1.0).to_string());
     }
 
     #[test]
     fn test_default_fmt_frequency_precision() {
-        assert_eq!("0.000001 MHz", &format!("{:.6}", super::hertz(1.0)));
-        assert_eq!("0.001000 MHz", &format!("{:.6}", super::kilohertz(1.0)));
-        assert_eq!("1.000000 MHz", &format!("{:.6}", super::megahertz(1.0)));
-        assert_eq!("1000.000000 MHz", &format!("{:.6}", super::gigahertz(1.0)));
+        assert_eq!("0.000001 MHz", &format!("{:.6}", Frequency::hertz(1.0)));
+        assert_eq!("0.001000 MHz", &format!("{:.6}", Frequency::kilohertz(1.0)));
+        assert_eq!("1.000000 MHz", &format!("{:.6}", Frequency::megahertz(1.0)));
+        assert_eq!(
+            "1000.000000 MHz",
+            &format!("{:.6}", Frequency::gigahertz(1.0))
+        );
     }
 
     #[test]
     fn test_default_fmt_frequency_width_and_precision() {
         assert_eq!(
             "      0.000001 MHz",
-            &format!("{:>14.6}", super::hertz(1.0))
+            &format!("{:>14.6}", Frequency::hertz(1.0))
         );
         assert_eq!(
             "      0.001000 MHz",
-            &format!("{:>14.6}", super::kilohertz(1.0))
+            &format!("{:>14.6}", Frequency::kilohertz(1.0))
         );
         assert_eq!(
             "      1.000000 MHz",
-            &format!("{:>14.6}", super::megahertz(1.0))
+            &format!("{:>14.6}", Frequency::megahertz(1.0))
         );
         assert_eq!(
             "   1000.000000 MHz",
-            &format!("{:>14.6}", super::gigahertz(1.0))
+            &format!("{:>14.6}", Frequency::gigahertz(1.0))
         );
     }
 
     #[test]
     fn test_alternate_fmt_frequency() {
-        assert_eq!("1 hertz", &format!("{:#}", super::hertz(1.0)));
-        assert_eq!("1 kilohertz", &format!("{:#}", super::kilohertz(1.0)));
-        assert_eq!("1 megahertz", &format!("{:#}", super::megahertz(1.0)));
-        assert_eq!("1 gigahertz", &format!("{:#}", super::gigahertz(1.0)));
+        assert_eq!("1 hertz", &format!("{:#}", Frequency::hertz(1.0)));
+        assert_eq!("1 kilohertz", &format!("{:#}", Frequency::kilohertz(1.0)));
+        assert_eq!("1 megahertz", &format!("{:#}", Frequency::megahertz(1.0)));
+        assert_eq!("1 gigahertz", &format!("{:#}", Frequency::gigahertz(1.0)));
     }
 
     #[test]
     fn test_default_fmt_range() {
         assert_eq!(
             "0.000001 MHz - 0.00001 MHz",
-            &FrequencyRange::new(super::hertz(1.0), super::hertz(10.0)).to_string()
+            &FrequencyRange::new(Frequency::hertz(1.0), Frequency::hertz(10.0)).to_string()
         );
         assert_eq!(
             "0.001 MHz - 0.01 MHz",
-            &FrequencyRange::new(super::kilohertz(1.0), super::kilohertz(10.0)).to_string()
+            &FrequencyRange::new(Frequency::kilohertz(1.0), Frequency::kilohertz(10.0)).to_string()
         );
         assert_eq!(
             "1 MHz - 10 MHz",
-            &FrequencyRange::new(super::megahertz(1.0), super::megahertz(10.0)).to_string()
+            &FrequencyRange::new(Frequency::megahertz(1.0), Frequency::megahertz(10.0)).to_string()
         );
         assert_eq!(
             "1000 MHz - 10000 MHz",
-            &FrequencyRange::new(super::gigahertz(1.0), super::gigahertz(10.0)).to_string()
+            &FrequencyRange::new(Frequency::gigahertz(1.0), Frequency::gigahertz(10.0)).to_string()
         );
     }
 }
