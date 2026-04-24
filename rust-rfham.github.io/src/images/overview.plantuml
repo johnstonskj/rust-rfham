@@ -1,0 +1,50 @@
+@startuml Overview
+
+    package core <<crate>> {
+    }
+    
+    package geo  <<crate>> {
+    }
+    geo ..> core
+    
+    package itu <<crate>> {
+    }
+    itu ..> core
+    
+    package bands <<crate>> {
+    }
+    bands ..> core
+    bands ..> core
+    
+    package config <<crate>> {
+    }
+    config ..> bands
+    config ..> core
+    config ..> geo
+    config ..> itu
+    
+    package antennas <<crate>> {
+    }
+    antennas ..> bands
+    antennas ..> core
+    antennas ..> itu
+    antennas ..> markdown
+    
+    package prelude <<crate>> {
+    }
+    prelude ..> antennas
+    prelude ..> bands
+    prelude ..> config
+    prelude ..> core
+    prelude ..> geo
+    prelude ..> itu
+    prelude ..> markdown
+    
+    package cli <<crate>> {
+    }
+    cli ..> prelude
+    
+    package markdown <<crate>> {
+    }
+
+@enduml

@@ -1,0 +1,83 @@
+@startuml Overview
+    hide empty members
+
+    package error {
+        enum CoreError {}
+    }
+    
+    package callsign {
+        class CallSign {
+            ancillary_prefix: Option<String>,
+            prefix: String,
+            separator: u8,
+            suffix: String,
+            ancillary_suffix: Option<String>,
+        }
+    }
+    callsign ..> error
+    
+    package country {
+        class CountryCode {}
+        class CountyryCodeNumeric {}
+    }
+    country ..> error
+
+    package agency {
+        enum AgencyKind {
+            StandardsSetting
+            Regulatory
+            Maintaining
+        }
+        enum Jurisdiction {
+            International
+            Just: CountryCode
+            All: Vec<CountryCode>
+        }
+        class Agency {
+            name: String
+            abbreviation: String
+            url: Option<Url>
+        }
+        Agency *-up-> "kind" AgencyKind
+        Agency *-up-> "0..1" Jurisdiction
+    }
+    agency ..> error
+    
+    package non_si {
+        class LengthInFeet {
+            feet: u32
+            inches: f32
+        }
+        enum Units {
+            <<default>> Metric
+            Imperial
+        }
+    }
+    non_si .up.> error
+    
+    package fmt {
+        interface Formatter {}
+        class FormatOption {}
+    }
+    fmt .up.> error
+    
+    package frequency {
+        class Frequency {}
+        class FrequencyRange {}
+        FrequencyRange *-up-> "start" Frequency
+        FrequencyRange *-up-> "end" Frequency
+        class WaveLength {}
+    }
+    frequency .up.> error
+    
+    package name {
+        class Name {}
+    }
+    name .up.> error
+    
+    package power {
+        class Power {}
+    }
+    power ..> error
+
+@enduml

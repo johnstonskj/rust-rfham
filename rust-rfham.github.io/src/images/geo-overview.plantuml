@@ -1,0 +1,93 @@
+@startuml Overview
+    hide empty members
+
+    package geoip {
+        
+        enum ProviderDataLicense {
+            Public,
+            ServiceLicensed,
+            ClientLicensed,
+        }
+        
+        interface Provider {
+            lookup(ip: Ipv4Addr) -> Option<IpGeoData>
+        }
+        Provider *--> ProviderDataLicense
+        
+        class "core::country::CountryCode" as CountryCode {}
+
+        enum ContinentCode {}
+        
+        class CurrencyCode {}
+        
+        class LanguageCode {}
+        
+        class GeoLocation {
+            coordinate: Coordinate,
+            accuracy: Option<Length>,
+        }
+        
+        class Locale {
+            timezone: Option<String>,
+        }
+        Locale *--> "0..1 currency" CurrencyCode
+        Locale *--> "0..1 language" LanguageCode
+        
+        class Location {
+            region: Option<String>,
+            city: Option<String>,
+            district: Option<String>,
+            postal_code: Option<String>,
+        }
+        Location *--> ContinentCode
+        Location *--> CountryCode
+        Location *--> "0..1 location" GeoLocation
+        
+        class Asn {
+            number: u64,
+            name: String,
+            organization: String,
+        }
+
+        class IpGeoData {
+            ip_address: Ipv4Addr
+            hostname: Option<String>,
+        }
+        IpGeoData *--> Location
+        IpGeoData *--> "0..1" Locale
+        IpGeoData *--> "0..1" Asn
+        Provider ..> IpGeoData
+        
+        
+    }
+    
+    package grid {
+        interface GridIdentifier {}
+        interface GridPolygon {
+            id() -> GridIdentifier
+        }
+        interface GridSystem {
+            lookup(...) -> GridPolygon
+        }
+        
+        package maidenhead {
+            class MaidenheadLocator {}
+            MaidenheadLocator ...|> GridIdentifier
+            
+            class Maidenhead {}
+            Maidenhead ...|> GridSystem
+            
+            class MaidenheadSquare {}
+            MaidenheadSquare ...|> GridPolygon
+            MaidenheadSquare *--> "name" MaidenheadLocator
+            
+            enum MaidenheadPrecision {
+                Square = 4,
+                <<default>> SubSquare = 6,
+                ExtendedSquare = 8,
+                ExtendedSubSquare = 10,
+            }
+        }
+    }
+    
+@enduml
