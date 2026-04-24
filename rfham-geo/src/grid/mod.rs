@@ -9,6 +9,7 @@
 //! ```
 //!
 
+use crate::error::GeoError;
 use lat_long::Coordinate;
 use rfham_core::Agency;
 use std::{fmt::Display, str::FromStr};
@@ -18,7 +19,14 @@ use std::{fmt::Display, str::FromStr};
 // ------------------------------------------------------------------------------------------------
 
 pub trait GridIdentifier:
-    Clone + Display + FromStr + PartialEq + Eq + Into<String> + AsRef<str> + From<Coordinate>
+    Clone
+    + Display
+    + FromStr
+    + PartialEq
+    + Eq
+    + Into<String>
+    + AsRef<str>
+    + TryFrom<Coordinate, Error = GeoError>
 {
     fn is_valid(s: &str) -> bool;
     fn as_str(&self) -> &str {
@@ -40,10 +48,10 @@ pub trait GridSystem {
 
     fn defining_agency(&self) -> Agency;
 
-    fn lookup_id(&self, id: &Self::Identifier) -> Option<Self::Poly>;
+    fn lookup_id(&self, id: &Self::Identifier) -> Result<Option<Self::Poly>, GeoError>;
 
-    fn lookup_point(&self, point: &Coordinate) -> Option<Self::Poly> {
-        self.lookup_id(&Self::Identifier::from(*point))
+    fn lookup_point(&self, point: &Coordinate) -> Result<Option<Self::Poly>, GeoError> {
+        self.lookup_id(&Self::Identifier::try_from(*point)?)
     }
 }
 

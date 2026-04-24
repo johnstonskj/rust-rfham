@@ -35,7 +35,7 @@
 //! ```rust
 //! use rfham_geo::grid::{
 //!     GridIdentifier,
-//!     maidenhead::{GridPrecision, MaidenheadLocator},
+//!     maidenhead::{MaidenheadPrecision, MaidenheadLocator},
 //! };
 //! use lat_long::{Coordinate, Latitude, Longitude};
 //!
@@ -46,8 +46,9 @@
 //!             Latitude::try_from(47.421375).unwrap(),
 //!             Longitude::try_from(-121.410118).unwrap()
 //!         ),
-//!         GridPrecision::SubSquare
+//!         MaidenheadPrecision::SubSquare
 //!     )
+//!     .unwrap()
 //!     .as_ref()
 //! );
 //! ```
@@ -66,7 +67,7 @@ use std::{fmt::Display, str::FromStr};
 // Public Types
 // ------------------------------------------------------------------------------------------------
 
-#[derive(Clone, Debug, PartialEq, Eq, DeserializeFromStr, SerializeDisplay)]
+#[derive(Clone, Debug, DeserializeFromStr, SerializeDisplay)]
 pub struct MaidenheadLocator(String);
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -187,8 +188,10 @@ impl FromStr for MaidenheadLocator {
     }
 }
 
-impl From<Coordinate> for MaidenheadLocator {
-    fn from(point: Coordinate) -> Self {
+impl TryFrom<Coordinate> for MaidenheadLocator {
+    type Error = GeoError;
+
+    fn try_from(point: Coordinate) -> Result<Self, Self::Error> {
         Self::from_point_with_precision(point, Default::default())
     }
 }
@@ -213,6 +216,14 @@ impl AsRef<str> for MaidenheadLocator {
     }
 }
 
+impl PartialEq for MaidenheadLocator {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.as_str().eq_ignore_ascii_case(other.0.as_str())
+    }
+}
+
+impl Eq for MaidenheadLocator {}
+
 impl GridIdentifier for MaidenheadLocator {
     fn is_valid(s: &str) -> bool {
         s.len() >= MaidenheadPrecision::Square as usize
@@ -220,53 +231,58 @@ impl GridIdentifier for MaidenheadLocator {
                 (0..=1, 'A'..='R' | 'a'..='r') => true, // field
                 (2..=3, '0'..='9') => true,             // square
                 (4..=5, 'A'..='X' | 'a'..='x') => true, // sub-square
-                (6..=9, '0'..='9') => true,             // extended ...
-                _ => {
-                    println!("MaidenheadLocator::from_str not happy; i: {i}, c: {c}");
-                    false
-                }
+                (6..=7, '0'..='9') => true,             // extended square
+                (8..=9, 'A'..='X' | 'a'..='x') => true, // extended sub-square
+                _ => false,
             })
     }
 }
 
 impl MaidenheadLocator {
-    pub fn from_point_with_precision(point: Coordinate, precision: MaidenheadPrecision) -> Self {
+    pub fn from_point_with_precision(
+        point: Coordinate,
+        precision: MaidenheadPrecision,
+    ) -> Result<Self, GeoError> {
         let latitude: f64 = f64::from(point.latitude()) + 90.0;
         let longitude: f64 = f64::from(point.longitude()) + 180.0;
 
-        let grid_locator_string = format!(
-            "{}{}",
-            grid_field_string(latitude, longitude),
-            grid_square_string(latitude, longitude)
-        );
-        let grid_locator_string = if precision >= MaidenheadPrecision::SubSquare {
-            format!(
-                "{}{}",
-                grid_locator_string,
-                grid_sub_square_string(latitude, longitude)
-            )
+        if latitude == 0.0 || latitude == 180.0 {
+            Err(GeoError::NoPolarGrid)
         } else {
-            grid_locator_string
-        };
-        let grid_locator_string = if precision >= MaidenheadPrecision::ExtendedSquare {
-            format!(
+            let grid_locator_string = format!(
                 "{}{}",
-                grid_locator_string,
-                grid_extended_square_string(latitude, longitude)
-            )
-        } else {
-            grid_locator_string
-        };
-        let grid_locator_string = if precision >= MaidenheadPrecision::ExtendedSubSquare {
-            format!(
-                "{}{}",
-                grid_locator_string,
-                grid_extended_sub_square_string(latitude, longitude)
-            )
-        } else {
-            grid_locator_string
-        };
-        Self(grid_locator_string)
+                grid_field_string(latitude, longitude),
+                grid_square_string(latitude, longitude)
+            );
+            let grid_locator_string = if precision >= MaidenheadPrecision::SubSquare {
+                format!(
+                    "{}{}",
+                    grid_locator_string,
+                    grid_sub_square_string(latitude, longitude)
+                )
+            } else {
+                grid_locator_string
+            };
+            let grid_locator_string = if precision >= MaidenheadPrecision::ExtendedSquare {
+                format!(
+                    "{}{}",
+                    grid_locator_string,
+                    grid_extended_square_string(latitude, longitude)
+                )
+            } else {
+                grid_locator_string
+            };
+            let grid_locator_string = if precision >= MaidenheadPrecision::ExtendedSubSquare {
+                format!(
+                    "{}{}",
+                    grid_locator_string,
+                    grid_extended_sub_square_string(latitude, longitude)
+                )
+            } else {
+                grid_locator_string
+            };
+            Ok(Self(grid_locator_string))
+        }
     }
 
     pub fn to_point(&self) -> Result<Coordinate, GeoError> {
@@ -308,8 +324,7 @@ impl MaidenheadLocator {
             + (numeric_char_to_value(long_chars[1]) * 2.0)
             + (char_to_value(long_chars[2]) / 12.0)
             + (numeric_char_to_value(long_chars[3]) / 120.0)
-            + (char_to_value(long_chars[4]) / 2880.0)
-            + 0.000174;
+            + (char_to_value(long_chars[4]) / 2880.0);
 
         let lat_chars: Vec<char> = locator_string
             .chars()
@@ -322,8 +337,7 @@ impl MaidenheadLocator {
             + numeric_char_to_value(lat_chars[1])
             + (char_to_value(lat_chars[2]) / 24.0)
             + (numeric_char_to_value(lat_chars[3]) / 240.0)
-            + (char_to_value(lat_chars[4]) / 5760.0)
-            + 0.0000868;
+            + (char_to_value(lat_chars[4]) / 5760.0);
 
         Ok(Coordinate::new(
             Latitude::try_from(latitude)?,
@@ -449,7 +463,7 @@ impl GridSystem for Maidenhead {
         agency_iaru()
     }
 
-    fn lookup_id(&self, _id: &MaidenheadLocator) -> Option<Self::Poly> {
+    fn lookup_id(&self, _id: &MaidenheadLocator) -> Result<Option<Self::Poly>, GeoError> {
         todo!()
     }
 }
@@ -498,8 +512,8 @@ fn grid_extended_square_string(latitude: f64, longitude: f64) -> String {
 fn grid_extended_sub_square_string(latitude: f64, longitude: f64) -> String {
     format!(
         "{}{}",
-        SQUARE_LETTERS[((longitude * 2880.0) % 24.0).floor() as usize],
-        SQUARE_LETTERS[((latitude * 5760.0) % 24.0).floor() as usize],
+        SUB_SQUARE_LETTERS[((longitude * 2880.0) % 24.0).floor() as usize],
+        SUB_SQUARE_LETTERS[((latitude * 5760.0) % 24.0).floor() as usize],
     )
 }
 
@@ -525,6 +539,7 @@ mod tests {
                 ),
                 MaidenheadPrecision::SubSquare
             )
+            .unwrap()
             .as_ref()
         );
         assert_eq!(
@@ -536,6 +551,7 @@ mod tests {
                 ),
                 MaidenheadPrecision::ExtendedSquare
             )
+            .unwrap()
             .as_ref()
         );
     }
@@ -544,8 +560,8 @@ mod tests {
     fn locator_string_to_point() {
         assert_eq!(
             Coordinate::new(
-                Latitude::try_from(47.4375868).unwrap(),
-                Longitude::try_from(-121.374826).unwrap()
+                Latitude::try_from(47.4375).unwrap(),
+                Longitude::try_from(-121.375).unwrap()
             ),
             MaidenheadLocator::from_str("CN97hk")
                 .unwrap()

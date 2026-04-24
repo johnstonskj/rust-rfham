@@ -24,6 +24,9 @@ pub enum GeoError {
     #[error("An error occured converting latitude/longitude value; error: {0}")]
     LatLong(#[from] LatLongError),
 
+    #[error("Cannot produce a Maidenhead grid locator for either North/South poles")]
+    NoPolarGrid,
+
     #[error("An error occured in a Geo-IP provider; error: {0}")]
     GeoIpProvider(String),
 
