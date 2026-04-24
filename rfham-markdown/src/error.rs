@@ -2,6 +2,7 @@
 //! Provides this crate's [`Error`] and [`Result`] types.
 //!
 
+use std::string::FromUtf8Error;
 use thiserror::Error;
 
 // ------------------------------------------------------------------------------------------------
@@ -15,6 +16,9 @@ use thiserror::Error;
 pub enum MarkdownError {
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("Unable to convert from UTF-8 to string; error: {0}")]
+    FromUtf(#[from] FromUtf8Error),
 }
 
 ///
