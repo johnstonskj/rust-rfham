@@ -16,8 +16,8 @@ version = "0.3"
 
 [dependencies]
 colored = { version = "3.1", optional = true }
-rfham-core = { version = "0.1", path = "../rfham-core" }
-rfham-markdown = { version = "0.1", path = "../rfham-markdown" }
+rfham-core = { version = "0.1.1", path = "../rfham-core" }
+rfham-markdown = { version = "0.1.1", path = "../rfham-markdown" }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_with = { version = "3.18", default-features = false, features = [
     "alloc",

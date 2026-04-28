@@ -12,14 +12,14 @@ readme = "README.md"
 rust-version = "1.94"
 
 [dependencies]
-rfham-antennas = { version = "0.1", path = "../rfham-antennas" }
-rfham-bands = { version = "0.1", path = "../rfham-bands" }
-rfham-config = { version = "0.1", path = "../rfham-config" }
-rfham-core = { version = "0.1", path = "../rfham-core" }
-rfham-geo = { version = "0.1", path = "../rfham-geo" }
-rfham-itu = { version = "0.1", path = "../rfham-itu" }
-rfham-maidenhead = { version = "0.1", path = "../rfham-maidenhead" }
-rfham-markdown = { version = "0.1", path = "../rfham-markdown" }
+rfham-antennas = { version = "0.1.1", path = "../rfham-antennas" }
+rfham-bands = { version = "0.1.1", path = "../rfham-bands" }
+rfham-config = { version = "0.1.1", path = "../rfham-config" }
+rfham-core = { version = "0.1.1", path = "../rfham-core" }
+rfham-geo = { version = "0.1.1", path = "../rfham-geo" }
+rfham-itu = { version = "0.1.2", path = "../rfham-itu" }
+rfham-maidenhead = { version = "0.1.0", path = "../rfham-maidenhead" }
+rfham-markdown = { version = "0.1.1", path = "../rfham-markdown" }
 
 [lints]
 workspace = true

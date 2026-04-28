@@ -19,11 +19,11 @@ pretty_assertions = "1.4"
 version = "0.3"
 
 [dependencies]
-rfham-bands = { version = "0.1", path = "../rfham-bands" }
-rfham-core = { version = "0.1", path = "../rfham-core" }
-rfham-geo = { version = "0.1", path = "../rfham-geo" }
-rfham-itu = { version = "0.1", path = "../rfham-itu" }
-rfham-maidenhead = { version = "0.1", path = "../rfham-maidenhead" }
+rfham-bands = { version = "0.1.1", path = "../rfham-bands" }
+rfham-core = { version = "0.1.1", path = "../rfham-core" }
+rfham-geo = { version = "0.1.1", path = "../rfham-geo" }
+rfham-itu = { version = "0.1.2", path = "../rfham-itu" }
+rfham-maidenhead = { version = "0.1.0", path = "../rfham-maidenhead" }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_with = { version = "3.18", default-features = false, features = [
     "alloc",
