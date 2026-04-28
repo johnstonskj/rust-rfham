@@ -1,0 +1,68 @@
+@startuml Overview
+
+    !include skinparams.plantuml
+
+    package core <<crate>> {
+        package error <<imported>> {
+            enum CoreError {}
+        }
+        package frequency <<imported>> {
+            class FrequencyRange {}
+        }
+    }
+
+    package bands {
+        enum FrequencyBand {
+            ExtremelyLow = 1,
+            SuperLow = 2,
+            UltraLow = 3,
+            VeryLow = 4,
+            Low = 5,
+            Medium = 6,
+            High = 7,
+            VeryHigh = 8,
+            UltraHigh = 9,
+            SuperHigh = 10,
+            ExtremelyHigh = 11,
+            TremendouslyHigh = 12,
+        }
+    }
+    bands ..> CoreError
+
+    package regions {
+        enum Region {
+            One = 1,
+            Two = 2,
+            Three = 3,
+        }
+    }
+    regions ..> CoreError
+
+    package allocations {
+        enum FrequencyAllocation {
+            ---
+            band() -> FrequencyBand
+            range(in_region: Region) -> Option<FrequencyRange>
+            total_range() -> FrequencyRange
+        }
+    }
+    allocations ..> bands
+    allocations ..> regions
+    allocations ..> CoreError
+    allocations ..> FrequencyRange
+
+    package callsigns {
+        enum ItuSeriesAllocation {
+            Country: CountryCode,
+            Organization: ItuInternationalOrganization,
+        }
+
+        enum ItuInternationalOrganization {
+            InternationalCivilAviationOrganization,
+            UnitedNations,
+            WorldMeteorologicalOrganization,
+        }
+    }
+    callsigns .up.> CoreError
+
+@enduml

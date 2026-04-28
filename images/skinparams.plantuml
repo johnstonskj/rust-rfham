@@ -1,0 +1,17 @@
+@startuml skinparams
+    ' Force this into a class diagram.
+    class DummyClass
+    hide DummyClass
+
+    ' For all
+    hide empty members
+
+    skinparam PackageBorderColor<<crate>> #dddddd
+    skinparam PackageFontColor<<crate>> #555555
+
+    skinparam PackageBorderColor<<imported>> #dddddd
+    skinparam PackageFontColor<<imported>> #555555
+
+    hide <<imported>> stereotype
+
+@enduml

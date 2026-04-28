@@ -1,0 +1,133 @@
+@startuml Overview
+
+    !include skinparams.plantuml
+
+    package core <<crate>> {
+        package agency <<imported>> {
+            class AgencyCode << (D, #ccff66) dataType>> {}
+        }
+        package country <<imported>> {
+            class CountryCode << (D, #ccff66) dataType>> {}
+        }
+        package error <<imported>> {
+            enum CoreError {}
+        }
+        package frequency <<imported>> {
+            class Frequency << (D, #ccff66) dataType>> {}
+            class FrequencyRange {}
+        }
+        package name <<imported>> {
+            enum DisplayName {}
+        }
+        package power <<imported>> {
+            class Power << (D, #ccff66) dataType>> {}
+        }
+    }
+    package itu <<crate>> {
+        package regions <<imported>> {
+            enum Region {}
+        }
+        package allocations <<imported>> {
+            enum FrequencyAllocation {}
+        }
+    }
+
+    class BandwidthRestriction {}
+    BandwidthRestriction *-up-> "max_bandwidth" Frequency
+
+    enum SatelliteUsage {
+        Downlink
+        Uplink
+    }
+
+    enum RepeaterUsage {
+        Input
+        Output
+    }
+
+    enum PowerMeasure {
+        <<default>> PeakEnvelopePower
+        EffectiveRadiatedPower
+        EffectiveIsotropicRadiatedPower
+    }
+
+    class PowerRestriction {}
+    PowerRestriction *-up-> "max_power" Power
+    PowerRestriction *-down-> "measure" PowerMeasure
+
+    enum PhoneMode {
+        AmplitudeModulated
+        FrequencyModulated
+        SingleSideband
+        SingleSidebandLower
+        SingleSidebandUpper
+    }
+
+    enum UsageRestriction {
+        Beacon
+        CW
+        Data
+        Digital
+        Dx
+        EarthMoonEarth
+        Phone: PhoneMode
+        Qrp
+        RemoteControl
+        Repeater: RepeaterUsage
+        Rtty
+        Satellite: SatelliteUsage
+        Simplex
+        SlowScanTv
+        Test: RepeaterUsage
+    }
+    UsageRestriction .down.> RepeaterUsage
+    UsageRestriction .down.> SatelliteUsage
+    UsageRestriction .down.> PhoneMode
+
+    class LicenseKey << (D, #ccff66) dataType>> {}
+
+    class LicenseClass {
+        ordinal: u32,
+        is_active: bool,
+    }
+    LicenseClass *-up-> DisplayName
+    LicenseClass *-> LicenseKey
+
+    class CallingFrequency {}
+    CallingFrequency *-up-> Frequency
+    CallingFrequency *-up-> "0..1\nname" DisplayName
+    CallingFrequency *-down-> "0..*\nusage_restrictions" UsageRestriction
+
+    class BandRestrictions {}
+    BandRestrictions *-down-> "0..*\nlicense_restrictions" LicenseKey
+    BandRestrictions *-down-> "0..*\nusage_restrictions" UsageRestriction
+    BandRestrictions *-down-> "0..1\npower_restriction" PowerRestriction
+    BandRestrictions *-down-> "0..2\nbandwidth_restriction" BandwidthRestriction
+
+    class Segment {}
+    Segment *-> FrequencyRange
+    Segment *-down-> "restrictions" BandRestrictions
+
+    class PlanBand {
+        is_primary_user: bool
+    }
+    PlanBand *-> Band
+    PlanBand *-down-> "0..*\nurestrictions" BandRestrictions
+    PlanBand *-> "0..*\nsegments" Segment
+    PlanBand *-> "0..*\ncalling_frequencies" CallingFrequency
+
+    class Band {}
+    Band *-up-> "allocation" FrequencyAllocation
+    Band *-up-> FrequencyRange
+
+    class BandPlan {
+        licenses: HashMap<LicenseKey, LicenseClass>,
+    }
+    BandPlan *-up-> "name" DisplayName
+    BandPlan *-up-> "maintainer" Agency
+    BandPlan *-up-> "0..1\nregulator" Agency
+    BandPlan *-up-> "region" Region
+    BandPlan *-up-> "0..*\ncountries" CountryCode
+    BandPlan *-up-> "0..1\ndefault_max_power" Power
+
+@enduml

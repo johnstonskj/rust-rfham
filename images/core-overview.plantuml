@@ -1,0 +1,103 @@
+@startuml Overview
+
+    !include skinparams.plantuml
+
+    package error {
+        enum CoreError {}
+    }
+    
+    package callsign {
+        class CallSign {
+            ancillary_prefix: Option<String>,
+            prefix: String,
+            separator: u8,
+            suffix: String,
+            ancillary_suffix: Option<String>,
+        }
+    }
+    callsign ..> error
+    
+    package country {
+        class CountryCode << (D, #ccff66) dataType>> {}
+        class CountyryCodeNumeric << (D, #ccff66) dataType>> {}
+    }
+    country ..> error
+    
+    package name {
+        interface StringLike {
+            const MAX_LENGTH: usize;
+            fn new_unchecked<S: Into<String>>(s: S) -> Self;
+            fn as_str(&self) -> &str;
+            fn is_valid(s: &str) -> bool;
+        }
+        class Name << (D, #ccff66) dataType>> {}
+        Name .up.|> StringLike
+        class DisplayName << (D, #ccff66) dataType>> {}
+        DisplayName .up.|> StringLike
+        class Tag << (D, #ccff66) dataType>> {}
+        Tag .up.|> StringLike
+    }
+    name .up.> error
+
+    package agency {
+        enum AgencyKind {
+            StandardsSetting
+            Regulatory
+            Maintaining
+        }
+        enum Jurisdiction {
+            International
+            Just: CountryCode
+            All: Vec<CountryCode>
+        }
+        class Agency {
+            url: Option<Url>
+        }
+        Agency *-up-> "kind" AgencyKind
+        Agency *-up-> "0..1" Jurisdiction
+        Agency *--> Name
+        Agency *--> "0..1\nabbreviation" Tag
+    }
+    agency ..> error
+    
+    package non_si {
+        class LengthInFeet {
+            feet: u32
+            inches: f32
+        }
+        enum Units {
+            <<default>> Metric
+            Imperial
+        }
+    }
+    non_si .up.> error
+    
+    package fmt {
+        interface Formatter {}
+        class FormatOption {}
+    }
+    fmt .up.> error
+    
+    package frequency {
+        class Frequency << (D, #ccff66) dataType>> {
+            to_wavelength() -> WaveLength
+        }
+        class FrequencyRange {
+            bandwith(&self) -> Frequency
+            mid_band(&self) -> Frequency
+            contains(&self, frequency: Frequency) -> bool
+        }
+        FrequencyRange *-down-> "start" Frequency
+        FrequencyRange *-down-> "end" Frequency
+        class WaveLength {
+            to_frequency() -> Frequency
+        }
+    }
+    frequency .up.> error
+    
+    package power {
+        class Power << (D, #ccff66) dataType>> {}
+    }
+    power ..> error
+
+@enduml

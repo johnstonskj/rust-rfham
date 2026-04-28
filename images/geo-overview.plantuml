@@ -1,0 +1,91 @@
+@startuml Overview
+
+    !include skinparams.plantuml
+
+    package core <<crate>> {
+        package country <<imported>> {
+            class CountryCode << (D, #ccff66) dataType>> {}
+        }
+    }
+
+    package error {
+        enum GeoError {}
+        class GeoResult<T> {}
+    }
+
+    package geoip {
+        
+        enum ProviderDataLicense {
+            Public,
+            ServiceLicensed,
+            ClientLicensed,
+        }
+        
+        interface Provider {
+            lookup(ip: Ipv4Addr) -> Option<IpGeoData>
+        }
+        Provider *--> ProviderDataLicense
+        
+        enum ContinentCode << (D, #ccff66) dataType>> {}
+        
+        class CurrencyCode << (D, #ccff66) dataType>> {}
+        
+        class LanguageCode << (D, #ccff66) dataType>> {}
+        
+        class GeoLocation {
+            coordinate: Coordinate,
+            accuracy: Option<Length>,
+        }
+        
+        class Locale {
+            timezone: Option<String>,
+        }
+        Locale *--> "0..1 currency" CurrencyCode
+        Locale *--> "0..1 language" LanguageCode
+        
+        class Location {
+            region: Option<String>,
+            city: Option<String>,
+            district: Option<String>,
+            postal_code: Option<String>,
+        }
+        Location *--> ContinentCode
+        Location *--> CountryCode
+        Location *--> "0..1 location" GeoLocation
+        
+        class Asn {
+            number: u64,
+            name: String,
+            organization: String,
+        }
+
+        class IpGeoData {
+            ip_address: Ipv4Addr
+            hostname: Option<String>,
+        }
+        IpGeoData *--> Location
+        IpGeoData *--> "0..1" Locale
+        IpGeoData *--> "0..1" Asn
+        Provider ..> IpGeoData
+        
+        
+    }
+    geoip .down.> error
+    
+    package grid {
+        interface GridIdentifier {}
+        interface GridPolygon {
+            id() -> GridIdentifier
+            vertices() -> Vec<Coordinate>
+            centroid() -> Coordinate
+        }
+        interface GridSystem {
+            name() -> &str
+            defining_agency() -> core::agency::Agency
+            lookup_id(id: GridIdentifier) -> GeoResult<GridPolygon>
+            lookup_point(coordinate: Coordinate) -> GeoResult<GridPolygon>
+        }
+    }
+    grid .up.> error
+    
+@enduml
