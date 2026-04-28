@@ -1,7 +1,49 @@
+use lat_long::{Coordinate, Latitude, Longitude};
+use rfham_maidenhead::{MaidenheadLocator, MaidenheadPrecision};
 use std::str::FromStr;
 
-use lat_long::{Coordinate, Latitude, Longitude};
-use rfham_geo::grid::maidenhead::{MaidenheadLocator, MaidenheadPrecision};
+#[test]
+fn test_locator_point_to_string() {
+    assert_eq!(
+        "CN97hk",
+        MaidenheadLocator::from_point_with_precision(
+            Coordinate::new(
+                Latitude::try_from(47.421375).unwrap(),
+                Longitude::try_from(-121.410118).unwrap()
+            ),
+            MaidenheadPrecision::SubSquare
+        )
+        .unwrap()
+        .as_ref()
+    );
+    assert_eq!(
+        "CN97hk01",
+        MaidenheadLocator::from_point_with_precision(
+            Coordinate::new(
+                Latitude::try_from(47.421375).unwrap(),
+                Longitude::try_from(-121.410118).unwrap()
+            ),
+            MaidenheadPrecision::ExtendedSquare
+        )
+        .unwrap()
+        .as_ref()
+    );
+}
+
+#[test]
+fn locator_string_to_point() {
+    // SW corner of sub-square "hk": lat = 47 + 10/24, lon = -122 + 7/12
+    assert_eq!(
+        Coordinate::new(
+            Latitude::try_from(47.0 + 10.0 / 24.0).unwrap(),
+            Longitude::try_from(-122.0 + 7.0 / 12.0).unwrap()
+        ),
+        MaidenheadLocator::from_str("CN97hk")
+            .unwrap()
+            .to_point()
+            .unwrap()
+    )
+}
 
 #[test]
 fn test_latlong_to_locator() {

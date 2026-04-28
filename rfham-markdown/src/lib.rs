@@ -1,22 +1,36 @@
+//! Markdown formatting utilities and traits for RF-Ham output.
 //!
-//! One-line description.
+//! This crate provides two traits and a set of free formatting functions that write
+//! coloured Markdown to any `Write` sink. Terminal output is styled with ANSI colours
+//! via the `colored` crate; plain writers receive the same text without escape codes.
 //!
-//! More detailed description.
+//! | Trait | Purpose |
+//! |-------|---------|
+//! | [`ToMarkdown`] | Convert a value to Markdown without external context |
+//! | [`ToMarkdownWith`] | Convert a value to Markdown given a caller-supplied context |
+//!
+//! Key free functions: [`header`], [`plain_text`], [`bulleted_list_item`],
+//! [`numbered_list_item`], [`bold_to_string`], [`italic_to_string`], [`link_to_string`],
+//! [`fenced_code_block_start`] / [`fenced_code_block_end`].
+//!
+//! [`Table`] and [`Column`] support fixed-width columnar output.
 //!
 //! # Examples
 //!
 //! ```rust
+//! use rfham_markdown::{header, plain_text, bulleted_list_item};
+//!
+//! let mut out = Vec::new();
+//! header(&mut out, 1, "My Section").unwrap();
+//! plain_text(&mut out, "Some content.").unwrap();
+//! bulleted_list_item(&mut out, 1, "First item").unwrap();
+//! let s = String::from_utf8(out).unwrap();
+//! assert!(s.contains("My Section"));
+//! assert!(s.contains("Some content."));
 //! ```
-//!
-//! # Features
-//!
-//! - **feature-name**; Feature description
-//!
 
 use colored::Colorize as _;
 use std::{fmt::Display, io::Write};
-
-use crate::error::MarkdownError;
 
 // ------------------------------------------------------------------------------------------------
 // Public Macros
@@ -519,3 +533,91 @@ impl Table {
 // ------------------------------------------------------------------------------------------------
 
 pub mod error;
+pub use error::{MarkdownError, MarkdownResult};
+
+// ------------------------------------------------------------------------------------------------
+// Unit Tests
+// ------------------------------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn collect(f: impl FnOnce(&mut Vec<u8>) -> Result<(), MarkdownError>) -> String {
+        let mut buf = Vec::new();
+        f(&mut buf).unwrap();
+        // Strip ANSI escape sequences for comparison
+        let s = String::from_utf8(buf).unwrap();
+        // Remove ESC[...m sequences
+        let re_free: String = s
+            .chars()
+            .fold((String::new(), false), |(mut acc, in_esc), c| {
+                if c == '\x1b' {
+                    (acc, true)
+                } else if in_esc && c == 'm' {
+                    (acc, false)
+                } else if !in_esc {
+                    acc.push(c);
+                    (acc, false)
+                } else {
+                    (acc, true)
+                }
+            })
+            .0;
+        re_free
+    }
+
+    #[test]
+    fn test_header_level_1() {
+        let s = collect(|w| header(w, 1, "Title"));
+        assert!(s.contains("# Title"), "got: {s:?}");
+    }
+
+    #[test]
+    fn test_plain_text() {
+        let s = collect(|w| plain_text(w, "Hello world"));
+        assert!(s.contains("Hello world"), "got: {s:?}");
+    }
+
+    #[test]
+    fn test_bulleted_list_item() {
+        let s = collect(|w| bulleted_list_item(w, 1, "Item one"));
+        assert!(s.contains("* Item one"), "got: {s:?}");
+    }
+
+    #[test]
+    fn test_bold_to_string() {
+        let s = bold_to_string("strong");
+        assert!(s.contains("strong"));
+        assert!(s.contains("**"));
+    }
+
+    #[test]
+    fn test_italic_to_string() {
+        let s = italic_to_string("em");
+        assert!(s.contains("em"));
+        assert!(s.contains("*"));
+    }
+
+    #[test]
+    fn test_link_to_string() {
+        let s = link_to_string("ARRL", "https://arrl.org");
+        assert!(s.contains("[ARRL]"));
+        assert!(s.contains("https://arrl.org"));
+    }
+
+    #[test]
+    fn test_to_markdown_string() {
+        struct Dummy;
+        impl ToMarkdown for Dummy {
+            fn write_markdown<W: std::io::Write>(
+                &self,
+                w: &mut W,
+            ) -> Result<(), MarkdownError> {
+                plain_text(w, "dummy content")
+            }
+        }
+        let s = Dummy.to_markdown_string().unwrap();
+        assert!(s.contains("dummy content"));
+    }
+}

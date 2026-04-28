@@ -1,8 +1,15 @@
 @startuml Overview
-    hide empty members
 
-    class "core::error::CoreError" as CoreError {}
-    class "core::frequency::FrequencyRange" as FrequencyRange {}
+    !include skinparams.plantuml
+
+    package core <<crate>> {
+        package error <<imported>> {
+            enum CoreError {}
+        }
+        package frequency <<imported>> {
+            class FrequencyRange {}
+        }
+    }
 
     package bands {
         enum FrequencyBand {
@@ -57,4 +64,5 @@
         }
     }
     callsigns .up.> CoreError
+
 @enduml

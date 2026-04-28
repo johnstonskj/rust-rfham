@@ -1,17 +1,44 @@
+//! Regulatory, standards-setting, and maintaining agencies.
 //!
-//! Provides ..., a one-line description
+//! [`Agency`] describes an organisation with a name, optional abbreviation,
+//! an [`AgencyKind`] classification, and an optional [`Jurisdiction`].
 //!
-//! More detailed description
+//! Several well-known agencies are available as convenience constructors:
+//! [`agency_itu`], [`agency_iaru`], [`agency_arrl`], [`agency_fcc`],
+//! [`agency_ofcom`], [`agency_rsgb`].
 //!
 //! # Examples
 //!
 //! ```rust
+//! use rfham_core::agency::{agency_fcc, agency_itu, AgencyKind};
+//! use rfham_core::country::CountryCode;
+//! use std::str::FromStr;
+//!
+//! let itu = agency_itu();
+//! assert_eq!(itu.abbreviation().map(|s| s.as_str()), Some("ITU"));
+//! assert!(itu.kind().is_standards_setting());
+//!
+//! let fcc = agency_fcc();
+//! assert!(fcc.kind().is_regulatory());
+//! let us = CountryCode::from_str("US").unwrap();
+//! assert_eq!(fcc.within_jurisdiction(&us), Some(true));
+//! let gb = CountryCode::from_str("GB").unwrap();
+//! assert_eq!(fcc.within_jurisdiction(&gb), Some(false));
 //! ```
 //!
+//! `AgencyKind` serialises to its short string form:
+//!
+//! ```rust
+//! use rfham_core::agency::AgencyKind;
+//! use std::str::FromStr;
+//!
+//! assert_eq!(AgencyKind::Regulatory.to_string(), "regulatory");
+//! assert_eq!(AgencyKind::from_str("maintaining").unwrap(), AgencyKind::Maintaining);
+//! ```
 
 use crate::{
     CountryCode,
-    country::{country_code_uk, country_code_us},
+    countries::{country_code_uk, country_code_us},
     error::CoreError,
 };
 use serde::{Deserialize, Serialize};
@@ -311,3 +338,73 @@ impl Jurisdiction {
 // ------------------------------------------------------------------------------------------------
 // Sub-Modules
 // ------------------------------------------------------------------------------------------------
+
+// ------------------------------------------------------------------------------------------------
+// Unit Tests
+// ------------------------------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::countries::CountryCode;
+    use pretty_assertions::assert_eq;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_agency_kind_display_roundtrip() {
+        for (s, kind) in [
+            ("standards", AgencyKind::StandardsSetting),
+            ("regulatory", AgencyKind::Regulatory),
+            ("maintaining", AgencyKind::Maintaining),
+        ] {
+            assert_eq!(kind.to_string(), s);
+            assert_eq!(AgencyKind::from_str(s).unwrap(), kind);
+        }
+    }
+
+    #[test]
+    fn test_agency_kind_invalid() {
+        assert!(AgencyKind::from_str("unknown").is_err());
+    }
+
+    #[test]
+    fn test_jurisdiction_international_contains_all() {
+        let j = Jurisdiction::International;
+        assert!(j.contains(&CountryCode::from_str("US").unwrap()));
+        assert!(j.contains(&CountryCode::from_str("JP").unwrap()));
+    }
+
+    #[test]
+    fn test_jurisdiction_just_contains() {
+        let j = Jurisdiction::Just(CountryCode::from_str("US").unwrap());
+        assert!(j.contains(&CountryCode::from_str("US").unwrap()));
+        assert!(!j.contains(&CountryCode::from_str("GB").unwrap()));
+    }
+
+    #[test]
+    fn test_agency_within_jurisdiction() {
+        let fcc = agency_fcc();
+        let us = CountryCode::from_str("US").unwrap();
+        let gb = CountryCode::from_str("GB").unwrap();
+        assert_eq!(fcc.within_jurisdiction(&us), Some(true));
+        assert_eq!(fcc.within_jurisdiction(&gb), Some(false));
+    }
+
+    #[test]
+    fn test_agency_itu_is_international_standards() {
+        let itu = agency_itu();
+        assert_eq!(itu.jurisdiction(), Some(&Jurisdiction::International));
+        assert!(itu.kind().is_standards_setting());
+        assert!(!itu.kind().is_regulatory());
+        assert!(!itu.kind().is_maintaining());
+    }
+
+    #[test]
+    fn test_agency_no_jurisdiction_returns_none() {
+        let a = Agency::new("Test Agency", AgencyKind::Regulatory);
+        assert_eq!(
+            a.within_jurisdiction(&CountryCode::from_str("US").unwrap()),
+            None
+        );
+    }
+}

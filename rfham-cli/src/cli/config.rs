@@ -5,8 +5,8 @@ use crate::{
 };
 use clap::{Args, Subcommand};
 use rfham_config::paths::ConfigPath;
-use rfham_core::{callsign::CallSign, country::CountryCode};
-use rfham_geo::grid::maidenhead::MaidenheadLocator;
+use rfham_core::{callsigns::CallSign, countries::CountryCode};
+use rfham_maidenhead::MaidenheadLocator;
 use rfham_itu::regions::Region;
 use std::{path::PathBuf, process::ExitCode};
 

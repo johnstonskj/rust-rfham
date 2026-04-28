@@ -1,13 +1,20 @@
+//! Antenna types and calculations for RF-Ham.
 //!
-//! One-line description.
+//! This crate provides the [`AntennaForm`] enum classifying common amateur antenna
+//! styles, and the [`dipole`] module with [`dipole::SimpleDipole`] — a classical
+//! half-wave dipole calculator that can produce Markdown documentation of its design.
 //!
-//! More detailed description.
+//! # Examples
 //!
-//! # Features
+//! ```rust
+//! use rfham_antennas::SimpleDipole;
+//! use rfham_itu::allocations::FrequencyAllocation;
 //!
-//! - **std**; (default) Enables use of the standard library.
-//! - **no-color**; Disables the coloring of Markdown output.
-//!
+//! let dipole = SimpleDipole::new(FrequencyAllocation::Band2M);
+//! // Half-wave length for 2m mid-band (≈146 MHz) is ~1.027 m
+//! let length = dipole.antenna_length().unwrap();
+//! assert!(length.value() > 1.0 && length.value() < 1.1);
+//! ```
 
 use rfham_core::error::CoreError;
 use std::{fmt::Display, str::FromStr};
@@ -70,4 +77,34 @@ impl FromStr for AntennaForm {
 // Modules
 // ------------------------------------------------------------------------------------------------
 
-pub mod dipole;
+pub mod dipoles;
+pub use dipoles::SimpleDipole;
+
+// ------------------------------------------------------------------------------------------------
+// Unit Tests
+// ------------------------------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::AntennaForm;
+    use pretty_assertions::assert_eq;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_display_roundtrip() {
+        for (s, form) in [
+            ("dipole", AntennaForm::Dipole),
+            ("vertical", AntennaForm::Vertical),
+            ("efhw", AntennaForm::EndFed),
+            ("yagi", AntennaForm::Yagi),
+        ] {
+            assert_eq!(s, form.to_string());
+            assert_eq!(form, AntennaForm::from_str(s).unwrap());
+        }
+    }
+
+    #[test]
+    fn test_from_str_invalid() {
+        assert!("loop".parse::<AntennaForm>().is_err());
+    }
+}

@@ -1,13 +1,12 @@
+//! Concrete [`Provider`](crate::geoip::Provider) implementations.
 //!
-//! Provides ..., a one-line description
+//! | Type | Source | License |
+//! |------|--------|---------|
+//! | [`GeoIpLookup`] | `json.geoiplookup.io` public REST API | Public |
+//! | [`NoOp`] | Always returns `None` — useful for tests | Public |
 //!
-//! More detailed description
-//!
-//! # Examples
-//!
-//! ```rust
-//! ```
-//!
+//! The [`local`] sub-module additionally provides [`local::IpNetwork`] for CIDR-range
+//! matching, which is used by local lookup tables that may be added in the future.
 
 use crate::{
     error::{GeoError, GeoResult},

@@ -1,22 +1,36 @@
+//! Station configuration types for RF-Ham.
 //!
-//! One-line description.
+//! [`Configuration`] is the root serialisable type, stored as TOML in the user's
+//! XDG/platform config directory under `rfham/rfham-config.toml`.
 //!
-//! More detailed description.
+//! | Type | Purpose |
+//! |------|---------|
+//! | [`Configuration`] | Root config: station + equipment list |
+//! | [`Station`] | Operator callsign, location, and name |
+//! | [`Location`] | Maidenhead locator, ITU region, country, postal address |
+//! | [`Equipment`] | Radio or accessory with power, bands, modes, mobility |
+//! | [`LocationKind`] | `home`, `alternate`, `remote`, `club` |
+//! | [`Mobility`] | `station-fixed`, `portable`, `mobile`, `handheld` |
+//! | [`Usage`] | Operating purpose: `local`, `qrp`, `dx`, `emcomm`, etc. |
+//! | [`Mode`] | `am`, `fm`, `ssb`, `rtty`, `digital`, `image` |
+//!
+//! The [`Dump`] trait writes a human-readable tree to any `Write` sink.
 //!
 //! # Examples
 //!
-//! ```rust
+//! ```rust,no_run
+//! use rfham_config::Configuration;
+//!
+//! let config = Configuration::load().unwrap_or_default();
+//! if let Some(station) = config.station() {
+//!     println!("Callsign: {}", station.callsign());
+//! }
 //! ```
-//!
-//! # Features
-//!
-//! - **feature-name**; Feature description
-//!
 
 use crate::error::{ConfigError, ConfigResult};
-use rfham_core::{CountryCode, Name, Power, callsign::CallSign, error::CoreError};
-use rfham_geo::grid::maidenhead::MaidenheadLocator;
+use rfham_core::{CountryCode, Name, Power, callsigns::CallSign, error::CoreError};
 use rfham_itu::{bands::FrequencyBand, regions::Region};
+use rfham_maidenhead::MaidenheadLocator;
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::{

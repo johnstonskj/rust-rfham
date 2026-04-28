@@ -1,5 +1,6 @@
 @startuml Overview
-    hide empty members
+
+    !include skinparams.plantuml
 
     package error {
         enum CoreError {}
@@ -17,10 +18,26 @@
     callsign ..> error
     
     package country {
-        class CountryCode {}
-        class CountyryCodeNumeric {}
+        class CountryCode << (D, #ccff66) dataType>> {}
+        class CountyryCodeNumeric << (D, #ccff66) dataType>> {}
     }
     country ..> error
+    
+    package name {
+        interface StringLike {
+            const MAX_LENGTH: usize;
+            fn new_unchecked<S: Into<String>>(s: S) -> Self;
+            fn as_str(&self) -> &str;
+            fn is_valid(s: &str) -> bool;
+        }
+        class Name << (D, #ccff66) dataType>> {}
+        Name .up.|> StringLike
+        class DisplayName << (D, #ccff66) dataType>> {}
+        DisplayName .up.|> StringLike
+        class Tag << (D, #ccff66) dataType>> {}
+        Tag .up.|> StringLike
+    }
+    name .up.> error
 
     package agency {
         enum AgencyKind {
@@ -34,12 +51,12 @@
             All: Vec<CountryCode>
         }
         class Agency {
-            name: String
-            abbreviation: String
             url: Option<Url>
         }
         Agency *-up-> "kind" AgencyKind
         Agency *-up-> "0..1" Jurisdiction
+        Agency *--> Name
+        Agency *--> "0..1\nabbreviation" Tag
     }
     agency ..> error
     
@@ -62,21 +79,24 @@
     fmt .up.> error
     
     package frequency {
-        class Frequency {}
-        class FrequencyRange {}
-        FrequencyRange *-up-> "start" Frequency
-        FrequencyRange *-up-> "end" Frequency
-        class WaveLength {}
+        class Frequency << (D, #ccff66) dataType>> {
+            to_wavelength() -> WaveLength
+        }
+        class FrequencyRange {
+            bandwith(&self) -> Frequency
+            mid_band(&self) -> Frequency
+            contains(&self, frequency: Frequency) -> bool
+        }
+        FrequencyRange *-down-> "start" Frequency
+        FrequencyRange *-down-> "end" Frequency
+        class WaveLength {
+            to_frequency() -> Frequency
+        }
     }
     frequency .up.> error
     
-    package name {
-        class Name {}
-    }
-    name .up.> error
-    
     package power {
-        class Power {}
+        class Power << (D, #ccff66) dataType>> {}
     }
     power ..> error
 

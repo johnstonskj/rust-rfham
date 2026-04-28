@@ -1,0 +1,105 @@
+@startuml Overview
+
+    !include skinparams.plantuml
+
+    package core <<crate>> {
+        package callsign <<imported>> {
+            class CallSign {}
+        }
+        package country <<imported>> {
+            class CountryCode << (D, #ccff66) dataType>> {}
+        }
+        package power <<imported>> {
+            class Power << (D, #ccff66) dataType>> {}
+        }
+    }
+
+    package itu <<crate>> {
+        package regions <<imported>> {
+            enum Region {}
+        }
+        package bands <<imported>> {
+            enum FrequencyBand {}
+        }
+    }
+
+    package maidenhead <<crate>> {
+        class MaidenheadLocator << (D, #ccff66) dataType>> {}
+    }
+
+    package error {
+        enum ConfigError {}
+    }
+
+    interface Dump {
+        dump(writer, prefix) -> ConfigResult<()>
+    }
+    Dump ..> ConfigErrors
+
+    enum LocationKind {
+        <<default>> Home
+        Alternate
+        Remote
+        Club
+    }
+
+    enum Mobility {
+        StationFixed
+        Portable
+        Mobile
+        Handheld
+    }
+
+    enum Usage {
+        Local
+        Qrp
+        Dx
+        EmComm
+        Activation
+        Satellite
+        Scanning
+    }
+
+    enum Mode {
+        Am
+        Fm
+        Ssb
+        Rtty
+        Digital
+        Image
+    }
+
+    class Configuration {
+    }
+    Configuration *--> "0..1" Station
+    Configuration *--> "0..*" Equipment
+    Configuration ..|> Dump
+
+    class Station {
+        operator_name: Option<String>
+    }
+    Station *--> CallSign
+    Station *--> "0..1\n" Location
+
+    class Location {
+        label: Option<String>
+        mailing_address: Option<String>
+    }
+    Location *-up-> "kind" LocationKind
+    Location *--> "0..1\ngrid-locator" MaidenheadLocator
+    Location *--> "0..1\ncountry" CountryCode
+    Location *--> "0..1\nitu-region" Region
+
+    class Equipment {
+        brand: Name
+        model: Name
+        label: Option<String>
+    }
+    Equipment *--> "0..*" Usage
+    Equipment *--> "0..*\nmodes" Mode
+    Equipment *--> "0..1" Mobility
+    Equipment *--> "0..1\nmax-power" Power
+    Equipment *--> "0..*\nbands" FrequencyBand
+    Equipment *--> "0..*\nusing" Equipment
+
+@enduml

@@ -1,7 +1,9 @@
 //!
-//! Provides an implementation of a grid system for the IARU
-//! [Maidenhead Locator System](https://en.wikipedia.org/wiki/Maidenhead_Locator_System).
+//! Provides an implementation of a grid system for the IARU Maidenhead Locator System.
 //!
+//! The grid traits are defined in the `rfham-geo` crate allowing the implementation of multiple grid systems.
+//!
+//! # The Maidenhead System
 //!
 //! The Earth's surface is divided into `18 ⨉ 18 = 324` *Fields*, each one `20°` longitude by `10°` latitude.
 //! Each Field is divided into `10 * 10 = 100` *Squares*, each one `2°` longitude by `1°` latitude.
@@ -33,10 +35,8 @@
 //! # Examples
 //!
 //! ```rust
-//! use rfham_geo::grid::{
-//!     GridIdentifier,
-//!     maidenhead::{MaidenheadPrecision, MaidenheadLocator},
-//! };
+//! use rfham_geo::grid::GridIdentifier;
+//! use rfham_maidenhead::{MaidenheadPrecision, MaidenheadLocator};
 //! use lat_long::{Coordinate, Latitude, Longitude};
 //!
 //! assert_eq!(
@@ -53,61 +53,172 @@
 //! );
 //! ```
 //!
+//! ```rust
+//! use rfham_geo::grid::GridIdentifier;
+//! use rfham_maidenhead::{MaidenheadPrecision, MaidenheadLocator};
+//! use lat_long::{Coordinate, Latitude, Longitude};
+//! use std::str::FromStr;
+//!
+//!  for s in [
+//!      "CN87",
+//!      "CN87aa",
+//!      "CN87aa00",
+//!      "CN87aa00aa",
+//!  ] {
+//!      let loc = MaidenheadLocator::from_str(s).unwrap();
+//!      println!(
+//!          "Example: {s:>10} => point: {}, center: {}",
+//!          loc.to_point().unwrap(),
+//!          loc.center().unwrap(),
+//!      )
+//!  }
+//! ```
+//!
+//! Results in the following output.
+//!
+//! ```text
+//! Example:       CN87 => point: 47.00000000, -124.00000000, center: 46.50000000, -123.00000000
+//! Example:     CN87aa => point: 47.00000000, -124.00000000, center: 46.97916667, -123.95833333
+//! Example:   CN87aa00 => point: 47.00000000, -124.00000000, center: 46.99791667, -123.99583333
+//! Example: CN87aa00aa => point: 47.00000000, -124.00000000, center: 46.99991319, -123.99982639
+//! Example: CN87aa00mm => point: 47.00208333, -123.99583333, center: 47.00199653, -123.99565972
+//! Example: CN87aa55mm => point: 47.02291667, -123.95416667, center: 47.02282986, -123.95399306
+//! ```
+//! # Features
+//!
+//! TBD
+//!
+//!
 
-use crate::{
+#![cfg_attr(not(feature = "std"), no_std)]
+#[cfg(not(feature = "std"))]
+extern crate alloc as std;
+
+use lat_long::{Angle, Coordinate, Latitude, Longitude};
+use rfham_core::{Agency, agencies::agency_iaru, error::CoreError};
+use rfham_geo::{
     error::GeoError,
     grid::{GridIdentifier, GridPolygon, GridSystem},
 };
-use lat_long::{Coordinate, Latitude, Longitude};
-use rfham_core::{Agency, agency::agency_iaru, error::CoreError};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, marker::PhantomData, str::FromStr};
 
 // ------------------------------------------------------------------------------------------------
 // Public Types
 // ------------------------------------------------------------------------------------------------
 
-#[derive(Clone, Debug, DeserializeFromStr, SerializeDisplay)]
-pub struct MaidenheadLocator(String);
-
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Maidenhead {}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(usize)]
-pub enum MaidenheadPrecision {
-    Square = 4,
-    #[default]
-    SubSquare = 6,
-    ExtendedSquare = 8,
-    ExtendedSubSquare = 10,
-}
-
-/// Describe this struct.
 ///
-/// # Fields
+/// This String newtype implements the Locator, or *loc* type holding the string encoded square
+/// identifier. Maidenhead locators can be specified at multiple levels of precision with increasing
+/// specificity, and these levels are described in [`MaidenheadPrecision`] and used in the methods
+/// [`from_point_with_precision`] and [`precision`].
 ///
-/// - `name` (`String`) - Describe this field.
-/// - `top_left` (`Coordinate`) - Describe this field.
-/// - `bottom_right` (`Coordinate`) - Describe this field.
+/// This type also implements the Rf-Ham geo `GridIdentifier` trait.
 ///
 /// # Examples
 ///
-/// ```rust,ignore
-/// use crate::...;
-///
-/// let s = MaidenheadSquare {
-///     name: value,
-///     top_left: value,
-///     bottom_right: value,
-/// };
 /// ```
-#[derive(Clone, Debug, PartialEq)]
-pub struct MaidenheadSquare {
-    name: MaidenheadLocator,
-    top_left: Coordinate,
-    bottom_right: Coordinate,
+/// use rfham_geo::grid::GridIdentifier;
+/// use rfham_maidenhead::{MaidenheadPrecision, MaidenheadLocator};
+/// use lat_long::{Coordinate, Latitude, Longitude};
+/// use std::str::FromStr;
+///
+/// let loc = MaidenheadLocator::from_str("CN87").unwrap();
+/// println!("loc: {loc}");
+/// // Output: "loc: CN87"
+/// println!("point: {}", loc.to_point().unwrap());
+/// // Output: "point: 47.00000000, -124.00000000"
+/// println!("center: {}", loc.center().unwrap());
+/// // Output: "point: 46.50000000, -123.00000000"
+/// ```
+///
+#[derive(Clone, Debug, DeserializeFromStr, SerializeDisplay)]
+pub struct MaidenheadLocator(String);
+
+///
+/// This type describes the differing levels of precision provided by different lengths of
+/// locator strings. Note that the minimum precision is `Square`, it is meaningless, or at least
+/// of no practical use, to use a field-only locator string.
+///
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(usize)]
+pub enum MaidenheadPrecision {
+    /// A locator with *square* precision, a 4-character string.
+    Square = 4,
+    /// A locator with *sub-square* precision, a 6-character string.
+    #[default]
+    SubSquare = 6,
+    /// A locator with *extended square* precision, a 8-character string.
+    ExtendedSquare = 8,
+    /// A locator with *extended sub-square* precision, a 10-character string.
+    ExtendedSubSquare = 10,
 }
+
+///
+/// This type also implements the Rf-Ham geo `GridPolygon` trait.
+///
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MaidenheadSquare {
+    loc: MaidenheadLocator,
+    south_west: Coordinate,
+}
+
+///
+/// This type also implements the Rf-Ham geo `GridSystem` trait.
+///
+/// # Examples
+///
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Maidenhead {
+    // Ensures clients **must** use Default to construct.
+    private: PhantomData<u32>,
+}
+
+// ------------------------------------------------------------------------------------------------
+// Constants
+// ------------------------------------------------------------------------------------------------
+
+const DEGREES_PER_CIRCLE: f64 = 360.0;
+const DEGREES_PER_HALF_CIRCLE: f64 = DEGREES_PER_CIRCLE / 2.0;
+const DEGREES_PER_QUARTER_CIRCLE: f64 = DEGREES_PER_HALF_CIRCLE / 2.0;
+
+const FIELDS_PER: f64 = 18.0;
+const SQUARES_PER: f64 = 10.0;
+const SUB_SQUARES_PER: f64 = 24.0;
+
+const LATITUDE_DEGREES_PER_FIELD: f64 = DEGREES_PER_HALF_CIRCLE / FIELDS_PER;
+const LATITUDE_DEGREES_PER_SQUARE: f64 = LATITUDE_DEGREES_PER_FIELD / SQUARES_PER;
+const LATITUDE_DEGREES_PER_SUB_SQUARE: f64 = LATITUDE_DEGREES_PER_SQUARE / SUB_SQUARES_PER;
+const LATITUDE_DEGREES_PER_EXT_SQUARE: f64 = LATITUDE_DEGREES_PER_SUB_SQUARE / SQUARES_PER;
+const LATITUDE_DEGREES_PER_EXT_SUB_SQUARE: f64 = LATITUDE_DEGREES_PER_EXT_SQUARE / SUB_SQUARES_PER;
+
+const LONGITUDE_DEGREES_PER_FIELD: f64 = DEGREES_PER_CIRCLE / FIELDS_PER;
+const LONGITUDE_DEGREES_PER_SQUARE: f64 = LONGITUDE_DEGREES_PER_FIELD / SQUARES_PER;
+const LONGITUDE_DEGREES_PER_SUB_SQUARE: f64 = LONGITUDE_DEGREES_PER_SQUARE / SUB_SQUARES_PER;
+const LONGITUDE_DEGREES_PER_EXT_SQUARE: f64 = LONGITUDE_DEGREES_PER_SUB_SQUARE / SQUARES_PER;
+const LONGITUDE_DEGREES_PER_EXT_SUB_SQUARE: f64 =
+    LONGITUDE_DEGREES_PER_EXT_SQUARE / SUB_SQUARES_PER;
+
+const NORTH_POLE_LATITUDE: f64 = 180.0;
+const SOUTH_POLE_LATITUDE: f64 = 0.0;
+
+const FIELD_LETTERS: [char; 18] = [
+    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
+];
+
+const SQUARE_LETTERS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+const SUB_SQUARE_LETTERS: [char; 26] = [
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+    't', 'u', 'v', 'w', 'x', 'y', 'z',
+];
+
+const LETTER_A_ASCII_VALUE: u32 = 'A' as u32;
+
+const LETTER_0_ASCII_VALUE: u32 = '0' as u32;
+
+const SQUARE_CORNER_SUFFIX: &str = "00";
+const SUB_SQUARE_CORNER_SUFFIX: &str = "aa";
 
 // ------------------------------------------------------------------------------------------------
 // Implementations ❯ Grid Precision
@@ -155,17 +266,6 @@ impl MaidenheadPrecision {
 // ------------------------------------------------------------------------------------------------
 // Implementations ❯ Grid Identifier
 // ------------------------------------------------------------------------------------------------
-
-const FIELD_LETTERS: [char; 18] = [
-    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
-];
-
-const SQUARE_LETTERS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-
-const SUB_SQUARE_LETTERS: [char; 26] = [
-    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
-    't', 'u', 'v', 'w', 'x', 'y', 'z',
-];
 
 impl Display for MaidenheadLocator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -243,10 +343,10 @@ impl MaidenheadLocator {
         point: Coordinate,
         precision: MaidenheadPrecision,
     ) -> Result<Self, GeoError> {
-        let latitude: f64 = f64::from(point.latitude()) + 90.0;
-        let longitude: f64 = f64::from(point.longitude()) + 180.0;
+        let latitude: f64 = f64::from(point.latitude()) + DEGREES_PER_QUARTER_CIRCLE;
+        let longitude: f64 = f64::from(point.longitude()) + DEGREES_PER_HALF_CIRCLE;
 
-        if latitude == 0.0 || latitude == 180.0 {
+        if latitude == NORTH_POLE_LATITUDE || latitude == SOUTH_POLE_LATITUDE {
             Err(GeoError::NoPolarGrid)
         } else {
             let grid_locator_string = format!(
@@ -286,24 +386,30 @@ impl MaidenheadLocator {
     }
 
     pub fn to_point(&self) -> Result<Coordinate, GeoError> {
-        const LETTER_A: u32 = 'A' as u32;
-        const LETTER_0: u32 = '0' as u32;
-
         fn char_to_value(c: char) -> f64 {
-            (c.to_ascii_uppercase() as u32 - LETTER_A) as f64
+            (c.to_ascii_uppercase() as u32 - LETTER_A_ASCII_VALUE) as f64
         }
 
         fn numeric_char_to_value(c: char) -> f64 {
-            (c as u32 - LETTER_0) as f64
+            (c as u32 - LETTER_0_ASCII_VALUE) as f64
         }
 
         let locator_string = &self.0.to_ascii_uppercase();
 
         // Add a *central* value for any missing
         let locator_string = match locator_string.len() {
-            4 => format!("{}MM00AA", locator_string),
-            6 => format!("{}55AA", locator_string),
-            8 => format!("{}MM", locator_string),
+            4 => format!(
+                "{}{}{}{}",
+                locator_string,
+                SUB_SQUARE_CORNER_SUFFIX,
+                SQUARE_CORNER_SUFFIX,
+                SUB_SQUARE_CORNER_SUFFIX
+            ),
+            6 => format!(
+                "{}{}{}",
+                locator_string, SQUARE_CORNER_SUFFIX, SUB_SQUARE_CORNER_SUFFIX
+            ),
+            8 => format!("{}{}", locator_string, SUB_SQUARE_CORNER_SUFFIX),
             10 => locator_string.clone(),
             _ => {
                 return Err(GeoError::Core(CoreError::InvalidValueFromStr(
@@ -319,9 +425,9 @@ impl MaidenheadLocator {
             .filter(|(i, _)| i % 2 == 0)
             .map(|(_, c)| c)
             .collect();
-        let longitude: f64 = -180.0
-            + (char_to_value(long_chars[0]) * 20.0)
-            + (numeric_char_to_value(long_chars[1]) * 2.0)
+        let longitude: f64 = -DEGREES_PER_HALF_CIRCLE
+            + (char_to_value(long_chars[0]) * LONGITUDE_DEGREES_PER_FIELD)
+            + (numeric_char_to_value(long_chars[1]) * LONGITUDE_DEGREES_PER_SQUARE)
             + (char_to_value(long_chars[2]) / 12.0)
             + (numeric_char_to_value(long_chars[3]) / 120.0)
             + (char_to_value(long_chars[4]) / 2880.0);
@@ -332,9 +438,9 @@ impl MaidenheadLocator {
             .filter(|(i, _)| i % 2 == 1)
             .map(|(_, c)| c)
             .collect();
-        let latitude: f64 = -90.0
-            + (char_to_value(lat_chars[0]) * 10.0)
-            + numeric_char_to_value(lat_chars[1])
+        let latitude: f64 = -DEGREES_PER_QUARTER_CIRCLE
+            + (char_to_value(lat_chars[0]) * LATITUDE_DEGREES_PER_FIELD)
+            + (numeric_char_to_value(lat_chars[1]) * LATITUDE_DEGREES_PER_SQUARE)
             + (char_to_value(lat_chars[2]) / 24.0)
             + (numeric_char_to_value(lat_chars[3]) / 240.0)
             + (char_to_value(lat_chars[4]) / 5760.0);
@@ -349,10 +455,35 @@ impl MaidenheadLocator {
         MaidenheadPrecision::try_from(self.0.len()).unwrap()
     }
 
+    pub fn width(&self) -> f64 {
+        match self.precision() {
+            MaidenheadPrecision::Square => LONGITUDE_DEGREES_PER_SQUARE,
+            MaidenheadPrecision::SubSquare => LONGITUDE_DEGREES_PER_SUB_SQUARE,
+            MaidenheadPrecision::ExtendedSquare => LONGITUDE_DEGREES_PER_EXT_SQUARE,
+            MaidenheadPrecision::ExtendedSubSquare => LONGITUDE_DEGREES_PER_EXT_SUB_SQUARE,
+        }
+    }
+
+    pub fn height(&self) -> f64 {
+        match self.precision() {
+            MaidenheadPrecision::Square => LATITUDE_DEGREES_PER_SQUARE,
+            MaidenheadPrecision::SubSquare => LATITUDE_DEGREES_PER_SUB_SQUARE,
+            MaidenheadPrecision::ExtendedSquare => LATITUDE_DEGREES_PER_EXT_SQUARE,
+            MaidenheadPrecision::ExtendedSubSquare => LATITUDE_DEGREES_PER_EXT_SUB_SQUARE,
+        }
+    }
+
+    pub fn center(&self) -> Result<Coordinate, GeoError> {
+        let south_west = self.to_point()?;
+        Ok(Coordinate::new(
+            Latitude::try_from(south_west.latitude().as_float() - (self.height() / 2.0))?,
+            Longitude::try_from(south_west.longitude().as_float() + (self.width() / 2.0))?,
+        ))
+    }
+
     pub fn field(&self) -> &str {
         &self.0[0..2]
     }
-
     pub fn square(&self) -> &str {
         &self.0[0..MaidenheadPrecision::Square as usize]
     }
@@ -404,9 +535,9 @@ impl Display for MaidenheadSquare {
             f,
             "{}",
             if f.alternate() {
-                format!("{} ({:?})", self.name, self.vertices())
+                format!("{} ({:?})", self.loc, self.vertices())
             } else {
-                self.name.to_string()
+                self.loc.to_string()
             }
         )
     }
@@ -416,11 +547,8 @@ impl FromStr for MaidenheadSquare {
     type Err = GeoError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self {
-            name: MaidenheadLocator::from_str(s)?,
-            top_left: Default::default(),
-            bottom_right: Default::default(),
-        })
+        let loc = MaidenheadLocator::from_str(s)?;
+        Self::try_from(loc)
     }
 }
 
@@ -428,16 +556,51 @@ impl GridPolygon for MaidenheadSquare {
     type Identifier = MaidenheadLocator;
 
     fn id(&self) -> &MaidenheadLocator {
-        &self.name
+        &self.loc
     }
 
     fn vertices(&self) -> Vec<Coordinate> {
         vec![
-            self.top_left,
-            Coordinate::new(self.top_left.latitude(), self.bottom_right.longitude()),
-            self.bottom_right,
-            Coordinate::new(self.bottom_right.latitude(), self.top_left.longitude()),
+            // origin
+            self.south_west,
+            // south east
+            Coordinate::new(
+                self.south_west.latitude().clone(),
+                Longitude::try_from(self.south_west.longitude().as_float() - self.loc.width())
+                    .unwrap(),
+            ),
+            // north west
+            Coordinate::new(
+                Latitude::try_from(self.south_west.latitude().as_float() + self.loc.height())
+                    .unwrap(),
+                self.south_west.longitude().clone(),
+            ),
+            // north east
+            Coordinate::new(
+                Latitude::try_from(self.south_west.latitude().as_float() + self.loc.height())
+                    .unwrap(),
+                Longitude::try_from(self.south_west.longitude().as_float() - self.loc.width())
+                    .unwrap(),
+            ),
         ]
+    }
+
+    fn centroid(&self) -> Coordinate {
+        Coordinate::new(
+            Latitude::try_from(self.south_west.latitude().as_float() - (self.loc.height() / 2.0))
+                .unwrap(),
+            Longitude::try_from(self.south_west.longitude().as_float() + (self.loc.width() / 2.0))
+                .unwrap(),
+        )
+    }
+}
+
+impl TryFrom<MaidenheadLocator> for MaidenheadSquare {
+    type Error = GeoError;
+
+    fn try_from(loc: MaidenheadLocator) -> Result<Self, Self::Error> {
+        let south_west = loc.to_point()?;
+        Ok(Self { loc, south_west })
     }
 }
 
@@ -476,8 +639,8 @@ impl GridSystem for Maidenhead {
 fn grid_field_string(latitude: f64, longitude: f64) -> String {
     format!(
         "{}{}",
-        FIELD_LETTERS[(longitude / 20.0).floor() as usize],
-        FIELD_LETTERS[(latitude / 10.0).floor() as usize],
+        FIELD_LETTERS[(longitude / LONGITUDE_DEGREES_PER_FIELD).floor() as usize],
+        FIELD_LETTERS[(latitude / LATITUDE_DEGREES_PER_FIELD).floor() as usize],
     )
 }
 
@@ -485,8 +648,8 @@ fn grid_field_string(latitude: f64, longitude: f64) -> String {
 fn grid_square_string(latitude: f64, longitude: f64) -> String {
     format!(
         "{}{}",
-        SQUARE_LETTERS[((longitude / 2.0) % 10.0).floor() as usize],
-        SQUARE_LETTERS[(latitude % 10.0).floor() as usize],
+        SQUARE_LETTERS[((longitude / LONGITUDE_DEGREES_PER_SQUARE) % SQUARES_PER).floor() as usize],
+        SQUARE_LETTERS[((latitude / LATITUDE_DEGREES_PER_SQUARE) % SQUARES_PER).floor() as usize],
     )
 }
 
@@ -494,8 +657,8 @@ fn grid_square_string(latitude: f64, longitude: f64) -> String {
 fn grid_sub_square_string(latitude: f64, longitude: f64) -> String {
     format!(
         "{}{}",
-        SUB_SQUARE_LETTERS[((longitude * 12.0) % 24.0).floor() as usize],
-        SUB_SQUARE_LETTERS[((latitude * 24.0) % 24.0).floor() as usize],
+        SUB_SQUARE_LETTERS[((longitude * 12.0) % SUB_SQUARES_PER).floor() as usize],
+        SUB_SQUARE_LETTERS[((latitude * 24.0) % SUB_SQUARES_PER).floor() as usize],
     )
 }
 
@@ -503,8 +666,8 @@ fn grid_sub_square_string(latitude: f64, longitude: f64) -> String {
 fn grid_extended_square_string(latitude: f64, longitude: f64) -> String {
     format!(
         "{}{}",
-        SQUARE_LETTERS[((longitude * 120.0) % 10.0).floor() as usize],
-        SQUARE_LETTERS[((latitude * 240.0) % 10.0).floor() as usize],
+        SQUARE_LETTERS[((longitude * 120.0) % SQUARES_PER).floor() as usize],
+        SQUARE_LETTERS[((latitude * 240.0) % SQUARES_PER).floor() as usize],
     )
 }
 
@@ -512,61 +675,22 @@ fn grid_extended_square_string(latitude: f64, longitude: f64) -> String {
 fn grid_extended_sub_square_string(latitude: f64, longitude: f64) -> String {
     format!(
         "{}{}",
-        SUB_SQUARE_LETTERS[((longitude * 2880.0) % 24.0).floor() as usize],
-        SUB_SQUARE_LETTERS[((latitude * 5760.0) % 24.0).floor() as usize],
+        SUB_SQUARE_LETTERS[((longitude * 2880.0) % SUB_SQUARES_PER).floor() as usize],
+        SUB_SQUARE_LETTERS[((latitude * 5760.0) % SUB_SQUARES_PER).floor() as usize],
     )
 }
 
 // ------------------------------------------------------------------------------------------------
-// Unit Tests
+// Modules
 // ------------------------------------------------------------------------------------------------
 
-#[cfg(test)]
-mod tests {
-    use super::{MaidenheadLocator, MaidenheadPrecision};
-    use lat_long::{Coordinate, Latitude, Longitude};
-    use pretty_assertions::assert_eq;
-    use std::str::FromStr;
-
-    #[test]
-    fn test_locator_point_to_string() {
-        assert_eq!(
-            "CN97hk",
-            MaidenheadLocator::from_point_with_precision(
-                Coordinate::new(
-                    Latitude::try_from(47.421375).unwrap(),
-                    Longitude::try_from(-121.410118).unwrap()
-                ),
-                MaidenheadPrecision::SubSquare
-            )
-            .unwrap()
-            .as_ref()
-        );
-        assert_eq!(
-            "CN97hk01",
-            MaidenheadLocator::from_point_with_precision(
-                Coordinate::new(
-                    Latitude::try_from(47.421375).unwrap(),
-                    Longitude::try_from(-121.410118).unwrap()
-                ),
-                MaidenheadPrecision::ExtendedSquare
-            )
-            .unwrap()
-            .as_ref()
-        );
-    }
-
-    #[test]
-    fn locator_string_to_point() {
-        assert_eq!(
-            Coordinate::new(
-                Latitude::try_from(47.4375).unwrap(),
-                Longitude::try_from(-121.375).unwrap()
-            ),
-            MaidenheadLocator::from_str("CN97hk")
-                .unwrap()
-                .to_point()
-                .unwrap()
-        )
-    }
+///
+/// This module exists only to re-export the traits from the `rfham-geo` crate and save an
+/// additional dependency.
+///
+pub mod traits {
+    pub use rfham_geo::{
+        error::GeoError,
+        grid::{GridIdentifier, GridPolygon, GridSystem},
+    };
 }

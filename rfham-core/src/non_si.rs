@@ -1,3 +1,19 @@
+//! Unit conversion helpers for ham-radio measurements.
+//!
+//! [`LengthInFeet`] stores a length as a (feet, inches) pair and displays it using prime /
+//! double-prime notation (`′` / `″`). The alternate formatter (`{:#}`) renders fractional
+//! inches as a rational number where possible (e.g. `8 1/4″` instead of `8.25″`).
+//!
+//! # Examples
+//!
+//! ```rust
+//! use rfham_core::conversions::LengthInFeet;
+//!
+//! let l = LengthInFeet::new(2.6875); // 2 feet 8.25 inches
+//! assert_eq!(l.to_string(),    "2′ 8.25″");
+//! assert_eq!(format!("{l:#}"), "2′ 8 1/4″");
+//! ```
+
 use num_rational::Rational32;
 use num_traits::{
     ConstZero,
@@ -67,10 +83,6 @@ impl LengthInFeet {
     pub fn new(feet: f64) -> Self {
         let uint_feet = feet.floor() as u32;
         let float_inches = feet.fract() as f32;
-        println!(
-            "u32: {uint_feet}, f32: {float_inches}/{}",
-            float_inches * 12.0
-        );
         Self::feet_and_inches(uint_feet, float_inches * 12.0)
     }
 
@@ -113,7 +125,7 @@ impl LengthInFeet {
 
 #[cfg(test)]
 mod test {
-    use crate::conversions::LengthInFeet;
+    use crate::non_si::LengthInFeet;
 
     #[test]
     fn test_construct_feet() {

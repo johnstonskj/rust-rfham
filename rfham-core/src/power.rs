@@ -1,13 +1,35 @@
+//! Transmit / receive power type.
 //!
-//! Provides ..., a one-line description
+//! [`Power`] wraps a [`uom`](https://docs.rs/uom) SI watt quantity with ham-radio-centric
+//! constructors and a smart `Display` that selects the most readable unit.
 //!
-//! More detailed description
+//! # Display formats
+//!
+//! The default formatter (`{}`) uses watts. The alternate formatter (`{:#}`) selects milliwatts,
+//! watts, or kilowatts based on the value:
+//!
+//! ```rust
+//! use rfham_core::power::Power;
+//!
+//! assert_eq!(Power::watts(5.0).to_string(),        "5 W");
+//! assert_eq!(format!("{:#}", Power::watts(5.0)),    "5 watts");
+//! assert_eq!(format!("{:#}", Power::milliwatts(0.5)), "0.5 milliwatts"); // < 0.001 W
+//! assert_eq!(format!("{:#}", Power::kilowatts(1.5)), "1.5 kilowatts");
+//! ```
 //!
 //! # Examples
 //!
 //! ```rust
-//! ```
+//! use rfham_core::power::Power;
 //!
+//! // Derived from DC circuit: P = V × I
+//! let p = Power::from_dc_circuit(13.8, 10.0); // 13.8 V × 10 A
+//! assert!((p.value() - 138.0).abs() < 1e-9);
+//!
+//! // Derived from AC circuit: P = V × I × PF
+//! let p = Power::from_ac_circuit(120.0, 5.0, 0.85);
+//! assert!((p.value() - 510.0).abs() < 1e-9);
+//! ```
 
 use crate::error::CoreError;
 use serde::{Deserialize, Serialize};
@@ -125,5 +147,71 @@ impl Power {
 
     pub const fn value(&self) -> f64 {
         self.0.value
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Public Functions
+// ------------------------------------------------------------------------------------------------
+
+pub fn watts(value: f64) -> Power {
+    Power::watts(value)
+}
+
+pub fn milliwatts(value: f64) -> Power {
+    Power::milliwatts(value)
+}
+
+pub fn kilowatts(value: f64) -> Power {
+    Power::kilowatts(value)
+}
+
+// ------------------------------------------------------------------------------------------------
+// Unit Tests
+// ------------------------------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::Power;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_display_watts() {
+        assert_eq!("5 W", &Power::watts(5.0).to_string());
+        assert_eq!("100 W", &Power::watts(100.0).to_string());
+    }
+
+    #[test]
+    fn test_alternate_display() {
+        // milliwatt branch: value < 0.001 W
+        assert_eq!("0.5 milliwatts", &format!("{:#}", Power::milliwatts(0.5)));
+        // watt branch: 0.001 W ≤ value < 1000 W
+        assert_eq!("5 watts", &format!("{:#}", Power::watts(5.0)));
+        // kilowatt branch: value ≥ 1000 W
+        assert_eq!("1.5 kilowatts", &format!("{:#}", Power::kilowatts(1.5)));
+    }
+
+    #[test]
+    fn test_from_dc_circuit() {
+        let p = Power::from_dc_circuit(13.8, 10.0);
+        assert!((p.value() - 138.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_from_ac_circuit() {
+        let p = Power::from_ac_circuit(120.0, 5.0, 0.85);
+        assert!((p.value() - 510.0).abs() < 1e-9);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_from_ac_circuit_factor_above_one_panics() {
+        Power::from_ac_circuit(120.0, 5.0, 1.5);
+    }
+
+    #[test]
+    fn test_from_f64_is_watts() {
+        let p: Power = 100.0_f64.into();
+        assert_eq!(p.value(), Power::watts(100.0).value());
     }
 }

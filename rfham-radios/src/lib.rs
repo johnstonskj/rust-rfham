@@ -1,17 +1,8 @@
+//! Radio transceiver trait and known-model registry (skeletal).
 //!
-//! One-line description.
-//!
-//! More detailed description.
-//!
-//! # Examples
-//!
-//! ```rust
-//! ```
-//!
-//! # Features
-//!
-//! - **feature-name**; Feature description
-//!
+//! This crate defines the [`Radio`] marker trait that concrete radio models will
+//! implement. The [`known`] module is reserved for a catalogue of popular amateur
+//! transceivers. Both are currently stubs awaiting implementation.
 
 // use statements
 

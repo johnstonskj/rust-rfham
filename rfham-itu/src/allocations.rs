@@ -13,8 +13,9 @@ use crate::{bands::FrequencyBand, regions::Region};
 use core::{fmt::Display, str::FromStr};
 use rfham_core::{
     error::CoreError,
-    frequency::{Frequency, FrequencyRange, gigahertz, hertz, kilohertz, megahertz},
+    frequencies::{Frequency, FrequencyRange, gigahertz, hertz, kilohertz, megahertz},
 };
+use rfham_markdown::error::MarkdownError;
 use rfham_markdown::{
     Column, ColumnJustification, Table, blank_line, bulleted_list_item, header, link_to_string,
     plain_text,
@@ -358,7 +359,7 @@ impl FrequencyAllocation {
         }
     }
 
-    pub fn write_markdown<W: Write>(writer: &mut W) -> Result<(), CoreError> {
+    pub fn write_markdown<W: Write>(writer: &mut W) -> Result<(), MarkdownError> {
         const NAME_COL_WIDTH: usize = 5;
         const BAND_COL_WIDTH: usize = 5;
         const START_COL_WIDTH: usize = 10;
@@ -438,7 +439,7 @@ impl FrequencyAllocation {
 
             table.data_row(
                 writer,
-                vec![
+                &[
                     band.to_string(),
                     band.band().to_string(),
                     region_1
@@ -506,7 +507,7 @@ impl FrequencyAllocation {
 #[cfg(test)]
 mod test {
     use super::FrequencyAllocation;
-    use rfham_core::frequency::{kilohertz, megahertz};
+    use rfham_core::frequencies::{kilohertz, megahertz};
 
     #[test]
     fn test_write_markdown_band_plan() {

@@ -1,34 +1,45 @@
+//! Amateur radio band plan data structures.
 //!
-//! Provides ..., a one-line description
+//! A [`BandPlan`] groups frequency segments, license classes, calling frequencies, and
+//! power/mode restrictions for a specific regulatory authority and ITU region.  Concrete
+//! plans (US ARRL, UK RSGB) live in the sub-modules [`us_fcc`] and [`uk_rsgb`].
 //!
-//! More detailed description
+//! | Type | Purpose |
+//! |------|---------|
+//! | [`BandPlan`] | Top-level plan with agency metadata and a map of [`PlanBand`]s |
+//! | [`Band`] | A frequency range for one ITU allocation |
+//! | [`PlanBand`] | A `Band` plus restrictions, segments, and calling frequencies |
+//! | [`Segment`] | A sub-range within a band with its own restrictions |
+//! | [`BandRestrictions`] | License, usage, power, and bandwidth constraints |
 //!
 //! # Examples
 //!
-//! ```rust
-//! ```
+//! ```rust,no_run
+//! use rfham_bands::us_fcc::arrl_voluntary_band_plan;
+//! use rfham_markdown::ToMarkdownWith;
+//! use std::io::stdout;
 //!
+//! arrl_voluntary_band_plan()
+//!     .write_markdown_with(&mut stdout(), vec![])
+//!     .unwrap();
+//! ```
 
 use colored::Colorize;
 use rfham_core::{
-    agency::Agency,
-    country::CountryCode,
+    agencies::Agency,
+    countries::CountryCode,
     error::CoreError,
-    frequency::{Frequency, FrequencyRange},
+    frequencies::{Frequency, FrequencyRange},
     power::Power,
 };
 use rfham_itu::{allocations::FrequencyAllocation, regions::Region};
 use rfham_markdown::{
-    Table, ToMarkdown, ToMarkdownWith, blank_line, bulleted_list, bulleted_list_item, header,
-    link_to_string, numbered_list_item, plain_text,
+    MarkdownError, Table, ToMarkdown, ToMarkdownWith, blank_line, bulleted_list,
+    bulleted_list_item, header, link_to_string, numbered_list_item, plain_text,
 };
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::{cmp::Ordering, collections::HashMap, fmt::Display, str::FromStr};
-
-// ------------------------------------------------------------------------------------------------
-// Public Macros
-// ------------------------------------------------------------------------------------------------
 
 // ------------------------------------------------------------------------------------------------
 // Public Types
@@ -174,14 +185,6 @@ pub struct BandwidthRestriction {
 }
 
 // ------------------------------------------------------------------------------------------------
-// Public Functions
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Private Macros
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
 // Private Types
 // ------------------------------------------------------------------------------------------------
 
@@ -206,7 +209,7 @@ impl ToMarkdownWith for BandPlan {
         &self,
         writer: &mut W,
         context: Self::Context,
-    ) -> Result<(), CoreError> {
+    ) -> Result<(), MarkdownError> {
         header(writer, 1, &self.name)?;
         blank_line(writer)?;
 
@@ -459,7 +462,7 @@ impl Band {
 // ------------------------------------------------------------------------------------------------
 
 impl ToMarkdown for PlanBand {
-    fn write_markdown<W: std::io::Write>(&self, writer: &mut W) -> Result<(), CoreError> {
+    fn write_markdown<W: std::io::Write>(&self, writer: &mut W) -> Result<(), MarkdownError> {
         let actual = &self.band;
         header(
             writer,
@@ -635,7 +638,7 @@ impl ToMarkdownWith for Segment {
         &self,
         writer: &mut W,
         context: Self::Context,
-    ) -> Result<(), CoreError> {
+    ) -> Result<(), MarkdownError> {
         let (range, table) = context;
         if self.restrictions.is_unrestricted() {
             table.data_row(
@@ -726,7 +729,7 @@ impl ToMarkdownWith for BandRestrictions {
         &self,
         writer: &mut W,
         context: Self::Context,
-    ) -> Result<(), CoreError> {
+    ) -> Result<(), MarkdownError> {
         let (range, table) = context;
         table.data_row(
             writer,

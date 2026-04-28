@@ -9,5 +9,3 @@ TBD
 ## GeoIP Data
 
 ## Grid Traits
-
-## Maidenhead Grid

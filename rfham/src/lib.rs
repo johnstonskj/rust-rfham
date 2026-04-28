@@ -1,30 +1,37 @@
+//! Single-crate re-export facade for the entire RF-Ham library suite.
 //!
-//! This package provides a one-stop location for the set of rfham set of crate types
-//! and functions.
+//! Add `rfham` as your only dependency to get access to all `rfham_*` crate types
+//! without listing each crate individually.
 //!
-//! This package only re-exports types from the set of `rfham_*` packages. The goal is
-//! to provide a single dependency for simpler consumers.
-//!
+//! | Module | Re-exports from |
+//! |--------|-----------------|
+//! | [`core`] | `rfham_core` — callsigns, frequency, power, agency, country |
+//! | [`geo`] | `rfham_geo` + `rfham_maidenhead` — grid traits, Maidenhead locator |
+//! | [`itu`] | `rfham_itu` — ITU bands, regions, allocations, callsign series |
+//! | [`bands`] | `rfham_bands` — band plans, segments, restrictions |
+//! | [`config`] | `rfham_config` — station configuration |
+//! | [`antennas`] | `rfham_antennas` — antenna types and dipole calculator |
+//! | [`markdown`] | `rfham_markdown` — Markdown output traits and functions |
 
 // ------------------------------------------------------------------------------------------------
 // Modules
 // ------------------------------------------------------------------------------------------------
 
 pub mod core {
-    pub use rfham_core::agency::{self, agency::Agency};
-    pub use rfham_core::callsign::CallSign;
-    pub use rfham_core::conversions;
-    pub use rfham_core::country::{self, CountryCode, CountryCodeNumeric};
+    pub use rfham_core::agencies::{self, Agency};
+    pub use rfham_core::callsigns::CallSign;
+    pub use rfham_core::countries::{self, CountryCode, CountryCodeNumeric};
     pub use rfham_core::error::CoreError;
     pub use rfham_core::fmt;
-    pub use rfham_core::frequency::{self, Frequency, FrequencyRange, Wavelength};
-    pub use rfham_core::id::{self, Name};
+    pub use rfham_core::frequencies::{self, Frequency, FrequencyRange, Wavelength};
+    pub use rfham_core::names::{self, Name};
+    pub use rfham_core::non_si;
     pub use rfham_core::power::{self, Power};
 }
 
 pub mod geo {
     pub use rfham_geo::grid::{GridIdentifier, GridPolygon, GridSystem};
-    pub use rfham_geo::maidenhead::{
+    pub use rfham_maidenhead::{
         Maidenhead, MaidenheadLocator, MaidenheadPrecision, MaidenheadSquare,
     };
 }
@@ -55,7 +62,7 @@ pub mod config {
 
 pub mod antennas {
     pub use rfham_antennas::AntennaForm;
-    pub use rfham_antennas::dipole::SimpleDipole;
+    pub use rfham_antennas::dipoles::SimpleDipole;
 }
 
 pub use rfham_markdown as markdown;

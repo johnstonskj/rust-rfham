@@ -1,5 +1,17 @@
 @startuml Overview
-    hide empty members
+
+    !include skinparams.plantuml
+
+    package core <<crate>> {
+        package country <<imported>> {
+            class CountryCode << (D, #ccff66) dataType>> {}
+        }
+    }
+
+    package error {
+        enum GeoError {}
+        class GeoResult<T> {}
+    }
 
     package geoip {
         
@@ -14,13 +26,11 @@
         }
         Provider *--> ProviderDataLicense
         
-        class "core::country::CountryCode" as CountryCode {}
-
-        enum ContinentCode {}
+        enum ContinentCode << (D, #ccff66) dataType>> {}
         
-        class CurrencyCode {}
+        class CurrencyCode << (D, #ccff66) dataType>> {}
         
-        class LanguageCode {}
+        class LanguageCode << (D, #ccff66) dataType>> {}
         
         class GeoLocation {
             coordinate: Coordinate,
@@ -60,34 +70,22 @@
         
         
     }
+    geoip .down.> error
     
     package grid {
         interface GridIdentifier {}
         interface GridPolygon {
             id() -> GridIdentifier
+            vertices() -> Vec<Coordinate>
+            centroid() -> Coordinate
         }
         interface GridSystem {
-            lookup(...) -> GridPolygon
-        }
-        
-        package maidenhead {
-            class MaidenheadLocator {}
-            MaidenheadLocator ...|> GridIdentifier
-            
-            class Maidenhead {}
-            Maidenhead ...|> GridSystem
-            
-            class MaidenheadSquare {}
-            MaidenheadSquare ...|> GridPolygon
-            MaidenheadSquare *--> "name" MaidenheadLocator
-            
-            enum MaidenheadPrecision {
-                Square = 4,
-                <<default>> SubSquare = 6,
-                ExtendedSquare = 8,
-                ExtendedSubSquare = 10,
-            }
+            name() -> &str
+            defining_agency() -> core::agency::Agency
+            lookup_id(id: GridIdentifier) -> GeoResult<GridPolygon>
+            lookup_point(coordinate: Coordinate) -> GeoResult<GridPolygon>
         }
     }
+    grid .up.> error
     
 @enduml

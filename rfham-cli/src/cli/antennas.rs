@@ -1,7 +1,7 @@
 use crate::{OnceCommand, command::antennas::CalculateAntennaLengths, error::CliError};
 use clap::{Args, Subcommand};
 use rfham_antennas::AntennaForm;
-use rfham_core::country::CountryCode;
+use rfham_core::countries::CountryCode;
 use rfham_itu::allocations::FrequencyAllocation;
 use std::process::ExitCode;
 

@@ -14,9 +14,9 @@ use crate::{
     UsageRestriction,
 };
 use rfham_core::{
-    agency::{agency_arrl, agency_fcc},
-    country::country_code_us,
-    frequency::megahertz,
+    agencies::{agency_arrl, agency_fcc},
+    countries::country_code_us,
+    frequencies::megahertz,
     power::watts,
 };
 use rfham_itu::{allocations::FrequencyAllocation::*, regions::Region};

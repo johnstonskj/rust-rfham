@@ -1,6 +1,7 @@
+//! Error and result types for `rfham-geo`.
 //!
-//! Provides this crate's [`Error`] and [`Result`] types.
-//!
+//! [`GeoError`] is the single error enum used across all modules in this crate.
+//! [`GeoResult<T>`] is a type alias for `std::result::Result<T, GeoError>`.
 
 use lat_long::Error as LatLongError;
 use reqwest::Error as RequestError;

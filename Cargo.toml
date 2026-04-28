@@ -1,7 +1,19 @@
 [workspace]
 resolver = "3"
 
-members = ["rfham", "rfham-antennas", "rfham-bands", "rfham-cli", "rfham-config", "rfham-core", "rfham-geo", "rfham-itu", "rfham-markdown", "rfham-radios"]
+members = [
+    "rfham",
+    "rfham-antennas",
+    "rfham-bands",
+    "rfham-cli",
+    "rfham-config",
+    "rfham-core",
+    "rfham-geo",
+    "rfham-itu",
+    "rfham-maidenhead",
+    "rfham-markdown",
+    "rfham-radios",
+]
 
 [workspace.lints.rust]
 exported_private_dependencies = "deny"

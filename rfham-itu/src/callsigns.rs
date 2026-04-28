@@ -1,18 +1,32 @@
+//! ITU callsign prefix–country and international-organization mapping.
 //!
-//! Provides ..., a one-line description
+//! [`ItuSeriesAllocation`] identifies the country (or international organization)
+//! assigned a given callsign prefix block by the ITU. The lookup is backed by the
+//! official ITU prefix CSV table embedded at compile time.
 //!
-//! More detailed description
+//! [`ItuInternationalOrganization`] handles the three special allocations that belong
+//! to international bodies rather than countries: ICAO (`XA`), UN (`XU`), and WMO (`XM`).
 //!
 //! # Examples
 //!
 //! ```rust
-//! ```
+//! use rfham_itu::callsigns::{ItuSeriesAllocation, ItuInternationalOrganization};
+//! use rfham_core::callsign::CallSign;
+//! use rfham_core::country::CountryCode;
+//! use std::str::FromStr;
 //!
+//! let callsign = CallSign::from_str("K7SKJ/M").unwrap();
+//! let alloc = ItuSeriesAllocation::from_callsign(&callsign).unwrap();
+//! assert_eq!(
+//!     ItuSeriesAllocation::Country(CountryCode::from_str("US").unwrap()),
+//!     alloc
+//! );
+//! ```
 
 use core::{fmt::Display, str::FromStr};
 use rfham_core::{
-    callsign::CallSign,
-    country::{CountryCode, CountryCodeNumeric},
+    callsigns::CallSign,
+    countries::{CountryCode, CountryCodeNumeric},
     error::CoreError,
 };
 use serde_with::{DeserializeFromStr, SerializeDisplay};
@@ -252,7 +266,7 @@ fn itu_map_lookup_inner(prefix: &str, map: &ItuSeriesMap) -> Option<ItuSeriesAll
 mod tests {
     use super::ItuSeriesAllocation;
     use pretty_assertions::assert_eq;
-    use rfham_core::{callsign::CallSign, country::CountryCode};
+    use rfham_core::{callsigns::CallSign, countries::CountryCode};
     use std::str::FromStr;
 
     #[test]

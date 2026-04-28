@@ -1,7 +1,7 @@
 use crate::{OnceCommand, error::CliError};
 use colored::Colorize;
 use rfham_bands::{uk_rsgb::rsgb_band_plan, us_fcc::arrl_voluntary_band_plan};
-use rfham_core::country::CountryCode;
+use rfham_core::countries::CountryCode;
 use rfham_itu::allocations::FrequencyAllocation;
 use rfham_markdown::ToMarkdownWith;
 use std::{io::stdout, process::ExitCode};

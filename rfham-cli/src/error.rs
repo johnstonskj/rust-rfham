@@ -5,6 +5,7 @@
 use core::fmt::Error as FmtError;
 use rfham_config::error::ConfigError;
 use rfham_core::error::CoreError;
+use rfham_markdown::MarkdownError;
 use thiserror::Error;
 use tracing_subscriber::filter::FromEnvError;
 
@@ -30,4 +31,7 @@ pub enum CliError {
 
     #[error("An error occured loading or initializing the configuration; error: {0}")]
     Config(#[from] ConfigError),
+
+    #[error("An error occured writing markdown output; error: {0}")]
+    Markdown(#[from] MarkdownError),
 }

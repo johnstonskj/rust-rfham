@@ -11,8 +11,8 @@
 
 use crate::{Band, BandPlan, LicenseClass};
 use rfham_core::{
-    agency::{agency_ofcom, agency_rsgb},
-    country::country_code_uk,
+    agencies::{agency_ofcom, agency_rsgb},
+    countries::country_code_uk,
 };
 use rfham_itu::{allocations::FrequencyAllocation::*, regions::Region};
 

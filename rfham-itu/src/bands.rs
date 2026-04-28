@@ -1,18 +1,29 @@
+//! ITU frequency band designations (ELF through THF).
 //!
-//! Provides ..., a one-line description
-//!
-//! More detailed description
+//! [`FrequencyBand`] encodes the twelve ITU bands numbered 1–12. Each band has an
+//! abbreviation (`"VHF"`), a full name (`"Very High Frequency"`), an ITU band number,
+//! and a [`FrequencyRange`](rfham_core::frequency::FrequencyRange).
 //!
 //! # Examples
 //!
 //! ```rust
-//! ```
+//! use rfham_itu::bands::FrequencyBand;
+//! use std::str::FromStr;
 //!
+//! let band = FrequencyBand::VeryHigh;
+//! assert_eq!("VHF", band.abbreviation());
+//! assert_eq!("Very High Frequency", band.name());
+//! assert_eq!(8, band.number());
+//!
+//! let parsed: FrequencyBand = "UHF".parse().unwrap();
+//! assert_eq!(FrequencyBand::UltraHigh, parsed);
+//! assert!("XYZ".parse::<FrequencyBand>().is_err());
+//! ```
 
 use core::{fmt::Display, str::FromStr};
 use rfham_core::{
     error::CoreError,
-    frequency::{FrequencyRange, gigahertz, hertz, kilohertz, megahertz},
+    frequencies::{FrequencyRange, gigahertz, hertz, kilohertz, megahertz},
 };
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 
@@ -140,4 +151,53 @@ impl FrequencyBand {
 // ------------------------------------------------------------------------------------------------
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::FrequencyBand;
+    use pretty_assertions::assert_eq;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_display_abbreviation() {
+        assert_eq!("HF", FrequencyBand::High.to_string());
+        assert_eq!("VHF", FrequencyBand::VeryHigh.to_string());
+    }
+
+    #[test]
+    fn test_display_alternate() {
+        assert_eq!(
+            "Very High Frequency (VHF)",
+            format!("{:#}", FrequencyBand::VeryHigh)
+        );
+    }
+
+    #[test]
+    fn test_from_str_valid() {
+        assert_eq!(
+            FrequencyBand::VeryHigh,
+            FrequencyBand::from_str("VHF").unwrap()
+        );
+        assert_eq!(
+            FrequencyBand::UltraHigh,
+            FrequencyBand::from_str("UHF").unwrap()
+        );
+    }
+
+    #[test]
+    fn test_from_str_invalid() {
+        assert!("XYZ".parse::<FrequencyBand>().is_err());
+    }
+
+    #[test]
+    fn test_number() {
+        assert_eq!(7, FrequencyBand::High.number());
+        assert_eq!(8, FrequencyBand::VeryHigh.number());
+        assert_eq!(9, FrequencyBand::UltraHigh.number());
+    }
+
+    #[test]
+    fn test_range_contains() {
+        let vhf = FrequencyBand::VeryHigh.range();
+        assert!(vhf.contains_mhz(146.0));
+        assert!(!vhf.contains_mhz(500.0));
+    }
+}

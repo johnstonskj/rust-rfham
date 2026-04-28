@@ -4,9 +4,9 @@ use colored::Colorize;
 use rfham_config::{
     Configuration, Dump, Location, LocationKind, Station, error::ConfigError, paths::ConfigPath,
 };
-use rfham_core::{callsign::CallSign, country::CountryCode};
-use rfham_geo::grid::maidenhead::MaidenheadLocator;
+use rfham_core::{callsigns::CallSign, countries::CountryCode};
 use rfham_itu::regions::Region;
+use rfham_maidenhead::MaidenheadLocator;
 use std::{io::stdout, path::PathBuf, process::ExitCode};
 use tracing::info;
 

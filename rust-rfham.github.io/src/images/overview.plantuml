@@ -7,6 +7,11 @@
     }
     geo ..> core
     
+    package maidenhead  <<crate>> {
+    }
+    maidenhead ..> core
+    maidenhead ..> geo
+    
     package itu <<crate>> {
     }
     itu ..> core
@@ -14,13 +19,14 @@
     package bands <<crate>> {
     }
     bands ..> core
-    bands ..> core
+    bands ..> itu
+    bands ..> markdown
     
     package config <<crate>> {
     }
     config ..> bands
     config ..> core
-    config ..> geo
+    config ..> maidenhead
     config ..> itu
     
     package antennas <<crate>> {
@@ -38,11 +44,12 @@
     prelude ..> core
     prelude ..> geo
     prelude ..> itu
-    prelude ..> markdown
+    prelude ..> maidenhead
     
     package cli <<crate>> {
     }
     cli ..> prelude
+    cli ..> markdown
     
     package markdown <<crate>> {
     }

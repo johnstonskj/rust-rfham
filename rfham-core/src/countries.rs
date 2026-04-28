@@ -1,13 +1,36 @@
+//! ISO 3166-1 alpha-2 country codes.
 //!
-//! Provides ..., a one-line description
+//! [`CountryCode`] is a two-uppercase-letter code validated at construction time.
+//! It can be read from an environment variable ([`ENVVAR_COUNTRY_CODE`]) for
+//! locale-aware behaviour in library consumers.
 //!
-//! More detailed description
+//! Internally the two letters are packed into a [`u16`] via [`CountryCode::to_numeric`]
+//! and unpacked with [`CountryCode::try_from`], which allows compact storage when needed.
 //!
 //! # Examples
 //!
 //! ```rust
+//! use rfham_core::country::CountryCode;
+//! use std::str::FromStr;
+//!
+//! let us = CountryCode::from_str("US").unwrap();
+//! assert_eq!(us.to_string(), "US");
+//!
+//! // Numeric round-trip
+//! let n: u16 = us.to_numeric();
+//! let back = CountryCode::try_from(n).unwrap();
+//! assert_eq!(us, back);
 //! ```
 //!
+//! Invalid codes are rejected:
+//!
+//! ```rust
+//! use rfham_core::country::CountryCode;
+//!
+//! assert!("us".parse::<CountryCode>().is_err());   // must be uppercase
+//! assert!("USA".parse::<CountryCode>().is_err());  // must be exactly 2 chars
+//! assert!("1X".parse::<CountryCode>().is_err());   // must be letters
+//! ```
 
 use crate::error::CoreError;
 use serde_with::{DeserializeFromStr, SerializeDisplay};
@@ -172,8 +195,9 @@ fn country_code_decoded(country_code: CountryCodeNumeric) -> Result<String, Core
 
 #[cfg(test)]
 mod test {
-    use super::{CountryCodeNumeric, country_code_coded, country_code_decoded};
+    use super::{CountryCode, CountryCodeNumeric, country_code_coded, country_code_decoded};
     use pretty_assertions::assert_eq;
+    use std::str::FromStr;
 
     const VALID_MAPPINGS: &[(&str, CountryCodeNumeric)] =
         &[("US", 5138_u16), ("GB", 1537), ("CN", 525)];
@@ -190,5 +214,38 @@ mod test {
         for (string, numeric) in VALID_MAPPINGS {
             assert_eq!(string, &country_code_decoded(*numeric).unwrap().as_str());
         }
+    }
+
+    #[test]
+    fn country_code_from_str_valid() {
+        assert!(CountryCode::from_str("US").is_ok());
+        assert!(CountryCode::from_str("JP").is_ok());
+        assert!(CountryCode::from_str("DE").is_ok());
+    }
+
+    #[test]
+    fn country_code_from_str_invalid() {
+        assert!("us".parse::<CountryCode>().is_err());   // lowercase
+        assert!("USA".parse::<CountryCode>().is_err());  // 3 chars
+        assert!("1X".parse::<CountryCode>().is_err());   // leading digit
+        assert!("".parse::<CountryCode>().is_err());     // empty
+    }
+
+    #[test]
+    fn country_code_numeric_roundtrip() {
+        for code in ["US", "GB", "JP", "CN", "DE"] {
+            let cc = CountryCode::from_str(code).unwrap();
+            let n = cc.to_numeric();
+            assert_eq!(cc, CountryCode::try_from(n).unwrap(), "roundtrip failed for {code}");
+        }
+    }
+
+    #[test]
+    fn country_code_from_env_absent() {
+        // Use a name that is guaranteed to be unset rather than mutating the environment.
+        assert_eq!(
+            CountryCode::from_env_named("RFHAM_COUNTRY_ABSENT_TEST_ONLY").unwrap(),
+            None
+        );
     }
 }

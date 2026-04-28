@@ -1,6 +1,6 @@
 [package]
 name = "rfham-markdown"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Markdown writer (utility) for RF-Ham libraries."
 repository = "https://github.com/johnstonskj/rust-rfham"

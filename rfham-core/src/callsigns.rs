@@ -1,13 +1,55 @@
+//! Amateur radio callsign parsing and validation.
 //!
-//! Provides ..., a one-line description
+//! A callsign follows the ITU pattern `[ancillary-prefix/]PREFIX N SUFFIX[/ancillary-suffix]`:
 //!
-//! More detailed description
+//! - **Prefix** — one to three letters (or digit + letters), e.g. `K`, `VE`, `OE3`
+//! - **Separator** — a single digit `0`–`9`
+//! - **Suffix** — one to ten alphanumeric characters ending in a letter
+//! - **Ancillary prefix/suffix** — optional portable / operating-context qualifiers
+//!
+//! ## Ancillary suffixes
+//!
+//! | Suffix | Meaning |
+//! |--------|---------|
+//! | `/P`   | Portable |
+//! | `/M`   | Mobile |
+//! | `/AM`  | Aeronautical mobile |
+//! | `/MM`  | Maritime mobile |
+//! | `/A`   | Alternate location |
+//! | `/QRP` | Low-power (≤5 W) operation |
+//! | `/AG`, `/AE` | FCC licence pending upgrade |
 //!
 //! # Examples
 //!
 //! ```rust
+//! use rfham_core::callsign::CallSign;
+//!
+//! let cs: CallSign = "K7SKJ".parse().unwrap();
+//! assert_eq!(cs.prefix(), "K");
+//! assert_eq!(cs.separator_numeral(), 7);
+//! assert_eq!(cs.suffix(), "SKJ");
+//! assert!(!cs.is_mobile());
 //! ```
 //!
+//! Ancillary qualifiers round-trip through `Display`:
+//!
+//! ```rust
+//! use rfham_core::callsign::CallSign;
+//!
+//! let cs: CallSign = "LM9L40Y/P".parse().unwrap();
+//! assert!(cs.is_portable());
+//! assert_eq!(cs.to_string(), "LM9L40Y/P");
+//! ```
+//!
+//! Invalid callsigns return an error:
+//!
+//! ```rust
+//! use rfham_core::callsign::CallSign;
+//!
+//! assert!(CallSign::is_valid("K7SKJ"));
+//! assert!(!CallSign::is_valid("NODIGIT"));
+//! assert!("NODIGIT".parse::<CallSign>().is_err());
+//! ```
 
 use crate::error::CoreError;
 use regex::Regex;
@@ -177,54 +219,69 @@ impl CallSign {
         self.ancillary_suffix.as_ref()
     }
 
+    /// Returns `true` if `s` matches the ITU callsign pattern.
     pub fn is_valid(s: &str) -> bool {
         CALLSIGN_REGEX.is_match(s)
     }
 
+    /// Returns `true` if this is a special-event or commemorative callsign — i.e. the suffix
+    /// is longer than four characters or ends with a digit.
     pub fn is_special(&self) -> bool {
         self.suffix.len() > 4 || self.suffix.chars().last().unwrap().is_ascii_digit()
     }
 
+    /// Returns `true` if the prefix appears in the list of non-standard or
+    /// unrecognised-entity prefixes tracked by this library.
     pub fn is_prefix_non_standard(&self) -> bool {
         ODD_CALLSIGN_PREFIXES.contains(&self.prefix.as_str())
     }
 
+    /// Returns `true` when the `/A` ancillary suffix indicates operation from an alternate
+    /// licensed location.
     pub fn is_at_alternate_location(&self) -> bool {
         self.ancillary_suffix()
             .map(|s| s.eq_ignore_ascii_case("A"))
             .unwrap_or_default()
     }
 
+    /// Returns `true` when the `/P` ancillary suffix indicates portable operation.
     pub fn is_portable(&self) -> bool {
         self.ancillary_suffix()
             .map(|s| s.eq_ignore_ascii_case("P"))
             .unwrap_or_default()
     }
 
+    /// Returns `true` when the `/M` ancillary suffix indicates mobile operation.
     pub fn is_mobile(&self) -> bool {
         self.ancillary_suffix()
             .map(|s| s.eq_ignore_ascii_case("M"))
             .unwrap_or_default()
     }
 
+    /// Returns `true` when the `/AM` ancillary suffix indicates aeronautical mobile operation.
     pub fn is_aeronautical_mobile(&self) -> bool {
         self.ancillary_suffix()
             .map(|s| s.eq_ignore_ascii_case("AM"))
             .unwrap_or_default()
     }
 
+    /// Returns `true` when the `/MM` ancillary suffix indicates maritime mobile operation.
     pub fn is_maritime_mobile(&self) -> bool {
         self.ancillary_suffix()
             .map(|s| s.eq_ignore_ascii_case("MM"))
             .unwrap_or_default()
     }
 
+    /// Returns `true` when the `/QRP` ancillary suffix indicates the station is operating
+    /// at QRP power levels (typically ≤5 W).
     pub fn is_operating_qrp(&self) -> bool {
         self.ancillary_suffix()
             .map(|s| s.eq_ignore_ascii_case("QRP"))
             .unwrap_or_default()
     }
 
+    /// Returns `true` when the `/AG` or `/AE` ancillary suffix indicates a pending FCC
+    /// licence upgrade.
     pub fn is_fcc_license_pending(&self) -> bool {
         self.ancillary_suffix()
             .map(|s| s.eq_ignore_ascii_case("AG") || s.eq_ignore_ascii_case("AE"))
@@ -238,7 +295,7 @@ impl CallSign {
 
 #[cfg(test)]
 mod test {
-    use crate::callsign::CallSign;
+    use crate::callsigns::CallSign;
     use pretty_assertions::assert_eq;
     use std::str::FromStr;
 
@@ -316,13 +373,6 @@ mod test {
     ];
 
     #[test]
-    fn test_callsign_validity() {
-        for s in VALID {
-            assert_eq!(s.to_string(), CallSign::from_str(s).unwrap().to_string());
-        }
-    }
-
-    #[test]
     fn test_callsign_components() {
         let callsign = CallSign::from_str("K7SKJ/M").unwrap();
         assert_eq!(None, callsign.ancillary_prefix());
@@ -331,5 +381,80 @@ mod test {
         assert_eq!("SKJ", callsign.suffix().as_str());
         assert_eq!(Some("M"), callsign.ancillary_suffix().map(|s| s.as_str()));
         assert!(!callsign.is_special());
+    }
+
+    #[test]
+    fn test_callsign_mobile_qualifiers() {
+        assert!("K7SKJ/M".parse::<CallSign>().unwrap().is_mobile());
+        assert!("K7SKJ/P".parse::<CallSign>().unwrap().is_portable());
+        assert!(
+            "K7SKJ/AM"
+                .parse::<CallSign>()
+                .unwrap()
+                .is_aeronautical_mobile()
+        );
+        assert!("K7SKJ/MM".parse::<CallSign>().unwrap().is_maritime_mobile());
+        assert!(
+            "K7SKJ/A"
+                .parse::<CallSign>()
+                .unwrap()
+                .is_at_alternate_location()
+        );
+        assert!("K7SKJ/QRP".parse::<CallSign>().unwrap().is_operating_qrp());
+    }
+
+    #[test]
+    fn test_callsign_fcc_pending() {
+        assert!(
+            "K7SKJ/AG"
+                .parse::<CallSign>()
+                .unwrap()
+                .is_fcc_license_pending()
+        );
+        assert!(
+            "K7SKJ/AE"
+                .parse::<CallSign>()
+                .unwrap()
+                .is_fcc_license_pending()
+        );
+        assert!(
+            !"K7SKJ/P"
+                .parse::<CallSign>()
+                .unwrap()
+                .is_fcc_license_pending()
+        );
+    }
+
+    #[test]
+    fn test_callsign_special() {
+        assert!("GB50RSARS".parse::<CallSign>().unwrap().is_special()); // long suffix
+        assert!(!"K7SKJ".parse::<CallSign>().unwrap().is_special()); // normal suffix
+    }
+
+    #[test]
+    fn test_callsign_no_qualifier_flags_false() {
+        let cs: CallSign = "K7SKJ".parse().unwrap();
+        assert!(!cs.is_mobile());
+        assert!(!cs.is_portable());
+        assert!(!cs.is_aeronautical_mobile());
+        assert!(!cs.is_maritime_mobile());
+        assert!(!cs.is_at_alternate_location());
+        assert!(!cs.is_operating_qrp());
+        assert!(!cs.is_fcc_license_pending());
+    }
+
+    #[test]
+    fn test_invalid_callsigns() {
+        assert!(!CallSign::is_valid("NODIGIT")); // no separator digit
+        assert!(!CallSign::is_valid("")); // empty
+        assert!(!CallSign::is_valid("K7SK!")); // invalid character
+        assert!("NODIGIT".parse::<CallSign>().is_err());
+    }
+
+    #[test]
+    fn test_callsign_display_roundtrip() {
+        for s in VALID {
+            assert_eq!(s.to_string(), CallSign::from_str(s).unwrap().to_string());
+        }
     }
 }

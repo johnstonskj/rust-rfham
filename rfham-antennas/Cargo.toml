@@ -1,6 +1,6 @@
 [package]
 name = "rfham-antennas"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Data types to represent antennas."
 repository = "https://github.com/johnstonskj/rust-rfham"
@@ -17,6 +17,9 @@ rustdoc-args = ["--generate-link-to-definition"]
 
 [package.metadata.playground]
 features = ["std"]
+
+[dev-dependencies]
+pretty_assertions = "1.4"
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies.wasm-bindgen-test]
 version = "0.3"

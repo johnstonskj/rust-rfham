@@ -1,0 +1,44 @@
+@startuml Overview
+
+    !include skinparams.plantuml
+
+    package geo <<crate>> {
+        package grid <<imported>> {
+            interface GridIdentifier {}
+            interface GridPolygon {}
+            interface GridSystem {}
+        }
+    }
+
+    class MaidenheadLocator <<dataType>> {
+        precision() -> MaidenheadPrecision
+        width() -> f64
+        height() -> f64
+        center() -> Coordinate
+        ---
+        field() -> &str
+        square() -> &str
+        sub_square() -> Option<&str>
+        extended_square() -> Option<&str>
+        extended_sub_square() -> Option<&str>
+        is_extended() -> bool
+        ---
+        trim_to_precision(precision: MaidenheadPrecision) -> Self
+    }
+    MaidenheadLocator ...|> GridIdentifier
+    
+    class Maidenhead {}
+    Maidenhead ...|> GridSystem
+    
+    class MaidenheadSquare {}
+    MaidenheadSquare ...|> GridPolygon
+    MaidenheadSquare *--> "name" MaidenheadLocator
+    
+    enum MaidenheadPrecision {
+        Square = 4
+        <<default>> SubSquare = 6
+        ExtendedSquare = 8
+        ExtendedSubSquare = 10
+    }
+
+@enduml

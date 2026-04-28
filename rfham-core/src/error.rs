@@ -1,6 +1,7 @@
+//! Error and result types for `rfham-core`.
 //!
-//! Provides this crate's [`Error`] and [`Result`] types.
-//!
+//! [`CoreError`] is the single error enum used across all modules in this crate.
+//! [`Result<T>`] is a type alias for `std::result::Result<T, CoreError>`.
 
 use thiserror::Error;
 

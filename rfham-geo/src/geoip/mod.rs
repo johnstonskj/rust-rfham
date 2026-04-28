@@ -1,13 +1,41 @@
+//! IP-to-location lookup types and the [`Provider`] trait.
 //!
-//! Provides ..., a one-line description
+//! This module defines the data model returned by any geo-IP lookup: [`IpGeoData`] is the
+//! top-level result, containing a [`Location`] (continent, country, city …), an optional
+//! [`Locale`] (timezone, currency, language), and an optional [`Asn`] (autonomous system).
 //!
-//! More detailed description
+//! Concrete provider implementations live in [`providers`].
+//!
+//! # Data model
+//!
+//! ```text
+//! IpGeoData
+//! ├── ip_address: IpAddr
+//! ├── location: Location
+//! │   ├── continent: Code<ContinentCode>
+//! │   ├── country:   Code<CountryCode>
+//! │   └── location:  Option<GeoLocation>  (coordinate + accuracy)
+//! ├── hostname: Option<String>
+//! ├── locale:   Option<Locale>            (timezone, currency, language)
+//! └── asn:      Option<Asn>              (AS number, name, org)
+//! ```
 //!
 //! # Examples
 //!
 //! ```rust
-//! ```
+//! use rfham_geo::geoip::{IpGeoData, Location, Code, ContinentCode, GeoLocation};
+//! use rfham_core::CountryCode;
+//! use lat_long::{Coordinate, Latitude, Longitude};
+//! use std::{net::IpAddr, str::FromStr};
 //!
+//! let location = Location::new(
+//!     Code::new(ContinentCode::NA, "North America"),
+//!     Code::new(CountryCode::from_str("US").unwrap(), "United States"),
+//! );
+//! let data = IpGeoData::new("203.0.113.1".parse::<IpAddr>().unwrap(), location);
+//! assert_eq!(data.location().continent().code(), &ContinentCode::NA);
+//! assert_eq!(data.location().country().code().to_string(), "US");
+//! ```
 
 use crate::error::GeoResult;
 use lat_long::{Coordinate, Latitude, Longitude};
@@ -29,18 +57,28 @@ use uom::si::f64::Length;
 // Public Types
 // ------------------------------------------------------------------------------------------------
 
+/// A geo-IP lookup service that maps an IP address to location data.
 pub trait Provider {
+    /// Look up location data for `address`. Returns `None` if the provider has no data
+    /// for the given address (e.g. a private/reserved range).
     fn lookup(&self, address: &IpAddr) -> GeoResult<Option<IpGeoData>>;
+
+    /// Describes the licence under which this provider's data is available.
     fn license(&self) -> ProviderDataLicense;
 }
 
+/// Indicates how the data returned by a provider may be used.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub enum ProviderDataLicense {
+    /// Freely accessible with no licence restrictions (e.g. a public API).
     Public,
+    /// Requires a service agreement with the data provider.
     ServiceLicensed,
+    /// Requires the client application to hold a licence.
     ClientLicensed,
 }
 
+/// The result of a geo-IP lookup: location, locale, and network information.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct IpGeoData {
     ip_address: IpAddr,
@@ -108,9 +146,11 @@ pub enum ContinentCode {
     SA,
 }
 
+/// ISO 4217 three-letter currency code (e.g. `"USD"`, `"EUR"`).
 #[derive(Clone, Debug, PartialEq, Eq, DeserializeFromStr, SerializeDisplay)]
 pub struct CurrencyCode(String);
 
+/// ISO 639-1 two-letter language code (e.g. `"en"`, `"ja"`).
 #[derive(Clone, Debug, PartialEq, Eq, DeserializeFromStr, SerializeDisplay)]
 pub struct LanguageCode(String);
 
@@ -266,7 +306,7 @@ impl GeoLocation {
         self.coordinate
     }
 
-    pub const fn logitude(&self) -> Longitude {
+    pub const fn longitude(&self) -> Longitude {
         self.coordinate.longitude()
     }
 
@@ -504,49 +544,125 @@ pub mod providers;
 mod tests {
     use super::*;
     use lat_long::{Latitude, Longitude};
+    use pretty_assertions::assert_eq;
     use serde_json::to_string_pretty;
 
     #[test]
-    fn test_serialize() {
-        println!(
-            "{:#?}",
-            to_string_pretty(
-                &IpGeoData::new(
-                    IpAddr::from_str("23.64.167.34").unwrap(),
-                    Location {
-                        continent: Code {
-                            code: ContinentCode::NA,
-                            label: "North America".to_string()
-                        },
-                        country: Code {
-                            code: "US".parse().unwrap(),
-                            label: "United States".to_string()
-                        },
-                        location: Some(GeoLocation {
-                            coordinate: Coordinate::new(
-                                Latitude::from_str("32.814").unwrap(),
-                                Longitude::from_str("-96.9489").unwrap()
-                            ),
-                            accuracy: None,
-                        }),
-                        region: Some("Texas".to_string()),
-                        city: Some("Irving".to_string()),
-                        district: None,
-                        postal_code: None,
-                    }
-                )
-                .with_locale(Locale {
-                    timezone: Some("America/Chicago".to_string()),
-                    currency: Some(Code {
-                        code: CurrencyCode::from_str("USD").unwrap(),
-                        label: "United States Dollar".to_string(),
-                    }),
-                    language: Some(Code {
-                        code: LanguageCode::from_str("en").unwrap(),
-                        label: "English".to_string(),
-                    })
-                })
-            )
+    fn test_serialize_roundtrip() {
+        let data = IpGeoData::new(
+            IpAddr::from_str("23.64.167.34").unwrap(),
+            Location {
+                continent: Code {
+                    code: ContinentCode::NA,
+                    label: "North America".to_string(),
+                },
+                country: Code {
+                    code: "US".parse().unwrap(),
+                    label: "United States".to_string(),
+                },
+                location: Some(GeoLocation {
+                    coordinate: Coordinate::new(
+                        Latitude::from_str("32.814").unwrap(),
+                        Longitude::from_str("-96.9489").unwrap(),
+                    ),
+                    accuracy: None,
+                }),
+                region: Some("Texas".to_string()),
+                city: Some("Irving".to_string()),
+                district: None,
+                postal_code: None,
+            },
         )
+        .with_locale(Locale {
+            timezone: Some("America/Chicago".to_string()),
+            currency: Some(Code {
+                code: CurrencyCode::from_str("USD").unwrap(),
+                label: "United States Dollar".to_string(),
+            }),
+            language: Some(Code {
+                code: LanguageCode::from_str("en").unwrap(),
+                label: "English".to_string(),
+            }),
+        });
+
+        let json = to_string_pretty(&data).unwrap();
+        assert!(json.contains("23.64.167.34"));
+        assert!(json.contains("Texas"));
+
+        let deserialized: IpGeoData = serde_json::from_str(&json).unwrap();
+        assert_eq!(data, deserialized);
+    }
+
+    #[test]
+    fn test_continent_code_roundtrip() {
+        for (s, code) in [
+            ("AF", ContinentCode::AF),
+            ("AN", ContinentCode::AN),
+            ("AS", ContinentCode::AS),
+            ("EU", ContinentCode::EU),
+            ("NA", ContinentCode::NA),
+            ("OC", ContinentCode::OC),
+            ("SA", ContinentCode::SA),
+        ] {
+            assert_eq!(code.to_string(), s);
+            assert_eq!(ContinentCode::from_str(s).unwrap(), code);
+        }
+    }
+
+    #[test]
+    fn test_continent_code_name() {
+        assert_eq!(ContinentCode::NA.name(), "North America");
+        assert_eq!(ContinentCode::EU.name(), "Europe");
+    }
+
+    #[test]
+    fn test_continent_code_invalid() {
+        assert!(ContinentCode::from_str("XX").is_err());
+    }
+
+    #[test]
+    fn test_currency_code_valid() {
+        assert!(CurrencyCode::from_str("USD").is_ok());
+        assert!(CurrencyCode::from_str("EUR").is_ok());
+        assert!(CurrencyCode::from_str("JPY").is_ok());
+    }
+
+    #[test]
+    fn test_currency_code_invalid() {
+        assert!(CurrencyCode::from_str("us").is_err());   // lowercase
+        assert!(CurrencyCode::from_str("USDD").is_err()); // 4 chars
+        assert!(CurrencyCode::from_str("US").is_err());   // 2 chars
+    }
+
+    #[test]
+    fn test_language_code_valid() {
+        assert!(LanguageCode::from_str("en").is_ok());
+        assert!(LanguageCode::from_str("ja").is_ok());
+    }
+
+    #[test]
+    fn test_language_code_invalid() {
+        assert!(LanguageCode::from_str("EN").is_err()); // uppercase
+        assert!(LanguageCode::from_str("eng").is_err()); // 3 chars
+    }
+
+    #[test]
+    fn test_code_display() {
+        let c = Code::new(ContinentCode::EU, "Europe");
+        assert_eq!(c.to_string(), "Europe");
+        assert_eq!(format!("{c:#}"), "EU: Europe");
+    }
+
+    #[test]
+    fn test_ip_geo_data_accessors() {
+        let location = Location::new(
+            Code::new(ContinentCode::NA, "North America"),
+            Code::new("US".parse::<rfham_core::CountryCode>().unwrap(), "United States"),
+        );
+        let data = IpGeoData::new("203.0.113.1".parse::<IpAddr>().unwrap(), location);
+        assert_eq!(data.ip_address().to_string(), "203.0.113.1");
+        assert_eq!(data.location().continent().code(), &ContinentCode::NA);
+        assert!(data.locale().is_none());
+        assert!(data.asn().is_none());
     }
 }

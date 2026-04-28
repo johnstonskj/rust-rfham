@@ -1,7 +1,7 @@
 use crate::{OnceCommand, error::CliError};
 use colored::Colorize;
 use rfham_core::Name;
-use rfham_core::callsign::CallSign;
+use rfham_core::callsigns::CallSign;
 use rfham_itu::callsigns::ItuSeriesAllocation;
 use std::process::ExitCode;
 use std::str::FromStr;

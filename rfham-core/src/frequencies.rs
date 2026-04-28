@@ -1,13 +1,44 @@
+//! RF frequency, wavelength, and frequency-range types.
 //!
-//! Provides ..., a one-line description
+//! [`Frequency`] and [`Wavelength`] are thin wrappers around [`uom`](https://docs.rs/uom)
+//! SI quantities. They add ham-radio-centric constructors, a smart `Display` that chooses
+//! the most readable unit, and bidirectional conversion via λ = c / f.
 //!
-//! More detailed description
+//! [`FrequencyRange`] represents a contiguous band segment and supports overlap and
+//! containment queries.
+//!
+//! # Display formats
+//!
+//! The default formatter (`{}`) always uses MHz. The alternate formatter (`{:#}`) selects
+//! the most natural unit based on the value:
+//!
+//! ```rust
+//! use rfham_core::frequency::Frequency;
+//!
+//! assert_eq!(format!("{:#}", Frequency::hertz(440.0)),      "440 hertz");
+//! assert_eq!(format!("{:#}", Frequency::kilohertz(7.074)),  "7.074 kilohertz");
+//! assert_eq!(format!("{:#}", Frequency::megahertz(146.52)), "146.52 megahertz");
+//! assert_eq!(format!("{:#}", Frequency::gigahertz(2.4)),    "2.4 gigahertz");
+//! ```
 //!
 //! # Examples
 //!
 //! ```rust
-//! ```
+//! use rfham_core::frequency::{Frequency, FrequencyRange};
 //!
+//! // Construct and display
+//! let f = Frequency::megahertz(144.0);
+//! assert_eq!(f.to_string(), "144 MHz");
+//!
+//! // Convert to wavelength (~2 m band)
+//! let wl = f.to_wavelength();
+//! assert!((wl.value() - 2.082).abs() < 0.001);
+//!
+//! // Range queries
+//! let band = FrequencyRange::new_mhz(144.0, 148.0);
+//! assert!(band.contains(Frequency::megahertz(146.52)));
+//! assert!(!band.contains(Frequency::megahertz(150.0)));
+//! ```
 
 use crate::error::CoreError;
 use serde::{Deserialize, Serialize};
@@ -222,12 +253,12 @@ impl FrequencyRange {
         self.0.end
     }
 
-    pub fn bandwith(&self) -> Frequency {
+    pub fn bandwidth(&self) -> Frequency {
         Frequency::hertz(self.0.end.value() - self.0.start.value())
     }
 
     pub fn mid_band(&self) -> Frequency {
-        Frequency::hertz(self.0.start.value() + (self.bandwith().value() / 2.0))
+        Frequency::hertz(self.0.start.value() + (self.bandwidth().value() / 2.0))
     }
 
     pub fn contains(&self, frequency: Frequency) -> bool {
@@ -362,8 +393,32 @@ impl Wavelength {
     }
 
     pub fn to_frequency(&self) -> Frequency {
-        Frequency::megahertz(SPEED_OF_LIGHT / self.value())
+        Frequency::hertz(SPEED_OF_LIGHT / self.value())
     }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Public Functions
+// ------------------------------------------------------------------------------------------------
+
+pub fn gigahertz(value: f64) -> Frequency {
+    Frequency::gigahertz(value)
+}
+
+pub fn megahertz(value: f64) -> Frequency {
+    Frequency::megahertz(value)
+}
+
+pub fn kilohertz(value: f64) -> Frequency {
+    Frequency::kilohertz(value)
+}
+
+pub fn hertz(value: f64) -> Frequency {
+    Frequency::hertz(value)
+}
+
+pub fn meters(value: f64) -> Wavelength {
+    Wavelength::meters(value)
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -448,5 +503,59 @@ mod tests {
             "1000 MHz - 10000 MHz",
             &FrequencyRange::new(Frequency::gigahertz(1.0), Frequency::gigahertz(10.0)).to_string()
         );
+    }
+
+    #[test]
+    fn test_frequency_wavelength_roundtrip() {
+        let f = Frequency::megahertz(144.0);
+        let wl = f.to_wavelength();
+        let f2 = wl.to_frequency();
+        assert!((f.value() - f2.value()).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_frequency_range_bandwidth() {
+        let r = FrequencyRange::new_mhz(144.0, 148.0);
+        // Internally stored in Hz; 4 MHz = 4_000_000 Hz
+        assert!((r.bandwidth().value() - 4_000_000.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_frequency_range_mid_band() {
+        let r = FrequencyRange::new_mhz(144.0, 148.0);
+        // Mid-band at 146 MHz = 146_000_000 Hz
+        assert!((r.mid_band().value() - 146_000_000.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_frequency_range_contains() {
+        let r = FrequencyRange::new_mhz(144.0, 148.0);
+        assert!(r.contains_mhz(144.0));
+        assert!(r.contains_mhz(146.52));
+        assert!(!r.contains_mhz(148.0)); // Range end is exclusive
+        assert!(!r.contains_mhz(150.0));
+    }
+
+    #[test]
+    fn test_frequency_range_overlap() {
+        let a = FrequencyRange::new_mhz(144.0, 148.0);
+        let b = FrequencyRange::new_mhz(146.0, 150.0);
+        let c = FrequencyRange::new_mhz(150.0, 160.0);
+        assert!(a.is_overlapping(&b));
+        assert!(!a.is_overlapping(&c));
+    }
+
+    #[test]
+    fn test_frequency_range_subrange() {
+        let outer = FrequencyRange::new_mhz(144.0, 148.0);
+        let inner = FrequencyRange::new_mhz(145.0, 147.0);
+        assert!(outer.is_subrange(&inner));
+        assert!(!inner.is_subrange(&outer));
+    }
+
+    #[test]
+    fn test_frequency_from_f64_is_megahertz() {
+        let f: Frequency = 146.52_f64.into();
+        assert_eq!(f.to_string(), "146.52 MHz");
     }
 }

@@ -1,13 +1,18 @@
+//! Dot-separated configuration key paths for `rfham-config`.
 //!
-//! Provides ..., a one-line description
-//!
-//! More detailed description
+//! [`ConfigPath`] is a validated sequence of [`Name`](rfham_core::id::Name) segments
+//! joined by `.`. It parses from strings like `"station.callsign"` and displays back
+//! in the same form.
 //!
 //! # Examples
 //!
 //! ```rust
-//! ```
+//! use rfham_config::paths::ConfigPath;
 //!
+//! let path: ConfigPath = "station.callsign".parse().unwrap();
+//! assert_eq!("station.callsign", path.to_string());
+//! assert!("".parse::<ConfigPath>().is_err());
+//! ```
 
 use core::{fmt::Display, str::FromStr};
 use rfham_core::{Name, error::CoreError};
@@ -90,3 +95,36 @@ impl From<Vec<Name>> for ConfigPath {
 // ------------------------------------------------------------------------------------------------
 // Sub-Modules
 // ------------------------------------------------------------------------------------------------
+
+// ------------------------------------------------------------------------------------------------
+// Unit Tests
+// ------------------------------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::ConfigPath;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_single_component() {
+        let path: ConfigPath = "station".parse().unwrap();
+        assert_eq!("station", path.to_string());
+    }
+
+    #[test]
+    fn test_multi_component() {
+        let path: ConfigPath = "station.callsign".parse().unwrap();
+        assert_eq!("station.callsign", path.to_string());
+    }
+
+    #[test]
+    fn test_empty_string_is_error() {
+        assert!("".parse::<ConfigPath>().is_err());
+    }
+
+    #[test]
+    fn test_invalid_component_is_error() {
+        // Names cannot contain spaces
+        assert!("station.has space".parse::<ConfigPath>().is_err());
+    }
+}

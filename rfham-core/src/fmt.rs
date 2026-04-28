@@ -1,13 +1,8 @@
+//! Custom formatting trait for rfham types.
 //!
-//! Provides ..., a one-line description
-//!
-//! More detailed description
-//!
-//! # Examples
-//!
-//! ```rust
-//! ```
-//!
+//! [`Formatter`] is implemented by types that support configurable text rendering beyond what
+//! [`std::fmt::Display`] provides. [`FormatterOptions`] currently carries an optional decimal
+//! precision specifier.
 
 // use statements here
 

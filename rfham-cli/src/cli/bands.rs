@@ -4,7 +4,7 @@ use crate::{
     error::CliError,
 };
 use clap::{Args, Subcommand};
-use rfham_core::country::CountryCode;
+use rfham_core::countries::CountryCode;
 use rfham_itu::allocations::FrequencyAllocation;
 use std::process::ExitCode;
 use tracing::instrument;

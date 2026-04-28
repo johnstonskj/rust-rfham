@@ -1,38 +1,42 @@
 [package]
-name = "rfham-config"
-version = "0.1.1"
+name = "rfham-maidenhead"
+version = "0.1.0"
 edition = "2024"
-description = "Shared configuration data for RF-Ham libraries and tools."
-repository = "https://github.com/johnstonskj/rust-rfham"
-homepage = "https://simonkjohnston.life/rust-rfham"
+description = "Implementation of Grid traits for Maidenhead locator system."
 license = "MIT OR Apache-2.0"
 keywords = ["ham", "radio"]
 readme = "README.md"
 # Minimum Supported Rust Version
 rust-version = "1.94"
 
+[package.metadata.docs.rs]
+features = ["std"]
+rustdoc-args = ["--generate-link-to-definition"]
 
-[dev-dependencies]
-pretty_assertions = "1.4"
+[package.metadata.playground]
+features = ["std"]
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies.wasm-bindgen-test]
 version = "0.3"
 
+[features]
+default = ["std"]
+std = []
+
 [dependencies]
-rfham-bands = { version = "0.1", path = "../rfham-bands" }
+lat-long = { version = "0.1", features = [
+    "serde",
+], path = "../../rust-lat-long/" }
 rfham-core = { version = "0.1", path = "../rfham-core" }
 rfham-geo = { version = "0.1", path = "../rfham-geo" }
-rfham-itu = { version = "0.1", path = "../rfham-itu" }
-rfham-maidenhead = { version = "0.1", path = "../rfham-maidenhead" }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_with = { version = "3.18", default-features = false, features = [
     "alloc",
     "macros",
 ] }
-thiserror = { version = "2.0", default-features = false }
-toml = "1.1"
-tracing = "0.1"
-xdirs = "0.1"
+
+[dev-dependencies]
+pretty_assertions = "1.4"
 
 [lints]
 workspace = true

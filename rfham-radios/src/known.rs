@@ -1,13 +1,4 @@
-//!
-//! Provides ..., a one-line description
-//!
-//! More detailed description
-//!
-//! # Examples
-//!
-//! ```rust
-//! ```
-//!
+//! Catalogue of known amateur radio transceivers (reserved for future implementation).
 
 // use statements here
 

@@ -1,6 +1,6 @@
 [package]
 name = "rfham-bands"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Data types to represent band plans."
 repository = "https://github.com/johnstonskj/rust-rfham"

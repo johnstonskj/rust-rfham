@@ -23,16 +23,13 @@
 
 use colored::Colorize;
 use rfham_bands::BandPlan;
-use rfham_core::{
-    error::CoreError,
-    frequency::{FrequencyRange, Wavelength, meters},
-};
+use rfham_core::frequencies::{FrequencyRange, Wavelength, meters};
 use rfham_itu::allocations::FrequencyAllocation;
 use rfham_markdown::{
-    ToMarkdown, blank_line, fenced_code_block_end, fenced_code_block_start, header,
+    MarkdownError, ToMarkdown, blank_line, fenced_code_block_end, fenced_code_block_start, header,
     italic_to_string, numbered_list_item, plain_text,
 };
-use std::{fmt::Display, str::FromStr};
+use std::fmt::Display;
 
 // ------------------------------------------------------------------------------------------------
 // Public Types
@@ -103,7 +100,7 @@ impl Display for SimpleDipole {
 }
 
 impl ToMarkdown for SimpleDipole {
-    fn write_markdown<W: std::io::Write>(&self, writer: &mut W) -> Result<(), CoreError> {
+    fn write_markdown<W: std::io::Write>(&self, writer: &mut W) -> Result<(), MarkdownError> {
         if let Some(quarter_wavelength) = self.pole_length() {
             const QUARTER_WAVE_PADDING: usize = "|<--- ".len() + " --->|".len();
             const HALF_WAVE_PADDING: usize = "|< ".len() + " >|".len();
@@ -290,4 +287,31 @@ impl SimpleDipole {
 // ------------------------------------------------------------------------------------------------
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::SimpleDipole;
+    use rfham_itu::allocations::FrequencyAllocation;
+
+    #[test]
+    fn test_antenna_length_2m() {
+        let dipole = SimpleDipole::new(FrequencyAllocation::Band2M);
+        let length = dipole.antenna_length().unwrap();
+        // 2m mid-band ≈ 146 MHz → λ/2 ≈ 1.027 m (c/f/2)
+        assert!(length.value() > 1.0 && length.value() < 1.1);
+    }
+
+    #[test]
+    fn test_pole_length_is_half_antenna() {
+        let dipole = SimpleDipole::new(FrequencyAllocation::Band2M);
+        let antenna = dipole.antenna_length().unwrap().value();
+        let pole = dipole.pole_length().unwrap().value();
+        assert!((antenna / 2.0 - pole).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_antenna_length_40m() {
+        let dipole = SimpleDipole::new(FrequencyAllocation::Band40M);
+        let length = dipole.antenna_length().unwrap();
+        // 40m mid-band ≈ 7.15 MHz → λ/2 ≈ 20.98 m
+        assert!(length.value() > 20.0 && length.value() < 22.0);
+    }
+}
