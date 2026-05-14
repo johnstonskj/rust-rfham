@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Antenna Commands - Amateur (Ham) Radio tools for Rust</title>
+        <title>Geo/IP Services - Amateur (Ham) Radio tools for Rust</title>
 
 
         <!-- Custom HTML head -->
@@ -203,45 +203,207 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="antenna-commands"><a class="header" href="#antenna-commands">Antenna Commands</a></h1>
-<h2 id="length-calculations----length"><a class="header" href="#length-calculations----length">Length Calculations -- <code>length</code></a></h2>
-<pre><code class="language-bash">❯ rfham antenna length --band 6m --country US
-
-# Classic 6m single-band dipole antenna.
-
-~~~text
-|&lt;────────────────── λ/2 = 2.883 meters ───────────────────&gt;|
-|&lt;─── λ/4 = 1.441 meters ───&gt;| |&lt;─── λ/4 = 1.441 meters ───&gt;|
-──────────────────────────────┳──────────────────────────────
-                              ⎅    1:1 balun
-                              │  ∧
-                              │  │ λ/2 = 2.883 meters
-                              │  │ 50Ω feed line
-                              │  │
-                              │  ∨
-                              └┄┄┄ &gt; to transceiver
-~~~
-
-Notes:
-
-1. Frequency range for 6m band is 50.000 MHz - 54.000 MHz.
-   1. From the *US Amateur Radio Bands* by The American Radio Relay League (ARRL).
-2. Mid-point of band is 52.000 MHz.
-3. Wavelength of mid-point is 5.765 m.
-4. Half-wave length is λ/2 = 2.883 meters for overall antenna.
-5. Quarter-wave length is λ/4 = 1.441 meters for each antenna pole.
-6. Include a 1:1 Current **Balun**, often called a 1:1 *Choke* or *Line Isolator*.
+                        <h1 id="geoip-services"><a class="header" href="#geoip-services">Geo/IP Services</a></h1>
+<h2 id="provider-responses"><a class="header" href="#provider-responses">Provider Responses</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Geo</th><th>GeoIpLookup</th><th>IPinfo free</th><th>IPinfo Lite</th><th>IPinfo Core</th><th>Maxmind Country</th><th>Maxmind City</th></tr></thead><tbody>
+<tr><td>continent.code</td><td>continent_code</td><td>n/a</td><td>continent_code</td><td>n/a</td><td>continent.code</td><td>continent.code</td></tr>
+<tr><td>continent.name</td><td>continent_name</td><td>n/a</td><td>continent_name</td><td>n/a</td><td>continent.names.en</td><td>continent.names.en</td></tr>
+<tr><td>country.code</td><td>country_code</td><td>country</td><td>country_code</td><td>country</td><td>country.code</td><td>country.code</td></tr>
+<tr><td>country.name</td><td>country_name</td><td>n/a</td><td>country_name</td><td>n/a</td><td>country.names.en</td><td>country.names.en</td></tr>
+<tr><td>region</td><td>region</td><td>region</td><td>n/a</td><td>region</td><td>n/a</td><td><em>subdivisions</em>?</td></tr>
+<tr><td>city</td><td>city</td><td>city</td><td>n/a</td><td>city</td><td>n/a</td><td>city.names.en</td></tr>
+<tr><td>timezone.name</td><td>timezone_name</td><td>timezone</td><td>n/a</td><td>timezone</td><td>n/a</td><td>location.time_zone</td></tr>
+<tr><td>postal_code</td><td>postal_code</td><td>postal</td><td>n/a</td><td>postal</td><td>n/a</td><td>postal.code</td></tr>
+<tr><td>geo.latitude</td><td>latitude</td><td><em>loc</em></td><td>n/a</td><td><em>loc</em></td><td>n/a</td><td>location.latitude</td></tr>
+<tr><td>geo.longitude</td><td>longitude</td><td><em>loc</em></td><td>n/a</td><td><em>loc</em></td><td>n/a</td><td>location.longitude</td></tr>
+<tr><td>geo.accuracy</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>location.accuracy_radius</td></tr>
+</tbody></table>
+</div>
+<h3 id="geo-ip-lookup"><a class="header" href="#geo-ip-lookup">Geo Ip Lookup</a></h3>
+<p>This uses the publicly accessible API at <code>https://json.geoiplookup.io/{ip}</code>.</p>
+<pre><code class="language-json">{
+    "ip": "...",
+    "isp": "Akamai Technologies, Inc.",
+    "org": "Akamai Technologies, Inc.",
+    "hostname": "",
+    "latitude": 32.814,
+    "longitude": -96.9489,
+    "postal_code": "",
+    "city": "Irving",
+    "country_code": "US",
+    "country_name": "United States",
+    "continent_code": "NA",
+    "continent_name": "North America",
+    "region": "Texas",
+    "district": "",
+    "timezone_name": "America/Chicago",
+    "connection_type": "Corporate",
+    "asn_number": 16625,
+    "asn_org": "Akamai Technologies, Inc.",
+    "asn": "AS16625 - Akamai Technologies, Inc.",
+    "currency_code": "USD",
+    "currency_name": "United States Dollar",
+    "language_code": "en",
+    "language_name": "English",
+    "success": true,
+    "premium": false
+}
+</code></pre>
+<h3 id="ipinfo"><a class="header" href="#ipinfo">IPInfo</a></h3>
+<p>Result from <code>curl https://ipinfo.io/</code>; legacy free API. See <a href="https://ipinfo.io/developers/ipinfo-api">IPinfo APIs</a> for comparison.</p>
+<pre><code class="language-json">{
+  "ip": "...",
+  "hostname": "...",
+  "city": "...",
+  "region": "...",
+  "country": "US",
+  "loc": "36.1329,-94.1655",
+  "org": "...",
+  "postal": "...",
+  "timezone": "America/Chicago",
+  "readme": "https://ipinfo.io/missingauth"
+}
+</code></pre>
+<p>Results from the IPInfo Lite API.</p>
+<pre><code class="language-json">{
+ ip:"...",
+ asn:"AS701",
+ as_name:"Verizon Business",
+ as_domain:"verizonbusiness.com",
+ country_code:"US",
+ country:"United States",
+ continent_code:"NA",
+ continent:"North America"
+}
+</code></pre>
+<p>Results from the IPInfo Core API.</p>
+<pre><code class="language-json">{
+ ip:"...",
+ city:"Boston",
+ region:"Massachusetts",
+ country:"US",
+ loc:"42.3584,-71.0598",
+ postal:"02151",
+ timezone:"America/New_York",
+ asn:{
+  asn:"AS701",
+  name:"Verizon Business",
+  domain:"verizonbusiness.com",
+  route:"71.243.0.0/17",
+  type:"isp"
+ },
+ is_anycast:false,
+ is_mobile:false,
+ is_anonymous:false,
+ is_satellite:false,
+ is_hosting:false
+}
+</code></pre>
+<h3 id="maxmind-geolite-country"><a class="header" href="#maxmind-geolite-country">Maxmind GeoLite Country</a></h3>
+<pre><code class="language-json">{
+  "continent": {
+    "code": "NA",
+    "geoname_id": 123456,
+    "names": { ... }
+  },
+  "country": {
+    "geoname_id": 6252001,
+    "is_in_european_union": false,
+    "iso_code": "US",
+    "names": { ... }
+  },
+  "registered_country": {
+    "geoname_id": 6252001,
+    "is_in_european_union": true,
+    "iso_code": "US",
+    "names": { ... }
+  },
+  "represented_country": {
+    "geoname_id": 6252001,
+    "is_in_european_union": true,
+    "iso_code": "US",
+    "names": { ... },
+    "type": "military"
+  },
+  "traits": {
+    "ip_address": "1.2.3.4",
+    "is_anycast": true,
+    "network": "1.2.3.0/24"
+  }
+}
+</code></pre>
+<h3 id="maxmind-geolite-city"><a class="header" href="#maxmind-geolite-city">Maxmind GeoLite City</a></h3>
+<pre><code class="language-json">{
+  "continent": {
+    "code": "NA",
+    "geoname_id": 123456,
+    "names": { ... }
+  },
+  "country": {
+    "geoname_id": 6252001,
+    "is_in_european_union": false,
+    "iso_code": "US",
+    "names": { ... }
+  },
+  "registered_country": {
+    "geoname_id": 6252001,
+    "is_in_european_union": true,
+    "iso_code": "US",
+    "names": { ... }
+  },
+  "represented_country": {
+    "geoname_id": 6252001,
+    "is_in_european_union": true,
+    "iso_code": "US",
+    "names": { ... },
+    "type": "military"
+  },
+  "traits": {
+    "ip_address": "1.2.3.4",
+    "is_anycast": true,
+    "network": "1.2.3.0/24",
+    "autonomous_system_number": 1239,
+    "autonomous_system_organization": "Linkem IR WiMax Network",
+    "connection_type": "Cable/DSL",
+    "domain": "example.com",
+    "isp": "Linkem spa",
+    "mobile_country_code": "310",
+    "mobile_network_code": "004",
+    "organization": "Linkem IR WiMax Network"
+  },
+  "city": {
+    "geoname_id": 54321,
+    "names": { ... }
+  },
+  "location": {
+    "accuracy_radius": 20,
+    "latitude": 37.6293,
+    "longitude": -122.1163,
+    "metro_code": 807,
+    "time_zone": "America/Los_Angeles"
+  },
+  "postal": {
+    "code": "90001"
+  },
+  "subdivisions": [
+    {
+      "geoname_id": 5332921,
+      "iso_code": "CA",
+      "names": { ... }
+    }
+  ]
+}
 </code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../cli/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../references/schema.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../cli/band-plan.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../references/service-callsign.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -251,11 +413,11 @@ Notes:
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../cli/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../references/schema.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../cli/band-plan.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../references/service-callsign.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

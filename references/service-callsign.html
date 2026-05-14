@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Antenna Commands - Amateur (Ham) Radio tools for Rust</title>
+        <title>Callsign Services - Amateur (Ham) Radio tools for Rust</title>
 
 
         <!-- Custom HTML head -->
@@ -203,45 +203,143 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="antenna-commands"><a class="header" href="#antenna-commands">Antenna Commands</a></h1>
-<h2 id="length-calculations----length"><a class="header" href="#length-calculations----length">Length Calculations -- <code>length</code></a></h2>
-<pre><code class="language-bash">❯ rfham antenna length --band 6m --country US
-
-# Classic 6m single-band dipole antenna.
-
-~~~text
-|&lt;────────────────── λ/2 = 2.883 meters ───────────────────&gt;|
-|&lt;─── λ/4 = 1.441 meters ───&gt;| |&lt;─── λ/4 = 1.441 meters ───&gt;|
-──────────────────────────────┳──────────────────────────────
-                              ⎅    1:1 balun
-                              │  ∧
-                              │  │ λ/2 = 2.883 meters
-                              │  │ 50Ω feed line
-                              │  │
-                              │  ∨
-                              └┄┄┄ &gt; to transceiver
-~~~
-
-Notes:
-
-1. Frequency range for 6m band is 50.000 MHz - 54.000 MHz.
-   1. From the *US Amateur Radio Bands* by The American Radio Relay League (ARRL).
-2. Mid-point of band is 52.000 MHz.
-3. Wavelength of mid-point is 5.765 m.
-4. Half-wave length is λ/2 = 2.883 meters for overall antenna.
-5. Quarter-wave length is λ/4 = 1.441 meters for each antenna pole.
-6. Include a 1:1 Current **Balun**, often called a 1:1 *Choke* or *Line Isolator*.
+                        <h1 id="callsign-services"><a class="header" href="#callsign-services">Callsign Services</a></h1>
+<h2 id="qrzcom-notes"><a class="header" href="#qrzcom-notes">Qrz.com Notes</a></h2>
+<pre><code class="language-bash">❯ curl 'https://xmldata.qrz.com/xml/current/?username=K7SKJ;password=...;agent=RF-Ham-1.0'
+</code></pre>
+<pre><code class="language-xml">&lt;?xml version="1.0" encoding="utf-8" ?&gt;
+&lt;QRZDatabase version="1.36" xmlns="http://xmldata.qrz.com"&gt;
+  &lt;Session&gt;
+    &lt;Key&gt;db5137fe6bb5310fb2cd9b07a1fa04ea&lt;/Key&gt;
+    &lt;Count&gt;14&lt;/Count&gt;
+    &lt;SubExp&gt;Mon May  8 20:16:30 2028&lt;/SubExp&gt;
+    &lt;GMTime&gt;Sat May  9 20:20:10 2026&lt;/GMTime&gt;
+    &lt;Remark&gt;cpu: 0.013s&lt;/Remark&gt;
+  &lt;/Session&gt;
+&lt;/QRZDatabase&gt;
+</code></pre>
+<pre><code class="language-bash">❯ curl 'https://xmldata.qrz.com/xml/current/?s=...;callsign=K7SKJ'
+</code></pre>
+<pre><code class="language-xml">&lt;?xml version="1.0" encoding="utf-8" ?&gt;
+&lt;QRZDatabase version="1.36" xmlns="http://xmldata.qrz.com"&gt;
+  &lt;Callsign&gt;
+    &lt;call&gt;K7SKJ&lt;/call&gt;
+    &lt;aliases&gt;KM7ABD&lt;/aliases&gt;
+    &lt;dxcc&gt;291&lt;/dxcc&gt;
+    &lt;attn&gt;Simon Johnston&lt;/attn&gt;
+    &lt;fname&gt;Simon K&lt;/fname&gt;
+    &lt;name&gt;Johnston&lt;/name&gt;
+    &lt;addr1&gt;2406 171st Ave SE&lt;/addr1&gt;
+    &lt;addr2&gt;Bellevue&lt;/addr2&gt;
+    &lt;state&gt;WA&lt;/state&gt;
+    &lt;zip&gt;98008-5523&lt;/zip&gt;
+    &lt;country&gt;United States&lt;/country&gt;
+    &lt;lat&gt;47.588790&lt;/lat&gt;
+    &lt;lon&gt;-122.112300&lt;/lon&gt;
+    &lt;grid&gt;CN87wo&lt;/grid&gt;
+    &lt;county&gt;King&lt;/county&gt;
+    &lt;ccode&gt;271&lt;/ccode&gt;
+    &lt;fips&gt;53033&lt;/fips&gt;
+    &lt;land&gt;United States&lt;/land&gt;
+    &lt;efdate&gt;2025-05-28&lt;/efdate&gt;
+    &lt;expdate&gt;2035-05-28&lt;/expdate&gt;
+    &lt;class&gt;T&lt;/class&gt;
+    &lt;codes&gt;HVIE&lt;/codes&gt;
+    &lt;email&gt;johnstonskj@gmail.com&lt;/email&gt;
+    &lt;u_views&gt;74&lt;/u_views&gt;
+    &lt;bio&gt;0&lt;/bio&gt;
+    &lt;biodate&gt;2025-04-16 18:02:31&lt;/biodate&gt;
+    &lt;moddate&gt;2025-05-29 12:30:04&lt;/moddate&gt;
+    &lt;MSA&gt;7600&lt;/MSA&gt;
+    &lt;AreaCode&gt;425&lt;/AreaCode&gt;
+    &lt;TimeZone&gt;Pacific&lt;/TimeZone&gt;
+    &lt;GMTOffset&gt;-8&lt;/GMTOffset&gt;
+    &lt;DST&gt;Y&lt;/DST&gt;
+    &lt;lotw&gt;1&lt;/lotw&gt;
+    &lt;geoloc&gt;geocode&lt;/geoloc&gt;
+    &lt;name_fmt&gt;Simon K Johnston&lt;/name_fmt&gt;
+    &lt;serial&gt;2665177&lt;/serial&gt;
+  &lt;/Callsign&gt;
+  &lt;Session&gt;
+    &lt;Key&gt;db5137fe6bb5310fb2cd9b07a1fa04ea&lt;/Key&gt;
+    &lt;Count&gt;15&lt;/Count&gt;
+    &lt;SubExp&gt;Mon May  8 20:16:30 2028&lt;/SubExp&gt;
+    &lt;GMTime&gt;Sat May  9 20:20:59 2026&lt;/GMTime&gt;
+    &lt;Remark&gt;cpu: 0.081s&lt;/Remark&gt;
+  &lt;/Session&gt;
+&lt;/QRZDatabase&gt;
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Group</th><th>Field</th><th>Type</th><th>Rq?</th><th>K7SKJ (KM7ABD)</th><th>IR3ORCO</th><th>SP9JP</th></tr></thead><tbody>
+<tr><td>Key</td><td>serial</td><td>String</td><td>Y</td><td>2665177</td><td>2713763</td><td>2008366</td></tr>
+<tr><td></td><td>user</td><td>Callsign</td><td></td><td></td><td></td><td></td></tr>
+<tr><td>Sign</td><td>call</td><td>Callsign</td><td>Y</td><td>7SKJ</td><td>IR3ORCO</td><td>SP9JP</td></tr>
+<tr><td></td><td>xref</td><td>Callsign</td><td></td><td>(KM7ABD)</td><td></td><td></td></tr>
+<tr><td></td><td>aliases</td><td>Callsign..</td><td></td><td>KM7ABD</td><td></td><td>SP7RJA</td></tr>
+<tr><td></td><td>p_call</td><td>Callsign</td><td></td><td></td><td></td><td></td></tr>
+<tr><td>DX</td><td>dxcc</td><td>u32</td><td>Y</td><td>291</td><td>248</td><td>269</td></tr>
+<tr><td></td><td>ccode</td><td>u32</td><td>Y</td><td>271</td><td>128</td><td>205</td></tr>
+<tr><td></td><td>land</td><td>String</td><td>Y</td><td>United States</td><td>Italy</td><td>Poland</td></tr>
+<tr><td>Name</td><td>fname</td><td>String</td><td>Y</td><td>Simon K</td><td>Ari</td><td>Jurek</td></tr>
+<tr><td></td><td>name</td><td>String</td><td>Y</td><td>Johnston</td><td>Udine</td><td>Polczynski</td></tr>
+<tr><td></td><td>nickname</td><td>String</td><td></td><td></td><td></td><td></td></tr>
+<tr><td></td><td>name_fmt</td><td>String</td><td>Y</td><td>Simon K Johnston</td><td>Ari Udine</td><td>Jurek Polczynski</td></tr>
+<tr><td>Address</td><td>attn</td><td>String</td><td></td><td>Simon Johnston</td><td></td><td></td></tr>
+<tr><td></td><td>addr1</td><td>String</td><td></td><td>2406 171st Ave SE</td><td>via Diaz 58</td><td>e-mail me to get full address</td></tr>
+<tr><td></td><td>addr2</td><td>String</td><td></td><td>Bellevue</td><td>UDINE</td><td>Krakow</td></tr>
+<tr><td></td><td><em>state</em></td><td>String</td><td>U</td><td>WA</td><td></td><td></td></tr>
+<tr><td></td><td><em>fips</em></td><td>String</td><td>U</td><td>53033</td><td></td><td></td></tr>
+<tr><td></td><td><em>county</em></td><td>String</td><td>U</td><td>King</td><td></td><td></td></tr>
+<tr><td></td><td>zip</td><td>String</td><td></td><td>98008-5523</td><td>33100</td><td></td></tr>
+<tr><td></td><td>country</td><td>String</td><td>Y</td><td>United States</td><td>Italy</td><td>Poland</td></tr>
+<tr><td>Location</td><td>lat</td><td>Latitude</td><td></td><td>47.588790</td><td>46.061667</td><td>50.041964</td></tr>
+<tr><td></td><td>long</td><td>Longitude</td><td></td><td>-122.112300</td><td>13.206667</td><td>19.918086</td></tr>
+<tr><td></td><td>grid</td><td>Locator</td><td></td><td>CN87wo</td><td>JN66ob</td><td>JO90xb</td></tr>
+<tr><td></td><td>cqzone</td><td>u32</td><td></td><td></td><td>15</td><td>15</td></tr>
+<tr><td></td><td>ituzone</td><td>u32</td><td></td><td></td><td>28</td><td>28</td></tr>
+<tr><td></td><td>geoloc</td><td>enum</td><td>Y</td><td>geocode</td><td>user</td><td>user</td></tr>
+<tr><td></td><td><em>MSA</em></td><td>u32</td><td>U</td><td>7600</td><td></td><td></td></tr>
+<tr><td></td><td><em>AreaCode</em></td><td>u32</td><td>U</td><td>425</td><td></td><td></td></tr>
+<tr><td></td><td>iota</td><td>String</td><td></td><td></td><td></td><td></td></tr>
+<tr><td>License</td><td><em>efdate</em></td><td>Date</td><td>U</td><td>2025-05-28</td><td></td><td></td></tr>
+<tr><td></td><td><em>expdate</em></td><td>Date.</td><td>U</td><td>2035-05-28</td><td></td><td></td></tr>
+<tr><td></td><td>class</td><td>String</td><td></td><td>T</td><td></td><td>A</td></tr>
+<tr><td></td><td><em>codes</em></td><td>String</td><td>U</td><td>HVIE</td><td></td><td></td></tr>
+<tr><td>QSL</td><td>qslmgr</td><td>String</td><td></td><td></td><td></td><td>LoTW preffered, ...</td></tr>
+<tr><td></td><td>eqsl</td><td>0/1</td><td></td><td></td><td></td><td>1</td></tr>
+<tr><td></td><td>mqsl</td><td>0/1</td><td></td><td></td><td></td><td>1</td></tr>
+<tr><td></td><td>lotw</td><td>0/1</td><td></td><td>1</td><td></td><td>1</td></tr>
+<tr><td>Contact</td><td>email</td><td>String</td><td></td><td><a href="mailto:johnstonskj@gmail.com">johnstonskj@gmail.com</a></td><td></td><td><a href="mailto:sp9jp@polczynski.com">sp9jp@polczynski.com</a></td></tr>
+<tr><td>Personal</td><td>u_views</td><td>String</td><td></td><td>74</td><td>121407</td><td>68024</td></tr>
+<tr><td></td><td>bio</td><td>u32</td><td></td><td>0</td><td>1121</td><td>7556</td></tr>
+<tr><td></td><td>biodate</td><td>DateTime</td><td></td><td>2025-04-16 18:02:31</td><td>2026-04-24 10:33:55</td><td>2025-04-02 15:04:45</td></tr>
+<tr><td></td><td>moddate</td><td>DateTime</td><td></td><td>2025-05-29 12:30:04</td><td>2026-03-16 21:40:10</td><td>2019-06-29 09:42:48</td></tr>
+<tr><td></td><td>image</td><td>Url.</td><td></td><td></td><td>url...</td><td>url...</td></tr>
+<tr><td></td><td>imageinfo</td><td>String</td><td></td><td></td><td>355:551:251165</td><td>212:323:31074</td></tr>
+<tr><td></td><td>born</td><td>u32</td><td></td><td></td><td></td><td>1971</td></tr>
+<tr><td>TimeZone</td><td><em>TimeZone</em></td><td>String</td><td>U</td><td>Pacific</td><td></td><td></td></tr>
+<tr><td></td><td>GMTOffset</td><td>String</td><td></td><td>-8</td><td></td><td></td></tr>
+<tr><td></td><td>DST</td><td>Y/N</td><td></td><td>Y</td><td></td><td></td></tr>
+</tbody></table>
+</div>
+<pre><code class="language-xml">&lt;?xml version="1.0" ?&gt; 
+&lt;QRZDatabase version="1.34"&gt;
+  &lt;Session&gt;
+    &lt;Error&gt;Not found: g1srdd&lt;/Error&gt; 
+    &lt;Key&gt;1232u4eaf13b8336d61982c1fd1099c9a38ac&lt;/Key&gt; 
+    &lt;GMTime&gt;Sun Nov 16 05:07:14 2003&lt;/GMTime&gt; 
+  &lt;/Session&gt;
+&lt;/QRZDatabase&gt;
 </code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../cli/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../references/service-geoip.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../cli/band-plan.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../references/service-loggng.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -251,11 +349,11 @@ Notes:
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../cli/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../references/service-geoip.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../cli/band-plan.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../references/service-loggng.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

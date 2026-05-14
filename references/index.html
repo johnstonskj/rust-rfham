@@ -203,15 +203,59 @@
 
                 <div id="content" class="content">
                     <main>
-                        
+                        <h1 id="references"><a class="header" href="#references">References</a></h1>
+<p>TBD</p>
+<h2 id="services"><a class="header" href="#services">Services</a></h2>
+<h3 id="callsign-information"><a class="header" href="#callsign-information">Callsign Information</a></h3>
+<p>Callsign lookup services, which provide information about radio callsigns, such as the
+operator's name, location, and other details.</p>
+<h4 id="endpoint-variables"><a class="header" href="#endpoint-variables">Endpoint Variables</a></h4>
+<ul>
+<li><code>call</code>: The callsign to look up.</li>
+</ul>
+<h4 id="example-endpoints"><a class="header" href="#example-endpoints">Example Endpoints</a></h4>
+<ul>
+<li><code>https://www.qrz.com/db/{call}</code> (browser)</li>
+<li><code>https://xmldata.qrz.com/xml/current/?s={session};callsign={sign}</code> (API)</li>
+<li><code>https://www.radioreference.com/db/ham/callsign/?cs={call}</code></li>
+</ul>
+<h3 id="grid-lookupmapping"><a class="header" href="#grid-lookupmapping">Grid Lookup/Mapping</a></h3>
+<p>Locator mapping services, which provides visualization Maidenhead grid locators.</p>
+<h4 id="endpoint-variables-1"><a class="header" href="#endpoint-variables-1">Endpoint Variables</a></h4>
+<ul>
+<li><code>loc</code>: The Maidenhead grid locator to visualize.</li>
+</ul>
+<h4 id="example-endpoints-1"><a class="header" href="#example-endpoints-1">Example Endpoints</a></h4>
+<ul>
+<li><code>https://k7fry.com/grid/?qth={loc}</code></li>
+<li><code>https://lcbsweden.com/www-sm7lcb/maps/qso_map/findlocator/index.html?{loc};</code></li>
+</ul>
+<h3 id="logging"><a class="header" href="#logging">Logging</a></h3>
+<p>Logging services, which provide a way to log radio contacts and other information.</p>
+<h3 id="geo-location"><a class="header" href="#geo-location">Geo Location</a></h3>
+<p>IP geolocation services, which provide the geographic location of an IP address.</p>
+<h4 id="endpoint-variables-2"><a class="header" href="#endpoint-variables-2">Endpoint Variables</a></h4>
+<ul>
+<li><code>ip</code>: The IP address to geolocate.</li>
+</ul>
+<h3 id="weather-services"><a class="header" href="#weather-services">Weather services</a></h3>
+<p>which provide weather information for a given location.</p>
+<h3 id="space-weather"><a class="header" href="#space-weather">Space weather</a></h3>
+<p>Provide information about solar activity and its effects on radio propagation.</p>
+<h3 id="sotapotawwff"><a class="header" href="#sotapotawwff">SOTA/POTA/WWFF</a></h3>
+<p>Which provide information about summits, parks, and other locations for radio operations.</p>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../cli/config.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../cli/externals.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
+                            <a rel="next prefetch" href="../references/errors.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -219,10 +263,13 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../cli/config.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../cli/externals.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
+                    <a rel="next prefetch" href="../references/errors.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
             </nav>
 
         </div>

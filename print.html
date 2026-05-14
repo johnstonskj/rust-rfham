@@ -288,20 +288,671 @@ nested <em>commands</em>, each having a set of arguments for operation.</p>
 <p>TBD</p>
 <h2 id="output"><a class="header" href="#output">Output</a></h2>
 <p>TBD</p>
+<h3 id="color"><a class="header" href="#color">Color</a></h3>
+<h3 id="verbosity"><a class="header" href="#verbosity">Verbosity</a></h3>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="antenna-commands"><a class="header" href="#antenna-commands">Antenna Commands</a></h1>
 <h2 id="length-calculations----length"><a class="header" href="#length-calculations----length">Length Calculations -- <code>length</code></a></h2>
+<pre><code class="language-bash">❯ rfham antenna length --band 6m --country US
+
+# Classic 6m single-band dipole antenna.
+
+~~~text
+|&lt;────────────────── λ/2 = 2.883 meters ───────────────────&gt;|
+|&lt;─── λ/4 = 1.441 meters ───&gt;| |&lt;─── λ/4 = 1.441 meters ───&gt;|
+──────────────────────────────┳──────────────────────────────
+                              ⎅    1:1 balun
+                              │  ∧
+                              │  │ λ/2 = 2.883 meters
+                              │  │ 50Ω feed line
+                              │  │
+                              │  ∨
+                              └┄┄┄ &gt; to transceiver
+~~~
+
+Notes:
+
+1. Frequency range for 6m band is 50.000 MHz - 54.000 MHz.
+   1. From the *US Amateur Radio Bands* by The American Radio Relay League (ARRL).
+2. Mid-point of band is 52.000 MHz.
+3. Wavelength of mid-point is 5.765 m.
+4. Half-wave length is λ/2 = 2.883 meters for overall antenna.
+5. Quarter-wave length is λ/4 = 1.441 meters for each antenna pole.
+6. Include a 1:1 Current **Balun**, often called a 1:1 *Choke* or *Line Isolator*.
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="band-plan-commands"><a class="header" href="#band-plan-commands">Band-Plan Commands</a></h1>
 <h2 id="itu-allocations----itu"><a class="header" href="#itu-allocations----itu">ITU Allocations -- <code>itu</code></a></h2>
+<pre><code class="language-bash">❯ rfham band-plan itu
+# IARU/ITU Frequency Allocations
+
+|       |       |   Region 1 |            |   Region 2 |            |  Region. 3 |            |
+| Name  | Band  |      Start |        End |      Start |        End |      Start |        End |
+| ----- | ----- | ---------: | ---------: | ---------: | ---------: | ---------: | ---------: |
+| 2200m | LF    | 0.1357 MHz | 0.1378 MHz | 0.1357 MHz | 0.1378 MHz | 0.1357 MHz | 0.1378 MHz |
+| 630m  | MF    |  0.472 MHz |  0.479 MHz |  0.472 MHz |  0.479 MHz |  0.472 MHz |  0.479 MHz |
+| 160m  | MF    |   1.81 MHz |      2 MHz |    1.8 MHz |      2 MHz |    1.8 MHz |      2 MHz |
+| 80m   | HF    |    3.5 MHz |    3.8 MHz |    3.5 MHz |      4 MHz |    3.5 MHz |    3.9 MHz |
+| 60m   | HF    | 5.3515 MHz | 5.3665 MHz | 5.3515 MHz | 5.3665 MHz | 5.3515 MHz | 5.3665 MHz |
+| 40m   | HF    |      7 MHz |    7.3 MHz |      7 MHz |    7.3 MHz |      7 MHz |    7.3 MHz |
+| 30m   | HF    |   10.1 MHz |  10.15 MHz |   10.1 MHz |  10.15 MHz |   10.1 MHz |  10.15 MHz |
+| 20m   | HF    |     14 MHz |  14.35 MHz |     14 MHz |  14.35 MHz |     14 MHz |  14.35 MHz |
+| 17m   | HF    | 18.068 MHz | 18.168 MHz | 18.068 MHz | 18.168 MHz | 18.068 MHz | 18.168 MHz |
+| 15m   | HF    |     21 MHz |  21.45 MHz |     21 MHz |  21.45 MHz |     21 MHz |  21.45 MHz |
+| 12m   | HF    |  24.89 MHz |  24.99 MHz |  24.89 MHz |  24.99 MHz |  24.89 MHz |  24.99 MHz |
+| 10m   | HF    |     28 MHz |   29.7 MHz |     28 MHz |   29.7 MHz |     28 MHz |   29.7 MHz |
+| 6m    | VHF   |     50 MHz |     54 MHz |     50 MHz |     54 MHz |     50 MHz |     54 MHz |
+| 2m    | VHF   |    144 MHz |    148 MHz |    144 MHz |    148 MHz |    144 MHz |    148 MHz |
+| 1.25m | VHF   |          - |          - |    220 MHz |    230 MHz |          - |          - |
+| 70cm  | UHF   |    430 MHz |    440 MHz |    430 MHz |    440 MHz |    430 MHz |    440 MHz |
+| 33cm  | UHF   |          - |          - |    902 MHz |    928 MHz |          - |          - |
+| 23cm  | UHF   |   1240 MHz |   1300 MHz |   1240 MHz |   1300 MHz |   1240 MHz |   1300 MHz |
+| 13cm  | UHF   |   2300 MHz |   2450 MHz |   2300 MHz |   2450 MHz |   2300 MHz |   2450 MHz |
+| 9cm   | SHF   |   3300 MHz |   3500 MHz |   3300 MHz |   3500 MHz |   3300 MHz |   3500 MHz |
+| 5cm   | SHF   |   5650 MHz |   5850 MHz |   5650 MHz |   5925 MHz |   5650 MHz |   5850 MHz |
+| 3cm   | SHF   |  10000 MHz |  10500 MHz |  10000 MHz |  10500 MHz |  10000 MHz |  10500 MHz |
+| 1.2cm | SHF   |  24000 MHz |  24250 MHz |  24000 MHz |  24250 MHz |  24000 MHz |  24250 MHz |
+| 6mm   | EHF   |  47000 MHz |  47200 MHz |  47000 MHz |  47200 MHz |  47000 MHz |  47200 MHz |
+| 4mm   | EHF   |  76000 MHz |  81500 MHz |  76000 MHz |  81500 MHz |  76000 MHz |  81500 MHz |
+| 2.5mm | EHF   | 122250 MHz | 123000 MHz | 122250 MHz | 123000 MHz | 122250 MHz | 123000 MHz |
+| 2mm   | EHF   | 134000 MHz | 141000 MHz | 134000 MHz | 141000 MHz | 134000 MHz | 141000 MHz |
+| 1mm   | EHF   | 241000 MHz | 250000 MHz | 241000 MHz | 250000 MHz | 241000 MHz | 250000 MHz |
+
+For more information, see:
+
+* [Amateur and Amateur-satellite Service Spectrum](https://www.iaru.org/wp-content/uploads/2020/01/Amateur-Services-Spectrum-2020_.pdf), IARU 2020.
+* [Regions](https://www.iaru.org/about-us/organisation-and-history/regions/), IARU.
+</code></pre>
 <h2 id="list-band-plans----list"><a class="header" href="#list-band-plans----list">List Band Plans -- <code>list</code></a></h2>
+<pre><code class="language-bash">❯ rfham band-plan list
+
+# Configured/Known Band Plans
+
+| Country  | Plan Name                      | Region   |
+| -------- | ------------------------------ | -------- |
+| UK       | UK Amateur Radio Band Plan     | 1        |
+| US       | US Amateur Radio Band Plan     | 2        |
+</code></pre>
 <h2 id="show-band-plan----show"><a class="header" href="#show-band-plan----show">Show Band Plan -- <code>show</code></a></h2>
+<pre><code class="language-bash">Show a given country's band plan
+
+Usage: rfham band-plan show [OPTIONS] &lt;COUNTRY&gt;
+
+Arguments:
+  &lt;COUNTRY&gt;  Show the band plan for this country [env: RFHAM_COUNTRY=]
+
+Options:
+  -b, --band &lt;BAND&gt;   Show only this band
+  -v, --verbose...    Increase logging verbosity by one level per occurance
+  -q, --quiet...      Decrease logging verbosity by one level per occurance
+      --color &lt;WHEN&gt;  Controls when to use color [default: auto] [possible values: auto, always, never]
+  -h, --help          Print help
+</code></pre>
+<pre><code class="language-bash">❯ rfham band-plan --band 6m US
+# US Amateur Radio Bands
+
+* Regulatory Agency: [Federal Communications Commission (FCC)](https://www.fcc.gov)
+* Maintaining Agency: [The American Radio Relay League (ARRL)](http://www.arrl.org)
+* Region: IARU/ITU Region 2
+* Countries: US
+* Default maximum power: 1500 W
+
+Notes:
+
+* An amateur station must use the minimum transmitter power necessary to carry out the desired communications.
+
+## License Classes
+
+0. Novice (N) inactive class
+1. Technician (T)
+2. General (G)
+3. Advanced (A) inactive class
+4. Amateur Extra (E)
+
+## 6m Band (50 MHz - 54 MHz)
+
+Note: amateur operators are the primary users on this band.
+
+Band restrictions:
+
+| Start      | End        | License Class  | Usage/Mode           | Power          | Max Bandwidth  |
+| ---------: | ---------: | -------------- | -------------------- | -------------- | -------------- |
+|     50 MHz |   50.1 MHz | any            | CW only              | full power     | -              |
+|   50.1 MHz |     54 MHz | any            | any                  | full power     | -              |
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="callsign-commands"><a class="header" href="#callsign-commands">Callsign Commands</a></h1>
 <h2 id="validate----validate"><a class="header" href="#validate----validate">Validate -- <code>validate</code></a></h2>
+<pre><code class="language-bash">❯ rfham call-sign validate K7SKJ/AG
+Callsign "K7SKJ/AG" **is** valid:
+
+* Prefix: K
+  * ITU allocation; Country: US
+* Separator Numeral: 7
+* Suffix: SKJ
+  * is special: false
+* Ancillary Suffix: AG
+  * is portable: false
+  * is mobile: false
+  * is aeronautical mobile: false
+  * is maritime mobile: false
+  * is at alternate location: false
+  * is operating QRP: false
+  * FCC license pending: **true**
+</code></pre>
 <h2 id="lookup-details----lookup"><a class="header" href="#lookup-details----lookup">Lookup Details -- <code>lookup</code></a></h2>
+<p>TBD</p>
+<pre><code class="language-bash">❯ rfham call-sign lookup K7SKJ
+
+# Callsign K7SKJ
+
+* Alias: KM7ABD
+
+Registered to Simon K Johnston [johnstonskj@gmail.com](mailto:johnstonskj@gmail.com).
+
+## License
+
+* Class **t**
+* Codes **HVIE**
+* Effective date: **2025-05-28**
+* Expiration date: **2035-05-28**
+
+## Mailing Address
+
+&gt; Atten; Simon Johnston \
+&gt; 2406 171st Ave SE \
+&gt; Bellevue \
+&gt; King \
+&gt; WA \
+&gt; 98008-5523 \
+&gt; United States
+
+## Other Location Information
+
+* DXCC Entity ID: 291 (United States)
+* DXCC Mailing Entity ID: 271
+* Grid locator [CN87wo](https://k7fry.com/grid/?qth=CN87wo)
+* Geographic Location [47° 35′ 19.643999″, -122° 6′ 44.279999″](https://www.google.com/maps?q=47.58879,-122.1123)
+
+Data sourced from the qrz.com XML API. Location source was geo-coded from the address.
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="completions-command"><a class="header" href="#completions-command">Completions Command</a></h1>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="config-commands"><a class="header" href="#config-commands">Config Commands</a></h1>
+<p>TBD</p>
+<h2 id="configuration-file-location"><a class="header" href="#configuration-file-location">Configuration File Location</a></h2>
+<p>TBD</p>
 <h2 id="initialization----init"><a class="header" href="#initialization----init">Initialization -- <code>init</code></a></h2>
+<pre><code class="language-bash">❯ rfham config init --config-file ./ex.toml --interactive K7SKJ
+
+Hi K7SKJ, let's build a new configuration together ...
+
+✓ What is your name? Simon Johnston
+⊢ Using the country code derived from your callsign: 'US'
+✓ What country are you in? US
+⊢ Using the latitude/logitude derived from your IP address: '47.97900000, -122.20210000'
+✓ What is your grid square? CN87vx
+✓ Do you want to add a mailing address? No
+✓ Do you want to set locale-specific defaults? Yes
+✓ Use which units for length? imperial
+✓ Use which units for temperature? imperial
+✓ Use which format for time? military
+✓ Do you want to add any equipment records? No
+✓ Do you want to connect to any web services? Yes
+✓ Do you have an account on qrz.com for callsign lookup? Yes
+✓ Qrz user name? K7SKJ
+✓ Password: ********
+✓ Are you sure you wish to write this configuration? Yes
+✓ Configuration file saved as "./ex.toml"
+</code></pre>
 <h2 id="current-configuration----show"><a class="header" href="#current-configuration----show">Current Configuration -- <code>show</code></a></h2>
-<div style="break-before: page; page-break-before: always;"></div>
+<pre><code class="language-bash">❯ rfham config show
+
+# Current Configuration
+
+* Path to file: "/Users/skj/.config/rfham/rfham-config.toml"
+
+## Locale
+
+* Length Units: imperial
+* Temperature Units: imperial
+* Time Format: military
+
+## Station
+
+* Callsign: K7SKJ
+  * ITU allocation; Country: US
+* Operator name: Simon Johnston
+
+### Location
+
+* Grid locator: CN87WO61
+* ITU region: 2
+* Country: US
+
+## Services
+
+* Credential storage: plain-text
+
+### Credentialed Services
+
+* **qrz-api** for K7SKJ
+</code></pre>
+<h2 id="current-configuration-field-access"><a class="header" href="#current-configuration-field-access">Current Configuration Field Access</a></h2>
+<p>Adding a <em>config path</em> to the end of the show command will retrieve only the specified field
+by traversing each name in the path as a field from the file root. So the <code>station</code> component is
+referenced as <code>station</code>, the call-sign field within this component is <code>station.call-sign</code>.</p>
+<p>The following retrieves the Maidenhead grid locator configured for the station.</p>
+<pre><code class="language-bash">❯ rfham config show station.location.grid-locator
+field: grid-locator
+ type: string
+value: "CN87WO61"
+</code></pre>
+<p>The flag <code>-c</code> or <code>--compact</code> will display the same information is a compact format of the form
+<em>name <code>:</code> type <code>=</code> value</em>. This provides a more easily machine-readable format for extensions.</p>
+<pre><code class="language-bash">❯ rfham config show --compact station.location.grid-locator
+grid-locator: string = "CN87WO61"
+</code></pre>
+<p>If the field requested is optional, but not present, the following is returned.</p>
+<pre><code class="language-bash">❯ rfham config show station.location.mailing-address
+field mailing-address is not set
+</code></pre>
+<p>If however any name is not valid for the preceding component an error is returned.</p>
+<pre><code class="language-bash">❯ rfham config show station.location
+🛑 Error: the config path name `location` expected additional path elements
+   └── 🔎 Component `station`
+   └── ℹ️  Help Possible names: call-sign, operator-name, location
+</code></pre>
+<p>Similarly, if a component is selected by there are no more elements in the path the overall
+path is invalid as not field can be selected.</p>
+<pre><code class="language-bash">❯ rfham config show station
+🛑 Error: the config path name `station` expected additional path elements
+   └── 🔎 Component `&lt;&lt;root&gt;&gt;`
+   └── ℹ️  Help Possible names: call-sign, operator-name, location
+</code></pre>
+<p>Finally, if a component is selected but there are no more elements in the path the overall
+path is invalid as not field can be selected.</p>
+<pre><code class="language-bash">❯ rfham config show station.name     
+🛑 Error: the config path name `name` is not valid in the matching component
+   ├── 🔎 Component `station`
+   └── ℹ️  Help Possible names: call-sign, operator-name, location
+</code></pre>
+<h2 id="schema"><a class="header" href="#schema">Schema</a></h2>
+<p>TBD</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="external-commands"><a class="header" href="#external-commands">External Commands</a></h1>
+<p>The RF-Ham CLI supports extension in a similar manner to Git and Cargo, which is to assume any
+command it does not recognize <em>may</em> represent an external command to run as a sub-process.
+Specifically an unknown command <code>qso</code> would have the CLI try and execute a process <code>rfham-qso</code>
+on the current path (<code>PATH</code> environment variable).</p>
+<pre><code class="language-bash">❯ cargo run qso  
+🛑 Error: no executable found for external command
+   ├── 🔎 Command `qso`
+   └── ℹ️  Help check that the executable `rfham-qso` exists and is in $PATH
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="references"><a class="header" href="#references">References</a></h1>
+<p>TBD</p>
+<h2 id="services"><a class="header" href="#services">Services</a></h2>
+<h3 id="callsign-information"><a class="header" href="#callsign-information">Callsign Information</a></h3>
+<p>Callsign lookup services, which provide information about radio callsigns, such as the
+operator's name, location, and other details.</p>
+<h4 id="endpoint-variables"><a class="header" href="#endpoint-variables">Endpoint Variables</a></h4>
+<ul>
+<li><code>call</code>: The callsign to look up.</li>
+</ul>
+<h4 id="example-endpoints"><a class="header" href="#example-endpoints">Example Endpoints</a></h4>
+<ul>
+<li><code>https://www.qrz.com/db/{call}</code> (browser)</li>
+<li><code>https://xmldata.qrz.com/xml/current/?s={session};callsign={sign}</code> (API)</li>
+<li><code>https://www.radioreference.com/db/ham/callsign/?cs={call}</code></li>
+</ul>
+<h3 id="grid-lookupmapping"><a class="header" href="#grid-lookupmapping">Grid Lookup/Mapping</a></h3>
+<p>Locator mapping services, which provides visualization Maidenhead grid locators.</p>
+<h4 id="endpoint-variables-1"><a class="header" href="#endpoint-variables-1">Endpoint Variables</a></h4>
+<ul>
+<li><code>loc</code>: The Maidenhead grid locator to visualize.</li>
+</ul>
+<h4 id="example-endpoints-1"><a class="header" href="#example-endpoints-1">Example Endpoints</a></h4>
+<ul>
+<li><code>https://k7fry.com/grid/?qth={loc}</code></li>
+<li><code>https://lcbsweden.com/www-sm7lcb/maps/qso_map/findlocator/index.html?{loc};</code></li>
+</ul>
+<h3 id="logging"><a class="header" href="#logging">Logging</a></h3>
+<p>Logging services, which provide a way to log radio contacts and other information.</p>
+<h3 id="geo-location"><a class="header" href="#geo-location">Geo Location</a></h3>
+<p>IP geolocation services, which provide the geographic location of an IP address.</p>
+<h4 id="endpoint-variables-2"><a class="header" href="#endpoint-variables-2">Endpoint Variables</a></h4>
+<ul>
+<li><code>ip</code>: The IP address to geolocate.</li>
+</ul>
+<h3 id="weather-services"><a class="header" href="#weather-services">Weather services</a></h3>
+<p>which provide weather information for a given location.</p>
+<h3 id="space-weather"><a class="header" href="#space-weather">Space weather</a></h3>
+<p>Provide information about solar activity and its effects on radio propagation.</p>
+<h3 id="sotapotawwff"><a class="header" href="#sotapotawwff">SOTA/POTA/WWFF</a></h3>
+<p>Which provide information about summits, parks, and other locations for radio operations.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="error-help"><a class="header" href="#error-help">Error Help</a></h1>
+<p>TBD</p>
+<h2 id="e001----initfailure"><a class="header" href="#e001----initfailure"><code>E001</code> -- InitFailure</a></h2>
+<p>TBD</p>
+<h2 id="e002----configfilewrite"><a class="header" href="#e002----configfilewrite"><code>E002</code> -- ConfigFileWrite</a></h2>
+<p>TBD</p>
+<div style="break-before: page; page-break-before: always;"></div><div style="break-before: page; page-break-before: always;"></div><h1 id="geoip-services"><a class="header" href="#geoip-services">Geo/IP Services</a></h1>
+<h2 id="provider-responses"><a class="header" href="#provider-responses">Provider Responses</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Geo</th><th>GeoIpLookup</th><th>IPinfo free</th><th>IPinfo Lite</th><th>IPinfo Core</th><th>Maxmind Country</th><th>Maxmind City</th></tr></thead><tbody>
+<tr><td>continent.code</td><td>continent_code</td><td>n/a</td><td>continent_code</td><td>n/a</td><td>continent.code</td><td>continent.code</td></tr>
+<tr><td>continent.name</td><td>continent_name</td><td>n/a</td><td>continent_name</td><td>n/a</td><td>continent.names.en</td><td>continent.names.en</td></tr>
+<tr><td>country.code</td><td>country_code</td><td>country</td><td>country_code</td><td>country</td><td>country.code</td><td>country.code</td></tr>
+<tr><td>country.name</td><td>country_name</td><td>n/a</td><td>country_name</td><td>n/a</td><td>country.names.en</td><td>country.names.en</td></tr>
+<tr><td>region</td><td>region</td><td>region</td><td>n/a</td><td>region</td><td>n/a</td><td><em>subdivisions</em>?</td></tr>
+<tr><td>city</td><td>city</td><td>city</td><td>n/a</td><td>city</td><td>n/a</td><td>city.names.en</td></tr>
+<tr><td>timezone.name</td><td>timezone_name</td><td>timezone</td><td>n/a</td><td>timezone</td><td>n/a</td><td>location.time_zone</td></tr>
+<tr><td>postal_code</td><td>postal_code</td><td>postal</td><td>n/a</td><td>postal</td><td>n/a</td><td>postal.code</td></tr>
+<tr><td>geo.latitude</td><td>latitude</td><td><em>loc</em></td><td>n/a</td><td><em>loc</em></td><td>n/a</td><td>location.latitude</td></tr>
+<tr><td>geo.longitude</td><td>longitude</td><td><em>loc</em></td><td>n/a</td><td><em>loc</em></td><td>n/a</td><td>location.longitude</td></tr>
+<tr><td>geo.accuracy</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>location.accuracy_radius</td></tr>
+</tbody></table>
+</div>
+<h3 id="geo-ip-lookup"><a class="header" href="#geo-ip-lookup">Geo Ip Lookup</a></h3>
+<p>This uses the publicly accessible API at <code>https://json.geoiplookup.io/{ip}</code>.</p>
+<pre><code class="language-json">{
+    "ip": "...",
+    "isp": "Akamai Technologies, Inc.",
+    "org": "Akamai Technologies, Inc.",
+    "hostname": "",
+    "latitude": 32.814,
+    "longitude": -96.9489,
+    "postal_code": "",
+    "city": "Irving",
+    "country_code": "US",
+    "country_name": "United States",
+    "continent_code": "NA",
+    "continent_name": "North America",
+    "region": "Texas",
+    "district": "",
+    "timezone_name": "America/Chicago",
+    "connection_type": "Corporate",
+    "asn_number": 16625,
+    "asn_org": "Akamai Technologies, Inc.",
+    "asn": "AS16625 - Akamai Technologies, Inc.",
+    "currency_code": "USD",
+    "currency_name": "United States Dollar",
+    "language_code": "en",
+    "language_name": "English",
+    "success": true,
+    "premium": false
+}
+</code></pre>
+<h3 id="ipinfo"><a class="header" href="#ipinfo">IPInfo</a></h3>
+<p>Result from <code>curl https://ipinfo.io/</code>; legacy free API. See <a href="https://ipinfo.io/developers/ipinfo-api">IPinfo APIs</a> for comparison.</p>
+<pre><code class="language-json">{
+  "ip": "...",
+  "hostname": "...",
+  "city": "...",
+  "region": "...",
+  "country": "US",
+  "loc": "36.1329,-94.1655",
+  "org": "...",
+  "postal": "...",
+  "timezone": "America/Chicago",
+  "readme": "https://ipinfo.io/missingauth"
+}
+</code></pre>
+<p>Results from the IPInfo Lite API.</p>
+<pre><code class="language-json">{
+ ip:"...",
+ asn:"AS701",
+ as_name:"Verizon Business",
+ as_domain:"verizonbusiness.com",
+ country_code:"US",
+ country:"United States",
+ continent_code:"NA",
+ continent:"North America"
+}
+</code></pre>
+<p>Results from the IPInfo Core API.</p>
+<pre><code class="language-json">{
+ ip:"...",
+ city:"Boston",
+ region:"Massachusetts",
+ country:"US",
+ loc:"42.3584,-71.0598",
+ postal:"02151",
+ timezone:"America/New_York",
+ asn:{
+  asn:"AS701",
+  name:"Verizon Business",
+  domain:"verizonbusiness.com",
+  route:"71.243.0.0/17",
+  type:"isp"
+ },
+ is_anycast:false,
+ is_mobile:false,
+ is_anonymous:false,
+ is_satellite:false,
+ is_hosting:false
+}
+</code></pre>
+<h3 id="maxmind-geolite-country"><a class="header" href="#maxmind-geolite-country">Maxmind GeoLite Country</a></h3>
+<pre><code class="language-json">{
+  "continent": {
+    "code": "NA",
+    "geoname_id": 123456,
+    "names": { ... }
+  },
+  "country": {
+    "geoname_id": 6252001,
+    "is_in_european_union": false,
+    "iso_code": "US",
+    "names": { ... }
+  },
+  "registered_country": {
+    "geoname_id": 6252001,
+    "is_in_european_union": true,
+    "iso_code": "US",
+    "names": { ... }
+  },
+  "represented_country": {
+    "geoname_id": 6252001,
+    "is_in_european_union": true,
+    "iso_code": "US",
+    "names": { ... },
+    "type": "military"
+  },
+  "traits": {
+    "ip_address": "1.2.3.4",
+    "is_anycast": true,
+    "network": "1.2.3.0/24"
+  }
+}
+</code></pre>
+<h3 id="maxmind-geolite-city"><a class="header" href="#maxmind-geolite-city">Maxmind GeoLite City</a></h3>
+<pre><code class="language-json">{
+  "continent": {
+    "code": "NA",
+    "geoname_id": 123456,
+    "names": { ... }
+  },
+  "country": {
+    "geoname_id": 6252001,
+    "is_in_european_union": false,
+    "iso_code": "US",
+    "names": { ... }
+  },
+  "registered_country": {
+    "geoname_id": 6252001,
+    "is_in_european_union": true,
+    "iso_code": "US",
+    "names": { ... }
+  },
+  "represented_country": {
+    "geoname_id": 6252001,
+    "is_in_european_union": true,
+    "iso_code": "US",
+    "names": { ... },
+    "type": "military"
+  },
+  "traits": {
+    "ip_address": "1.2.3.4",
+    "is_anycast": true,
+    "network": "1.2.3.0/24",
+    "autonomous_system_number": 1239,
+    "autonomous_system_organization": "Linkem IR WiMax Network",
+    "connection_type": "Cable/DSL",
+    "domain": "example.com",
+    "isp": "Linkem spa",
+    "mobile_country_code": "310",
+    "mobile_network_code": "004",
+    "organization": "Linkem IR WiMax Network"
+  },
+  "city": {
+    "geoname_id": 54321,
+    "names": { ... }
+  },
+  "location": {
+    "accuracy_radius": 20,
+    "latitude": 37.6293,
+    "longitude": -122.1163,
+    "metro_code": 807,
+    "time_zone": "America/Los_Angeles"
+  },
+  "postal": {
+    "code": "90001"
+  },
+  "subdivisions": [
+    {
+      "geoname_id": 5332921,
+      "iso_code": "CA",
+      "names": { ... }
+    }
+  ]
+}
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="callsign-services"><a class="header" href="#callsign-services">Callsign Services</a></h1>
+<h2 id="qrzcom-notes"><a class="header" href="#qrzcom-notes">Qrz.com Notes</a></h2>
+<pre><code class="language-bash">❯ curl 'https://xmldata.qrz.com/xml/current/?username=K7SKJ;password=...;agent=RF-Ham-1.0'
+</code></pre>
+<pre><code class="language-xml">&lt;?xml version="1.0" encoding="utf-8" ?&gt;
+&lt;QRZDatabase version="1.36" xmlns="http://xmldata.qrz.com"&gt;
+  &lt;Session&gt;
+    &lt;Key&gt;db5137fe6bb5310fb2cd9b07a1fa04ea&lt;/Key&gt;
+    &lt;Count&gt;14&lt;/Count&gt;
+    &lt;SubExp&gt;Mon May  8 20:16:30 2028&lt;/SubExp&gt;
+    &lt;GMTime&gt;Sat May  9 20:20:10 2026&lt;/GMTime&gt;
+    &lt;Remark&gt;cpu: 0.013s&lt;/Remark&gt;
+  &lt;/Session&gt;
+&lt;/QRZDatabase&gt;
+</code></pre>
+<pre><code class="language-bash">❯ curl 'https://xmldata.qrz.com/xml/current/?s=...;callsign=K7SKJ'
+</code></pre>
+<pre><code class="language-xml">&lt;?xml version="1.0" encoding="utf-8" ?&gt;
+&lt;QRZDatabase version="1.36" xmlns="http://xmldata.qrz.com"&gt;
+  &lt;Callsign&gt;
+    &lt;call&gt;K7SKJ&lt;/call&gt;
+    &lt;aliases&gt;KM7ABD&lt;/aliases&gt;
+    &lt;dxcc&gt;291&lt;/dxcc&gt;
+    &lt;attn&gt;Simon Johnston&lt;/attn&gt;
+    &lt;fname&gt;Simon K&lt;/fname&gt;
+    &lt;name&gt;Johnston&lt;/name&gt;
+    &lt;addr1&gt;2406 171st Ave SE&lt;/addr1&gt;
+    &lt;addr2&gt;Bellevue&lt;/addr2&gt;
+    &lt;state&gt;WA&lt;/state&gt;
+    &lt;zip&gt;98008-5523&lt;/zip&gt;
+    &lt;country&gt;United States&lt;/country&gt;
+    &lt;lat&gt;47.588790&lt;/lat&gt;
+    &lt;lon&gt;-122.112300&lt;/lon&gt;
+    &lt;grid&gt;CN87wo&lt;/grid&gt;
+    &lt;county&gt;King&lt;/county&gt;
+    &lt;ccode&gt;271&lt;/ccode&gt;
+    &lt;fips&gt;53033&lt;/fips&gt;
+    &lt;land&gt;United States&lt;/land&gt;
+    &lt;efdate&gt;2025-05-28&lt;/efdate&gt;
+    &lt;expdate&gt;2035-05-28&lt;/expdate&gt;
+    &lt;class&gt;T&lt;/class&gt;
+    &lt;codes&gt;HVIE&lt;/codes&gt;
+    &lt;email&gt;johnstonskj@gmail.com&lt;/email&gt;
+    &lt;u_views&gt;74&lt;/u_views&gt;
+    &lt;bio&gt;0&lt;/bio&gt;
+    &lt;biodate&gt;2025-04-16 18:02:31&lt;/biodate&gt;
+    &lt;moddate&gt;2025-05-29 12:30:04&lt;/moddate&gt;
+    &lt;MSA&gt;7600&lt;/MSA&gt;
+    &lt;AreaCode&gt;425&lt;/AreaCode&gt;
+    &lt;TimeZone&gt;Pacific&lt;/TimeZone&gt;
+    &lt;GMTOffset&gt;-8&lt;/GMTOffset&gt;
+    &lt;DST&gt;Y&lt;/DST&gt;
+    &lt;lotw&gt;1&lt;/lotw&gt;
+    &lt;geoloc&gt;geocode&lt;/geoloc&gt;
+    &lt;name_fmt&gt;Simon K Johnston&lt;/name_fmt&gt;
+    &lt;serial&gt;2665177&lt;/serial&gt;
+  &lt;/Callsign&gt;
+  &lt;Session&gt;
+    &lt;Key&gt;db5137fe6bb5310fb2cd9b07a1fa04ea&lt;/Key&gt;
+    &lt;Count&gt;15&lt;/Count&gt;
+    &lt;SubExp&gt;Mon May  8 20:16:30 2028&lt;/SubExp&gt;
+    &lt;GMTime&gt;Sat May  9 20:20:59 2026&lt;/GMTime&gt;
+    &lt;Remark&gt;cpu: 0.081s&lt;/Remark&gt;
+  &lt;/Session&gt;
+&lt;/QRZDatabase&gt;
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Group</th><th>Field</th><th>Type</th><th>Rq?</th><th>K7SKJ (KM7ABD)</th><th>IR3ORCO</th><th>SP9JP</th></tr></thead><tbody>
+<tr><td>Key</td><td>serial</td><td>String</td><td>Y</td><td>2665177</td><td>2713763</td><td>2008366</td></tr>
+<tr><td></td><td>user</td><td>Callsign</td><td></td><td></td><td></td><td></td></tr>
+<tr><td>Sign</td><td>call</td><td>Callsign</td><td>Y</td><td>7SKJ</td><td>IR3ORCO</td><td>SP9JP</td></tr>
+<tr><td></td><td>xref</td><td>Callsign</td><td></td><td>(KM7ABD)</td><td></td><td></td></tr>
+<tr><td></td><td>aliases</td><td>Callsign..</td><td></td><td>KM7ABD</td><td></td><td>SP7RJA</td></tr>
+<tr><td></td><td>p_call</td><td>Callsign</td><td></td><td></td><td></td><td></td></tr>
+<tr><td>DX</td><td>dxcc</td><td>u32</td><td>Y</td><td>291</td><td>248</td><td>269</td></tr>
+<tr><td></td><td>ccode</td><td>u32</td><td>Y</td><td>271</td><td>128</td><td>205</td></tr>
+<tr><td></td><td>land</td><td>String</td><td>Y</td><td>United States</td><td>Italy</td><td>Poland</td></tr>
+<tr><td>Name</td><td>fname</td><td>String</td><td>Y</td><td>Simon K</td><td>Ari</td><td>Jurek</td></tr>
+<tr><td></td><td>name</td><td>String</td><td>Y</td><td>Johnston</td><td>Udine</td><td>Polczynski</td></tr>
+<tr><td></td><td>nickname</td><td>String</td><td></td><td></td><td></td><td></td></tr>
+<tr><td></td><td>name_fmt</td><td>String</td><td>Y</td><td>Simon K Johnston</td><td>Ari Udine</td><td>Jurek Polczynski</td></tr>
+<tr><td>Address</td><td>attn</td><td>String</td><td></td><td>Simon Johnston</td><td></td><td></td></tr>
+<tr><td></td><td>addr1</td><td>String</td><td></td><td>2406 171st Ave SE</td><td>via Diaz 58</td><td>e-mail me to get full address</td></tr>
+<tr><td></td><td>addr2</td><td>String</td><td></td><td>Bellevue</td><td>UDINE</td><td>Krakow</td></tr>
+<tr><td></td><td><em>state</em></td><td>String</td><td>U</td><td>WA</td><td></td><td></td></tr>
+<tr><td></td><td><em>fips</em></td><td>String</td><td>U</td><td>53033</td><td></td><td></td></tr>
+<tr><td></td><td><em>county</em></td><td>String</td><td>U</td><td>King</td><td></td><td></td></tr>
+<tr><td></td><td>zip</td><td>String</td><td></td><td>98008-5523</td><td>33100</td><td></td></tr>
+<tr><td></td><td>country</td><td>String</td><td>Y</td><td>United States</td><td>Italy</td><td>Poland</td></tr>
+<tr><td>Location</td><td>lat</td><td>Latitude</td><td></td><td>47.588790</td><td>46.061667</td><td>50.041964</td></tr>
+<tr><td></td><td>long</td><td>Longitude</td><td></td><td>-122.112300</td><td>13.206667</td><td>19.918086</td></tr>
+<tr><td></td><td>grid</td><td>Locator</td><td></td><td>CN87wo</td><td>JN66ob</td><td>JO90xb</td></tr>
+<tr><td></td><td>cqzone</td><td>u32</td><td></td><td></td><td>15</td><td>15</td></tr>
+<tr><td></td><td>ituzone</td><td>u32</td><td></td><td></td><td>28</td><td>28</td></tr>
+<tr><td></td><td>geoloc</td><td>enum</td><td>Y</td><td>geocode</td><td>user</td><td>user</td></tr>
+<tr><td></td><td><em>MSA</em></td><td>u32</td><td>U</td><td>7600</td><td></td><td></td></tr>
+<tr><td></td><td><em>AreaCode</em></td><td>u32</td><td>U</td><td>425</td><td></td><td></td></tr>
+<tr><td></td><td>iota</td><td>String</td><td></td><td></td><td></td><td></td></tr>
+<tr><td>License</td><td><em>efdate</em></td><td>Date</td><td>U</td><td>2025-05-28</td><td></td><td></td></tr>
+<tr><td></td><td><em>expdate</em></td><td>Date.</td><td>U</td><td>2035-05-28</td><td></td><td></td></tr>
+<tr><td></td><td>class</td><td>String</td><td></td><td>T</td><td></td><td>A</td></tr>
+<tr><td></td><td><em>codes</em></td><td>String</td><td>U</td><td>HVIE</td><td></td><td></td></tr>
+<tr><td>QSL</td><td>qslmgr</td><td>String</td><td></td><td></td><td></td><td>LoTW preffered, ...</td></tr>
+<tr><td></td><td>eqsl</td><td>0/1</td><td></td><td></td><td></td><td>1</td></tr>
+<tr><td></td><td>mqsl</td><td>0/1</td><td></td><td></td><td></td><td>1</td></tr>
+<tr><td></td><td>lotw</td><td>0/1</td><td></td><td>1</td><td></td><td>1</td></tr>
+<tr><td>Contact</td><td>email</td><td>String</td><td></td><td><a href="mailto:references/johnstonskj@gmail.com">johnstonskj@gmail.com</a></td><td></td><td><a href="mailto:references/sp9jp@polczynski.com">sp9jp@polczynski.com</a></td></tr>
+<tr><td>Personal</td><td>u_views</td><td>String</td><td></td><td>74</td><td>121407</td><td>68024</td></tr>
+<tr><td></td><td>bio</td><td>u32</td><td></td><td>0</td><td>1121</td><td>7556</td></tr>
+<tr><td></td><td>biodate</td><td>DateTime</td><td></td><td>2025-04-16 18:02:31</td><td>2026-04-24 10:33:55</td><td>2025-04-02 15:04:45</td></tr>
+<tr><td></td><td>moddate</td><td>DateTime</td><td></td><td>2025-05-29 12:30:04</td><td>2026-03-16 21:40:10</td><td>2019-06-29 09:42:48</td></tr>
+<tr><td></td><td>image</td><td>Url.</td><td></td><td></td><td>url...</td><td>url...</td></tr>
+<tr><td></td><td>imageinfo</td><td>String</td><td></td><td></td><td>355:551:251165</td><td>212:323:31074</td></tr>
+<tr><td></td><td>born</td><td>u32</td><td></td><td></td><td></td><td>1971</td></tr>
+<tr><td>TimeZone</td><td><em>TimeZone</em></td><td>String</td><td>U</td><td>Pacific</td><td></td><td></td></tr>
+<tr><td></td><td>GMTOffset</td><td>String</td><td></td><td>-8</td><td></td><td></td></tr>
+<tr><td></td><td>DST</td><td>Y/N</td><td></td><td>Y</td><td></td><td></td></tr>
+</tbody></table>
+</div>
+<pre><code class="language-xml">&lt;?xml version="1.0" ?&gt; 
+&lt;QRZDatabase version="1.34"&gt;
+  &lt;Session&gt;
+    &lt;Error&gt;Not found: g1srdd&lt;/Error&gt; 
+    &lt;Key&gt;1232u4eaf13b8336d61982c1fd1099c9a38ac&lt;/Key&gt; 
+    &lt;GMTime&gt;Sun Nov 16 05:07:14 2003&lt;/GMTime&gt; 
+  &lt;/Session&gt;
+&lt;/QRZDatabase&gt;
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="logging-services"><a class="header" href="#logging-services">Logging Services</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="weather-services-1"><a class="header" href="#weather-services-1">Weather Services</a></h1>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
