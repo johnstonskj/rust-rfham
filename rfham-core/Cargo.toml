@@ -13,7 +13,7 @@ rust-version = "1.94"
 
 [package.metadata.docs.rs]
 features = ["std"]
-rustdoc-args = ["--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "--html-in-header", "rustdoc/header.html"]
 
 [package.metadata.playground]
 features = ["std"]
@@ -23,6 +23,9 @@ version = "0.3"
 
 [features]
 default = ["std"]
+#! This library supports `no_std` if you set `default-features` to `false`.
+
+## Enables the `std` library, and associated feature in dependencies.
 std = [
     "num-rational/std",
     "num-traits/std",
@@ -32,9 +35,11 @@ std = [
     "serde_with/std",
     "thiserror/std",
     "uom/std",
+    "url/std",
 ]
 
 [dependencies]
+document-features = "0.2"
 num-rational = { version = "0.4", default-features = false }
 num-traits = { version = "0.2", default-features = false }
 regex = { version = "1.12", default-features = false }
@@ -44,6 +49,7 @@ serde_with = { version = "3.18", default-features = false, features = [
     "alloc",
     "macros",
 ] }
+strum = { version = "0.28", features = ["derive"] }
 thiserror = { version = "2.0", default-features = false }
 uom = { version = "0.38", default-features = false, features = [
     "autoconvert",
@@ -51,6 +57,7 @@ uom = { version = "0.38", default-features = false, features = [
     "serde",
     "si",
 ] }
+url = { version = "2.5", default-features = false, features = ["serde"] }
 
 [dev-dependencies]
 pretty_assertions = "1.4"

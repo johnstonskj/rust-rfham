@@ -14,8 +14,13 @@
 //! assert!("".parse::<ConfigPath>().is_err());
 //! ```
 
-use core::{fmt::Display, str::FromStr};
+use crate::error::ConfigError;
 use rfham_core::{Name, error::CoreError};
+use std::{
+    fmt::{Debug, Display},
+    path::PathBuf,
+    str::FromStr,
+};
 
 // ------------------------------------------------------------------------------------------------
 // Public Macros
@@ -27,6 +32,25 @@ use rfham_core::{Name, error::CoreError};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ConfigPath(Vec<Name>);
+
+pub trait PathTarget: Debug {
+    fn path_name(&self) -> Option<Name>;
+
+    fn value(&self, path: &ConfigPath) -> Result<Value, ConfigError>;
+
+    fn value_names(&self) -> impl Iterator<Item = &'static str>;
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Value {
+    String(String),
+    Integer(i64),
+    Float(f64),
+    Boolean(bool),
+    Path(PathBuf),
+    EnumValue(String),
+    None,
+}
 
 // ------------------------------------------------------------------------------------------------
 // Public Functions
@@ -85,6 +109,90 @@ impl From<Vec<Name>> for ConfigPath {
             "ConfigPath must have at least one component"
         );
         Self(values)
+    }
+}
+
+impl ConfigPath {
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_single(&self) -> bool {
+        self.0.len() == 1
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Name> {
+        self.0.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Name> {
+        self.0.iter_mut()
+    }
+
+    pub fn push(&mut self, name: Name) {
+        self.0.push(name);
+    }
+
+    pub fn pop(&mut self) -> Option<Name> {
+        if !self.is_single() {
+            self.0.pop()
+        } else {
+            None
+        }
+    }
+
+    pub fn head(&self) -> &Name {
+        &self.0[0]
+    }
+
+    pub fn tail(&self) -> Option<ConfigPath> {
+        if !self.is_single() {
+            Some(ConfigPath(self.0[1..].to_vec()))
+        } else {
+            None
+        }
+    }
+
+    pub fn field_name(&self) -> &Name {
+        self.0.last().unwrap()
+    }
+
+    pub fn split(&self) -> (&Name, Option<ConfigPath>) {
+        (self.head(), self.tail())
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Boolean(v) => v.to_string(),
+                Self::EnumValue(v) => v.to_string(),
+                Self::Float(v) => v.to_string(),
+                Self::Integer(v) => v.to_string(),
+                Self::None => "".to_string(),
+                Self::Path(v) => v.display().to_string(),
+                Self::String(v) => format!("{:?}", v),
+            }
+        )
+    }
+}
+
+impl Value {
+    pub fn type_label(&self) -> &'static str {
+        match self {
+            Self::Boolean(_) => "bool",
+            Self::EnumValue(_) => "enum value",
+            Self::Float(_) => "f64",
+            Self::Integer(_) => "i64",
+            Self::None => "not set",
+            Self::Path(_) => "path",
+            Self::String(_) => "string",
+        }
     }
 }
 

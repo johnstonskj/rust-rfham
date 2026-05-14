@@ -11,8 +11,8 @@
 //!
 //! ```rust
 //! use rfham_itu::callsigns::{ItuSeriesAllocation, ItuInternationalOrganization};
-//! use rfham_core::callsign::CallSign;
-//! use rfham_core::country::CountryCode;
+//! use rfham_core::callsigns::CallSign;
+//! use rfham_core::countries ::CountryCode;
 //! use std::str::FromStr;
 //!
 //! let callsign = CallSign::from_str("K7SKJ/M").unwrap();
@@ -25,6 +25,7 @@
 
 use core::{fmt::Display, str::FromStr};
 use rfham_core::{
+    StringLike,
     callsigns::CallSign,
     countries::{CountryCode, CountryCodeNumeric},
     error::CoreError,

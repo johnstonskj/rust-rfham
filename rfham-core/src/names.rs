@@ -5,16 +5,16 @@
 //! | Type | Max length | Allowed content |
 //! |------|-----------|-----------------|
 //! | [`Name`] | 32 | Starts with ASCII letter; then `[a-zA-Z0-9_-]`; normalised to lowercase on parse |
-//! | [`DisplayName`] | 48 | Any string under the limit (human-readable labels) |
+//! | [`Label`] | 48 | Any string under the limit (human-readable labels) |
 //! | [`Tag`] | 24 | Non-empty; no whitespace |
 //!
-//! The [`name_fn!`] macro generates zero-cost `fn` accessors that return a typed [`Name`]
+//! The `name_fn` macro generates zero-cost `fn` accessors that return a typed [`Name`]
 //! literal, avoiding repeated `new_unchecked` calls at call sites.
 //!
 //! # Examples
 //!
 //! ```rust
-//! use rfham_core::id::{Name, StringLike};
+//! use rfham_core::{names::Name, StringLike};
 //! use std::str::FromStr;
 //!
 //! let n: Name = Name::from_str("Yaesu").unwrap();
@@ -27,13 +27,13 @@
 //! Pre-defined brand-name accessors:
 //!
 //! ```rust
-//! use rfham_core::id::{brand_name_icom, brand_name_yaesu, StringLike};
+//! use rfham_core::{names::{brand_name_icom, brand_name_yaesu}, StringLike};
 //!
 //! assert_eq!(brand_name_icom().as_str(), "icom");
 //! assert_eq!(brand_name_yaesu().as_str(), "yaesu");
 //! ```
 
-use crate::error::CoreError as Error;
+use crate::{StringLike, error::CoreError};
 use core::{fmt::Display, hash::Hash, str::FromStr};
 use serde::{Deserialize, Serialize};
 
@@ -54,24 +54,50 @@ macro_rules! name_fn {
 // Public Types
 // ------------------------------------------------------------------------------------------------
 
-pub trait StringLike:
-    Clone + Display + PartialEq + Eq + PartialOrd + Ord + Hash + FromStr + AsRef<str> + Into<String>
-{
-    const MAX_LENGTH: usize;
-
-    fn new_unchecked<S: Into<String>>(name: S) -> Self;
-    fn as_str(&self) -> &str;
-    fn is_valid(s: &str) -> bool;
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub struct Name(String);
 
+pub trait Named {
+    fn name(&self) -> &Name;
+    fn set_name(&mut self, name: Name);
+}
+
+pub trait MaybeNamed {
+    fn with_name(self, name: Name) -> Self;
+
+    fn name(&self) -> Option<&Name>;
+    fn set_name(&mut self, name: Name);
+    fn unset_name(&mut self);
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
-pub struct DisplayName(String);
+pub struct Label(String);
+
+pub trait Labeled {
+    fn label(&self) -> &Label;
+    fn set_set_label(&mut self, name: Label);
+}
+
+pub trait MaybeLabeled {
+    fn with_label(self, label: Label) -> Self;
+
+    fn label(&self) -> Option<&Label>;
+    fn set_label(&mut self, label: Label);
+    fn unset_label(&mut self);
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub struct Tag(String);
+
+pub trait Tagged {
+    fn with_tags(self, tags: impl IntoIterator<Item = Tag>) -> Self;
+    fn tags(&self) -> impl Iterator<Item = &Tag>;
+    fn extend_tags(&mut self, tags: impl IntoIterator<Item = Tag>);
+    fn has_tag(&self, tag: &Tag) -> bool;
+    fn add_tag(&mut self, tag: Tag);
+    fn remove_tag(&mut self, tag: &Tag);
+    fn clear_tags(&mut self);
+}
 
 pub const RFHAM_URN_PREFIX: &str = "urn:rfham:";
 
@@ -110,13 +136,13 @@ impl AsRef<str> for Name {
 }
 
 impl FromStr for Name {
-    type Err = Error;
+    type Err = CoreError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if Self::is_valid(s) {
             Ok(Self(s.to_ascii_lowercase()))
         } else {
-            Err(Error::InvalidValueFromStr(s.to_string(), "Name"))
+            Err(CoreError::InvalidValueFromStr(s.to_string(), "Name"))
         }
     }
 }
@@ -144,37 +170,37 @@ impl StringLike for Name {
 // Implementations ❯ DisplayName
 // ------------------------------------------------------------------------------------------------
 
-impl Display for DisplayName {
+impl Display for Label {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-impl From<DisplayName> for String {
-    fn from(value: DisplayName) -> Self {
+impl From<Label> for String {
+    fn from(value: Label) -> Self {
         value.0
     }
 }
 
-impl AsRef<str> for DisplayName {
+impl AsRef<str> for Label {
     fn as_ref(&self) -> &str {
         self.0.as_ref()
     }
 }
 
-impl FromStr for DisplayName {
-    type Err = Error;
+impl FromStr for Label {
+    type Err = CoreError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if Self::is_valid(s) {
             Ok(Self(s.to_ascii_lowercase()))
         } else {
-            Err(Error::InvalidValueFromStr(s.to_string(), "DisplayName"))
+            Err(CoreError::InvalidValueFromStr(s.to_string(), "DisplayName"))
         }
     }
 }
 
-impl StringLike for DisplayName {
+impl StringLike for Label {
     const MAX_LENGTH: usize = 48;
 
     fn new_unchecked<S: Into<String>>(display_name: S) -> Self {
@@ -213,13 +239,13 @@ impl AsRef<str> for Tag {
 }
 
 impl FromStr for Tag {
-    type Err = Error;
+    type Err = CoreError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if Self::is_valid(s) {
             Ok(Self(s.to_ascii_lowercase()))
         } else {
-            Err(Error::InvalidValueFromStr(s.to_string(), "Tag"))
+            Err(CoreError::InvalidValueFromStr(s.to_string(), "Tag"))
         }
     }
 }
@@ -246,7 +272,7 @@ impl StringLike for Tag {
 
 #[cfg(test)]
 mod tests {
-    use super::{DisplayName, Name, Tag};
+    use super::{Label, Name, Tag};
     use crate::names::StringLike;
     use pretty_assertions::assert_eq;
     use std::str::FromStr;
@@ -283,13 +309,13 @@ mod tests {
 
     #[test]
     fn display_name_valid() {
-        assert!(DisplayName::is_valid("Yaesu FT-991A"));
-        assert!(DisplayName::is_valid("")); // empty is valid for DisplayName
+        assert!(Label::is_valid("Yaesu FT-991A"));
+        assert!(Label::is_valid("")); // empty is valid for DisplayName
     }
 
     #[test]
     fn display_name_too_long_is_invalid() {
-        assert!(!DisplayName::is_valid(&"x".repeat(48)));
+        assert!(!Label::is_valid(&"x".repeat(48)));
     }
 
     #[test]

@@ -4,7 +4,7 @@ use crate::{
     error::CliError,
 };
 use clap::{Args, Subcommand};
-use rfham_core::Name;
+use rfham_config::load_global_config;
 use std::process::ExitCode;
 
 // ------------------------------------------------------------------------------------------------
@@ -27,8 +27,6 @@ pub struct CmdValidateCallSign {
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
 pub struct CmdLookupCallSign {
-    #[arg(short = 's', long)]
-    service: Option<Name>,
     callsign: String,
 }
 
@@ -41,6 +39,7 @@ impl OnceCommand for CallSignCommands {
     type Error = CliError;
 
     fn execute(self) -> Result<Self::Output, Self::Error> {
+        load_global_config()?;
         match self {
             Self::Validate(cmd) => cmd.execute(),
             Self::Lookup(cmd) => cmd.execute(),
@@ -62,6 +61,6 @@ impl OnceCommand for CmdLookupCallSign {
     type Error = CliError;
 
     fn execute(self) -> Result<Self::Output, Self::Error> {
-        LookupCallSign::new(self.callsign, self.service).execute()
+        LookupCallSign::new(self.callsign).execute()
     }
 }

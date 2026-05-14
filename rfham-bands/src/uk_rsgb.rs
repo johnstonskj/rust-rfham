@@ -11,8 +11,10 @@
 
 use crate::{Band, BandPlan, LicenseClass};
 use rfham_core::{
+    StringLike,
     agencies::{agency_ofcom, agency_rsgb},
     countries::country_code_uk,
+    licenses::LicenseKey,
 };
 use rfham_itu::{allocations::FrequencyAllocation::*, regions::Region};
 
@@ -140,26 +142,69 @@ pub fn band_1mm() -> Band {
     Band::new_default(Band1Mm, Region::One)
 }
 
+pub fn license_key_foundation() -> LicenseKey {
+    LicenseKey::new_unchecked("f")
+}
+
+pub fn license_key_foundation_club() -> LicenseKey {
+    LicenseKey::new_unchecked("fc")
+}
+
+pub fn license_key_intermediate() -> LicenseKey {
+    LicenseKey::new_unchecked("I")
+}
+
+pub fn license_key_intermediate_club() -> LicenseKey {
+    LicenseKey::new_unchecked("IC")
+}
+
+pub fn license_key_full() -> LicenseKey {
+    LicenseKey::new_unchecked("F")
+}
+
+pub fn license_key_full_club() -> LicenseKey {
+    LicenseKey::new_unchecked("FC")
+}
+
+pub fn license_class_foundation() -> LicenseClass {
+    LicenseClass::active(license_key_foundation(), 1, "Foundation")
+}
+
+pub fn license_class_foundation_club() -> LicenseClass {
+    LicenseClass::active(license_key_foundation(), 2, "Foundation (Club)")
+}
+
+pub fn license_class_intermediate() -> LicenseClass {
+    LicenseClass::active(license_key_foundation(), 3, "Intermediate")
+}
+
+pub fn license_class_intermediate_club() -> LicenseClass {
+    LicenseClass::active(license_key_foundation(), 4, "Intermediate (Club)")
+}
+
+pub fn license_class_full() -> LicenseClass {
+    LicenseClass::active(license_key_foundation(), 5, "Full")
+}
+
+pub fn license_class_full_club() -> LicenseClass {
+    LicenseClass::active(license_key_foundation(), 6, "Full (Club)")
+}
+
 pub fn rsgb_band_plan() -> BandPlan {
     BandPlan::new(agency_rsgb(), Region::One, "UK Amateur Radio Band Plan")
         .with_regulator(agency_ofcom())
         .in_country(country_code_uk())
         .with_licenses(
             vec![
-                ("f".to_string(), LicenseClass::new(1, "Foundation", true)),
-                (
-                    "fc".to_string(),
-                    LicenseClass::new(1, "Foundation (Club)", true),
-                ),
-                ("I".to_string(), LicenseClass::new(2, "Intermediate", true)),
-                (
-                    "Ic".to_string(),
-                    LicenseClass::new(2, "Intermediate (Club)", true),
-                ),
-                ("F".to_string(), LicenseClass::new(3, "Full", true)),
-                ("Fc".to_string(), LicenseClass::new(3, "Full (Club)", true)),
+                license_class_foundation(),
+                license_class_foundation_club(),
+                license_class_intermediate(),
+                license_class_intermediate_club(),
+                license_class_full(),
+                license_class_full_club(),
             ]
             .into_iter()
+            .map(|cls| (cls.key().clone(), cls))
             .collect(),
         )
 }

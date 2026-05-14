@@ -1,0 +1,326 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://simonkjohnston.life/rust-rfham/rfham-config-schema.json",
+    "title": "R-F Ham Configuration",
+    "description": "...",
+    "type": "object",
+    "properties": {
+        "station": {
+            "$ref": "#/$defs/station"
+        },
+        "equipment": {
+            "$ref": "#/$defs/equipment"
+        },
+        "services": {
+            "$ref": "#/$defs/services"
+        }
+    },
+    "$defs": {
+        "_name": {
+            "type": "string",
+            "maxLength": 32
+        },
+        "_label": {
+            "type": "string",
+            "maxLength": 48
+        },
+        "maidenhead-locator": {
+            "type": "string",
+            "pattern": "[A-Z][A-Z][0-9][0-9]([A-Z][A-Z]([0-9][0-9]([A-Z][A-Z])?)?)?"
+        },
+        "itu-callsign": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 6
+        },
+        "itu-region": {
+            "enum": [
+                "1",
+                "one",
+                "2",
+                "two",
+                "3",
+                "three"
+            ]
+        },
+        "location-kind": {
+            "enum": [
+                "home",
+                "alternate",
+                "remote",
+                "club"
+            ]
+        },
+        "location": {
+            "type": "object",
+            "properties": {
+                "location-kind": {
+                    "$ref": "#/$defs/location-kind",
+                    "exclusiveMinimum": 0
+                },
+                "label": {
+                    "$ref": "#/$defs/_label"
+                },
+                "grid-locator": {
+                    "$ref": "#/$defs/maidenhead-locator"
+                },
+                "itu-region": {
+                    "$ref": "#/$defs/itu-region"
+                },
+                "country": {
+                    "type": "string",
+                    "pattern": "[A-Z][A-Z]"
+                },
+                "mailing-address": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "kind"
+            ]
+        },
+        "station": {
+            "type": "object",
+            "properties": {
+                "callsign": {
+                    "$ref": "#/$defs/itu-callsign",
+                    "exclusiveMinimum": 0
+                },
+                "operator_name": {
+                    "$ref": "#/$defs/_label"
+                },
+                "location": {
+                    "$ref": "#/$defs/location"
+                }
+            },
+            "required": [
+                "callsign"
+            ]
+        },
+        "usage": {
+            "enum": [
+                "local",
+                "qrp",
+                "dx",
+                "emcomm",
+                "activation",
+                "satellite",
+                "scanning"
+            ]
+        },
+        "modes": {
+            "enum": [
+                "am",
+                "fm",
+                "ssb",
+                "rtty",
+                "digital",
+                "image"
+            ]
+        },
+        "mobility": {
+            "enum": [
+                "station-fixed",
+                "portable",
+                "mobile",
+                "handheld"
+            ]
+        },
+        "max-power": {
+            "type": "number",
+            "minimum": 0
+        },
+        "itu-band": {
+            "enum": [
+                "2200m",
+                "630m",
+                "160m",
+                "80m",
+                "60m",
+                "40m",
+                "30m",
+                "20m",
+                "17m",
+                "15m",
+                "12m",
+                "10m",
+                "8m",
+                "6m",
+                "5m",
+                "4m",
+                "2m",
+                "1.25m",
+                "70cm",
+                "33cm",
+                "23cm",
+                "13cm",
+                "9cm",
+                "5cm",
+                "3cm",
+                "1.2cm",
+                "6mm",
+                "4mm",
+                "2.5mm",
+                "2mm",
+                "1mm"
+            ]
+        },
+        "equipment-item": {
+            "type": "object",
+            "properties": {
+                "brand": {
+                    "$ref": "#/$defs/_name"
+                },
+                "model": {
+                    "$ref": "#/$defs/_name"
+                },
+                "label": {
+                    "$ref": "#/$defs/_label"
+                },
+                "usage": {
+                    "$ref": "#/$defs/usage"
+                },
+                "modes": {
+                    "$ref": "#/$defs/modes"
+                },
+                "mobility": {
+                    "$ref": "#/$defs/mobility"
+                },
+                "max-power": {
+                    "$ref": "#/$defs/max-power"
+                },
+                "bands": {
+                    "$ref": "#/$defs/itu-band"
+                },
+                "using": {
+                    "$ref": "#/$defs/equipment"
+                }
+            },
+            "required": [
+                "brand",
+                "model"
+            ]
+        },
+        "equipment": {
+            "type": "array",
+            "item": {
+                "$ref": "#/$defs/equipment-item"
+            }
+        },
+        "user_login_credentials": {
+            "type": "object",
+            "properties": {
+                "username": {
+                    "type": "string",
+                    "exclusiveMinimum": 0
+                },
+                "password": {
+                    "type": "string",
+                    "exclusiveMinimum": 0
+                }
+            },
+            "required": [
+                "username",
+                "password"
+            ]
+        },
+        "api_access_credentials": {
+            "type": "object",
+            "properties": {
+                "account": {
+                    "type": "string",
+                    "exclusiveMinimum": 0
+                },
+                "key": {
+                    "type": "string",
+                    "exclusiveMinimum": 0
+                }
+            },
+            "required": [
+                "account",
+                "key"
+            ]
+        },
+        "authentication": {
+            "type": "object",
+            "properties": {
+                "credentials": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/user_login_credentials"
+                        },
+                        {
+                            "$ref": "#/$defs/api_access_credentials"
+                        }
+                    ],
+                    "exclusiveMinimum": 0
+                },
+                "endpoint": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "credentials"
+            ]
+        },
+        "service-kind": {
+            "enum": [
+                "callsign-lookup",
+                "locator-lookup",
+                "locator-map",
+                "logging",
+                "ip-geo"
+            ]
+        },
+        "service": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "exclusiveMinimum": 0
+                },
+                "kind": {
+                    "$ref": "#/$defs/service-kind",
+                    "exclusiveMinimum": 0
+                },
+                "browser": {
+                    "type": "boolean"
+                },
+                "endpoint": {
+                    "type": "string"
+                },
+                "authentication": {
+                    "$ref": "#/$defs/authentication"
+                }
+            },
+            "required": [
+                "name",
+                "kind"
+            ]
+        },
+        "service-array": {
+            "type": "array",
+            "item": {
+                "$ref": "#/$defs/service"
+            }
+        },
+        "credential-storage": {
+            "enum": [
+                "plain-text",
+                "password-store",
+                "keychain"
+            ]
+        },
+        "services": {
+            "type": "object",
+            "properties": {
+                "credential-storage": {
+                    "$ref": "#/$defs/credential-storage"
+                },
+                "services": {
+                    "$ref": "#/$defs/service-array"
+                }
+            }
+        }
+    }
+}

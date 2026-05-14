@@ -28,6 +28,14 @@
 //! assert!(s.contains("My Section"));
 //! assert!(s.contains("Some content."));
 //! ```
+//!
+//! # Features
+//!
+//! - **`std`** *(default)*: enables `std`-backed dependencies (I/O errors, `LazyLock`, etc.).
+//!   Disable for `no_std` + `alloc` environments.
+//! - **no-color**: disables ANSI color codes in Markdown output, for better compatibility
+//!   with non-color-aware renderers.
+//!
 
 use colored::Colorize as _;
 use std::{fmt::Display, io::Write};
@@ -610,10 +618,7 @@ mod tests {
     fn test_to_markdown_string() {
         struct Dummy;
         impl ToMarkdown for Dummy {
-            fn write_markdown<W: std::io::Write>(
-                &self,
-                w: &mut W,
-            ) -> Result<(), MarkdownError> {
+            fn write_markdown<W: std::io::Write>(&self, w: &mut W) -> Result<(), MarkdownError> {
                 plain_text(w, "dummy content")
             }
         }

@@ -6,8 +6,8 @@ use crate::{
 use clap::{Args, Subcommand};
 use rfham_config::paths::ConfigPath;
 use rfham_core::{callsigns::CallSign, countries::CountryCode};
-use rfham_maidenhead::MaidenheadLocator;
 use rfham_itu::regions::Region;
+use rfham_maidenhead::MaidenheadLocator;
 use std::{path::PathBuf, process::ExitCode};
 
 // ------------------------------------------------------------------------------------------------
@@ -29,6 +29,9 @@ pub struct CmdShowConfig {
     #[arg(long)]
     config_file: Option<PathBuf>,
 
+    #[arg(short = 'c', long, default_value_t = false, requires = "path")]
+    compact: bool,
+
     /// The path to a field in the configuration.
     ///
     /// This uses a dotted notation, e.g. `station.callsign`.
@@ -37,6 +40,10 @@ pub struct CmdShowConfig {
 
 #[derive(Debug, Args)]
 pub struct CmdInitConfig {
+    /// Override the default configuration file path.
+    #[arg(long, default_value_t = false)]
+    interactive: bool,
+
     /// Override the default configuration file path.
     #[arg(long)]
     config_file: Option<PathBuf>,
@@ -90,7 +97,7 @@ impl OnceCommand for CmdShowConfig {
     type Error = CliError;
 
     fn execute(self) -> Result<Self::Output, Self::Error> {
-        ShowCurrentConfig::new(self.config_file, self.path).execute()
+        ShowCurrentConfig::new(self.config_file, self.compact, self.path).execute()
     }
 }
 
@@ -100,6 +107,7 @@ impl OnceCommand for CmdInitConfig {
 
     fn execute(self) -> Result<Self::Output, Self::Error> {
         InitializeConfig::new(
+            self.interactive,
             self.config_file,
             self.overwrite,
             self.callsign,

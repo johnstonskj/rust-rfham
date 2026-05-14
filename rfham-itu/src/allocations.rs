@@ -12,6 +12,7 @@
 use crate::{bands::FrequencyBand, regions::Region};
 use core::{fmt::Display, str::FromStr};
 use rfham_core::{
+    Measure,
     error::CoreError,
     frequencies::{Frequency, FrequencyRange, gigahertz, hertz, kilohertz, megahertz},
 };

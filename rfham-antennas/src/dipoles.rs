@@ -118,7 +118,7 @@ impl ToMarkdown for SimpleDipole {
             header(
                 writer,
                 1,
-                format!("Classical half-wave dipole antenna for {} band.", self.band),
+                format!("Classic {} single-band dipole antenna", self.band),
             )?;
             blank_line(writer)?;
             fenced_code_block_start(writer)?;
@@ -144,6 +144,12 @@ impl ToMarkdown for SimpleDipole {
             )?;
             writeln!(
                 writer,
+                "{}{}    1:1 balun",
+                " ".repeat(wl_4_padded_len),
+                "⎅".red().bold()
+            )?;
+            writeln!(
+                writer,
                 "{}│  {}",
                 " ".repeat(wl_4_padded_len),
                 "∧".blue().dimmed()
@@ -163,6 +169,13 @@ impl ToMarkdown for SimpleDipole {
             )?;
             writeln!(
                 writer,
+                "{}│  {} {}",
+                " ".repeat(wl_4_padded_len),
+                "│".blue().dimmed(),
+                "50Ω feed line"
+            )?;
+            writeln!(
+                writer,
                 "{}│  {}",
                 " ".repeat(wl_4_padded_len),
                 "│".blue().dimmed()
@@ -172,6 +185,11 @@ impl ToMarkdown for SimpleDipole {
                 "{}│  {}",
                 " ".repeat(wl_4_padded_len),
                 "∨".blue().dimmed()
+            )?;
+            writeln!(
+                writer,
+                "{}└┄┄┄ > to transceiver",
+                " ".repeat(wl_4_padded_len)
             )?;
             fenced_code_block_end(writer)?;
             blank_line(writer)?;
@@ -230,6 +248,17 @@ impl ToMarkdown for SimpleDipole {
                 1,
                 5,
                 format!("Quarter-wave length is {wl_4} for each antenna pole."),
+            )?;
+            numbered_list_item(
+                writer,
+                1,
+                6,
+                format!(
+                    "Include a 1:1 Current **{}**, often called a 1:1 *{}* or *{}*.",
+                    "Balun".bold(),
+                    "Choke".italic(),
+                    "Line Isolator".italic()
+                ),
             )?;
         } else {
             println!(

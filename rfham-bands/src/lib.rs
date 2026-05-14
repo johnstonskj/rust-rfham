@@ -23,19 +23,29 @@
 //!     .write_markdown_with(&mut stdout(), vec![])
 //!     .unwrap();
 //! ```
+//!
+//! # Features
+//!
+//! - **`std`** *(default)*: enables `std`-backed dependencies (I/O errors, `LazyLock`, etc.).
+//!   Disable for `no_std` + `alloc` environments.
+//! - **no-color**: disables ANSI color codes in Markdown output, for better compatibility
+//!   with non-color-aware renderers.
+//!
 
 use colored::Colorize;
 use rfham_core::{
+    Measure, StringLike,
     agencies::Agency,
     countries::CountryCode,
     error::CoreError,
     frequencies::{Frequency, FrequencyRange},
+    licenses::{LicenseClass, LicenseKey},
     power::Power,
 };
 use rfham_itu::{allocations::FrequencyAllocation, regions::Region};
 use rfham_markdown::{
-    MarkdownError, Table, ToMarkdown, ToMarkdownWith, blank_line, bulleted_list,
-    bulleted_list_item, header, link_to_string, numbered_list_item, plain_text,
+    Column, ColumnJustification, MarkdownError, Table, ToMarkdown, ToMarkdownWith, blank_line,
+    bulleted_list, bulleted_list_item, header, link_to_string, numbered_list_item, plain_text,
 };
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
@@ -46,7 +56,6 @@ use std::{cmp::Ordering, collections::HashMap, fmt::Display, str::FromStr};
 // ------------------------------------------------------------------------------------------------
 
 pub type DisplayName = String;
-pub type LicenseKey = String;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct BandPlan {
@@ -116,13 +125,6 @@ pub struct CallingFrequency {
     name: Option<DisplayName>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     usage_restrictions: Vec<UsageRestriction>,
-}
-
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-pub struct LicenseClass {
-    ordinal: u32,
-    name: DisplayName,
-    is_active: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, DeserializeFromStr, SerializeDisplay)]
@@ -274,7 +276,7 @@ impl ToMarkdownWith for BandPlan {
         blank_line(writer)?;
 
         let mut ordered_licenses = self.licenses.iter().collect::<Vec<_>>();
-        ordered_licenses.sort_by(|a, b| a.1.ordinal.cmp(&b.1.ordinal));
+        ordered_licenses.sort_by(|a, b| a.1.ordinal().cmp(&b.1.ordinal()));
 
         for (number, (key, license)) in ordered_licenses.iter().enumerate() {
             numbered_list_item(
@@ -283,9 +285,9 @@ impl ToMarkdownWith for BandPlan {
                 number,
                 format!(
                     "{} ({}){}",
-                    license.name,
+                    license.name(),
                     key,
-                    if !license.is_active {
+                    if !license.is_active() {
                         format!(" {}", "inactive class".italic())
                     } else {
                         String::default()
@@ -323,7 +325,7 @@ impl BandPlan {
         name: String,
         region: Region,
         countries: Vec<CountryCode>,
-        licenses: HashMap<String, LicenseClass>,
+        licenses: HashMap<LicenseKey, LicenseClass>,
         bands: HashMap<FrequencyAllocation, PlanBand>,
         default_max_power: Option<Power>,
         notes: Vec<String>,
@@ -374,20 +376,20 @@ impl BandPlan {
         self
     }
 
-    pub fn with_license_list(mut self, licenses: Vec<(DisplayName, bool)>) -> Self {
-        let licenses: HashMap<LicenseKey, LicenseClass> = licenses
-            .into_iter()
-            .enumerate()
-            .map(|(ordinal, (name, is_active))| {
-                (
-                    name.clone(),
-                    LicenseClass::new(ordinal as u32, &name, is_active),
-                )
-            })
-            .collect();
-        self.licenses = licenses;
-        self
-    }
+    // pub fn with_license_list(mut self, licenses: Vec<LicenseClass>) -> Self {
+    //     let licenses: HashMap<LicenseKey, LicenseClass> = licenses
+    //         .into_iter()
+    //         .enumerate()
+    //         .map(|(ordinal, (name, is_active))| {
+    //             (
+    //                 name.clone(),
+    //                 LicenseClass::new(ordinal as u32, &name, is_active),
+    //             )
+    //         })
+    //         .collect();
+    //     self.licenses = licenses;
+    //     self
+    // }
 
     pub fn with_bands(mut self, bands: HashMap<FrequencyAllocation, PlanBand>) -> Self {
         self.bands = bands;
@@ -533,8 +535,12 @@ impl ToMarkdown for PlanBand {
             blank_line(writer)?;
 
             let table = Table::new(vec![
-                ("Start", START_COL_WIDTH).into(),
-                ("End", END_COL_WIDTH).into(),
+                Column::new("Start")
+                    .with_width(START_COL_WIDTH)
+                    .with_justification(ColumnJustification::Right),
+                Column::new("End")
+                    .with_width(END_COL_WIDTH)
+                    .with_justification(ColumnJustification::Right),
                 ("License Class", CLASS_COL_WIDTH).into(),
                 ("Usage/Mode", USAGE_COL_WIDTH).into(),
                 ("Power", POWER_COL_WIDTH).into(),
@@ -661,11 +667,10 @@ impl ToMarkdownWith for Segment {
                     if self.restrictions.license_restrictions.is_empty() {
                         CLASS_OR_USAGE_DEFAULT.to_string()
                     } else {
-                        #[allow(clippy::iter_cloned_collect)] // false positive
                         self.restrictions
                             .license_restrictions
                             .iter()
-                            .cloned()
+                            .map(|k| k.to_string())
                             .collect::<Vec<_>>()
                             .join(", ")
                     },
@@ -739,10 +744,9 @@ impl ToMarkdownWith for BandRestrictions {
                 if self.license_restrictions.is_empty() {
                     CLASS_OR_USAGE_DEFAULT.to_string()
                 } else {
-                    #[allow(clippy::iter_cloned_collect)] // false positive
                     self.license_restrictions
                         .iter()
-                        .cloned()
+                        .map(|k| k.to_string())
                         .collect::<Vec<_>>()
                         .join(", ")
                 },
@@ -863,67 +867,6 @@ impl CallingFrequency {
     }
     pub fn usage_restrictions(&self) -> impl Iterator<Item = &UsageRestriction> {
         self.usage_restrictions.iter()
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Display for LicenseClass {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            if f.alternate() {
-                format!(
-                    "{:02}: {} ({})",
-                    self.ordinal,
-                    self.name,
-                    if self.is_active { "active" } else { "inactive" }
-                )
-            } else {
-                format!(
-                    "{}{}",
-                    self.name,
-                    if self.is_active { "" } else { " (inactive)" }
-                )
-            }
-        )
-    }
-}
-
-impl LicenseClass {
-    pub fn new(ordinal: u32, name: &str, is_active: bool) -> Self {
-        Self {
-            name: name.to_string(),
-            ordinal,
-            is_active,
-        }
-    }
-    pub fn active(ordinal: u32, name: &str) -> Self {
-        Self {
-            name: name.to_string(),
-            ordinal,
-            is_active: true,
-        }
-    }
-    pub fn inactive(ordinal: u32, name: &str) -> Self {
-        Self {
-            name: name.to_string(),
-            ordinal,
-            is_active: false,
-        }
-    }
-
-    pub fn name(&self) -> &DisplayName {
-        &self.name
-    }
-
-    pub fn ordinal(&self) -> u32 {
-        self.ordinal
-    }
-
-    pub fn is_active(&self) -> bool {
-        self.is_active
     }
 }
 

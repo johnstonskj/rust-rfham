@@ -16,12 +16,16 @@ name = "rfham"
 path = "src/main.rs"
 
 [dependencies]
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 clap = { version = "4.6", features = ["derive", "env"] }
+clap_complete = "4.6"
 clap-verbosity-flag = { version = "3", default-features = false, features = [
     "tracing",
 ] }
-clap_complete = "4.6"
+colorchoice = "1.0"
+colorchoice-clap = "1.0"
+colored = "3.1"
+icu_locale_core = { version = "2.2", features = ["alloc"] }
+inquire = { version = "0.9", features = ["date"] }
 rfham-antennas = { version = "0.1.1", path = "../rfham-antennas" }
 rfham-bands = { version = "0.1.1", path = "../rfham-bands" }
 rfham-config = { version = "0.1.1", path = "../rfham-config" }
@@ -30,8 +34,11 @@ rfham-geo = { version = "0.1.1", path = "../rfham-geo" }
 rfham-itu = { version = "0.1.2", path = "../rfham-itu" }
 rfham-maidenhead = { version = "0.1.0", path = "../rfham-maidenhead" }
 rfham-markdown = { version = "0.1.1", path = "../rfham-markdown" }
+rfham-services = { version = "0.1.0", path = "../rfham-services" }
+search_path = "0.1"
+strum = { version = "0.28", features = ["derive"] }
+sys-locale = "0.3"
 thiserror = { version = "2.0", default-features = false }
 tracing = "0.1"
-colorchoice-clap = "1.0.8"
-colorchoice = "1.0.5"
-colored = "3.1.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+whoami = "2.1"

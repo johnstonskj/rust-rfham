@@ -4,6 +4,7 @@ use crate::{
     error::CliError,
 };
 use clap::{Args, Subcommand};
+use rfham_config::load_global_config;
 use rfham_core::countries::CountryCode;
 use rfham_itu::allocations::FrequencyAllocation;
 use std::process::ExitCode;
@@ -58,6 +59,7 @@ impl OnceCommand for CmdShowBandPlan {
 
     #[instrument(name = "bandplan_show")]
     fn execute(self) -> Result<Self::Output, Self::Error> {
+        load_global_config()?;
         ShowBandPlan::new(self.country, self.band).execute()
     }
 }

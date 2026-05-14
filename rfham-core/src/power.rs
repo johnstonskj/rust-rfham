@@ -20,7 +20,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use rfham_core::power::Power;
+//! use rfham_core::{Measure, power::Power};
 //!
 //! // Derived from DC circuit: P = V × I
 //! let p = Power::from_dc_circuit(13.8, 10.0); // 13.8 V × 10 A
@@ -31,7 +31,7 @@
 //! assert!((p.value() - 510.0).abs() < 1e-9);
 //! ```
 
-use crate::error::CoreError;
+use crate::{BidirectionalMeasure, Measure, error::CoreError};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, str::FromStr};
 use uom::{
@@ -43,6 +43,31 @@ use uom::{
 // Public Types
 // ------------------------------------------------------------------------------------------------
 
+///
+/// This type represents the power (symbol: $P$) transfer through an electrical component using
+/// the SI unit of power, the Watt (symbol: $\text{W}$).
+///
+/// # Definition
+///
+/// The watt (symbol: $W$) is the unit of power or radiant flux in the International System of
+/// Units (SI). Power is the amount of energy transferred or converted per unit time, equal to 1
+/// joule per second or $1 kg \cdot m^{2} \cdot s^{−3}$. It is used to quantify the rate
+/// of energy transfer.
+///
+/// The instantaneous electrical power $P$ delivered to a component is given by $P(t) = V(t) \cdot I(t)$
+/// where $P(t)$ is the instantaneous power, measured in watts (joules per second), $V(t)$  the
+/// potential difference (or voltage drop) across the component, measured in volts, and $I(t)$
+/// is the current through it, measured in amperes.
+///
+/// If the component is a resistor with time-invariant voltage to current ratio $R = \frac{V}{I}$,
+/// then:
+///
+/// $$P = I \cdot V = I^2 \cdot R = \frac{V^2}{R}$$
+///
+/// # Representation
+///
+/// The datatype for Power is guaranteed to be finite and **not** a NaN.
+///
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd, Deserialize, Serialize)]
 pub struct Power(BasePower);
 
@@ -118,6 +143,22 @@ impl AsRef<BasePower> for Power {
     }
 }
 
+impl Measure for Power {
+    fn value(&self) -> f64 {
+        self.0.value
+    }
+
+    fn is_valid(value: f64) -> bool {
+        value.is_finite() && !value.is_nan()
+    }
+
+    fn is_magnitude() -> bool {
+        false
+    }
+}
+
+impl BidirectionalMeasure for Power {}
+
 impl Power {
     #[inline(always)]
     pub fn milliwatts(value: f64) -> Self {
@@ -134,19 +175,31 @@ impl Power {
         Self(BasePower::new::<power_unit::kilowatt>(value))
     }
 
+    ///
+    /// Returns a power value corresponding to the fundamentals of a given DC circuit.
+    ///
+    /// Derived using $P = V \times I$, where $V$ is the voltage in Volts, and $I$ is the current in
+    /// Amperes (Amps).
+    ///
     #[inline(always)]
     pub fn from_dc_circuit(voltage: f64, current: f64) -> Self {
         Self::watts(voltage * current)
     }
 
+    ///
+    /// Returns a power value corresponding to the fundamentals of a given AC circuit.
+    ///
+    /// Derived using $P = V \times I \times PF$, where $V$ is the voltage in Volts, $I$ is the current in
+    /// Amperes (Amps), and $PF$ is the percentage power factor, expressed as a value in $\[0,1\]$.
+    ///
+    /// # Panics
+    ///
+    /// 1. If `factor` not in the range `0.0..=1.0`.
+    ///
     #[inline(always)]
     pub fn from_ac_circuit(voltage: f64, current: f64, factor: f64) -> Self {
         assert!((0.0..=1.0).contains(&factor));
         Self::watts(voltage * current * factor)
-    }
-
-    pub const fn value(&self) -> f64 {
-        self.0.value
     }
 }
 
@@ -172,7 +225,7 @@ pub fn kilowatts(value: f64) -> Power {
 
 #[cfg(test)]
 mod tests {
-    use super::Power;
+    use crate::{Measure, power::Power};
     use pretty_assertions::assert_eq;
 
     #[test]

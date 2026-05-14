@@ -51,10 +51,10 @@ fn test_latlong_to_locator() {
         (47.58877, -122.11236, "CN87WO61mh"),
         (47.58940972222223, -122.11284722222223, "CN87wo61kl"),
         (47.4375, -121.375, "CN97hk55aa"),
-        (47.62048611111111, -122.34930555555556, "CN87TO88CW"), // Seattle Space Needle
+        (47.62048611111111, -122.34930555555556, "CN87TO88BW"), // Seattle Space Needle
         (46.786631944444444, -121.73402777777777, "CN96DS18WT"), // Paradise Inn, Mt. Rainier
-        (47.953645833333326, -118.98993055555555, "DN07MW18FV"), // Grand Coulee Damn (main power house)
-        (40.752604166666664, -73.97743055555556, "FN30as20rp"),  // Grand Central Station NYC
+        (47.953645833333326, -118.98993055555555, "DN07MW18FU"), // Grand Coulee Damn (main power house)
+        (40.752604166666664, -73.97743055555556, "FN30as20ro"),  // Grand Central Station NYC
     ];
     for (lat, long, loc) in DATA {
         let location = Coordinate::new(

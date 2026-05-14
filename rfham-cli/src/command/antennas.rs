@@ -1,7 +1,10 @@
-use crate::{OnceCommand, error::CliError};
+use crate::{
+    OnceCommand,
+    error::{CliError, no_band_plan_for_country},
+};
 use rfham_antennas::SimpleDipole;
 use rfham_bands::{uk_rsgb::rsgb_band_plan, us_fcc::arrl_voluntary_band_plan};
-use rfham_core::countries::CountryCode;
+use rfham_core::{StringLike, countries::CountryCode};
 use rfham_itu::allocations::FrequencyAllocation;
 use rfham_markdown::ToMarkdown;
 use std::{io::stdout, process::ExitCode};
@@ -29,10 +32,7 @@ impl OnceCommand for CalculateAntennaLengths {
             "UK" => rsgb_band_plan(),
             "US" => arrl_voluntary_band_plan(),
             _ => {
-                println!(
-                    "Do not have access to a band plan for country {}",
-                    self.country
-                );
+                no_band_plan_for_country(self.country).print();
                 return Ok(ExitCode::FAILURE);
             }
         };

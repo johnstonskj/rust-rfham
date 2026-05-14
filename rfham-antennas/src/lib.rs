@@ -15,6 +15,14 @@
 //! let length = dipole.antenna_length().unwrap();
 //! assert!(length.value() > 1.0 && length.value() < 1.1);
 //! ```
+//!
+//! # Features
+//!
+//! - **`std`** *(default)*: enables `std`-backed dependencies (I/O errors, `LazyLock`, etc.).
+//!   Disable for `no_std` + `alloc` environments.
+//! - **no-color**: disables ANSI color codes in Markdown output, for better compatibility
+//!   with non-color-aware renderers.
+//! 
 
 use rfham_core::error::CoreError;
 use std::{fmt::Display, str::FromStr};

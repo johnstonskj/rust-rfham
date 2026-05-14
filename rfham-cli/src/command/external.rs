@@ -1,7 +1,12 @@
-use crate::{OnceCommand, error::CliError};
+use crate::{
+    OnceCommand,
+    error::{CliError, missing_executable, sub_process_error},
+};
 use colorchoice::ColorChoice;
-use std::process::ExitCode;
-use tracing::info;
+use search_path::SearchPath;
+use std::path::PathBuf;
+use std::process::{Command, ExitCode};
+use tracing::{error, info};
 
 // ------------------------------------------------------------------------------------------------
 // Public Types
@@ -52,29 +57,53 @@ impl OnceCommand for RunExternalSubCommand {
     type Error = CliError;
 
     fn execute(self) -> Result<Self::Output, Self::Error> {
-        let mut arguments = Vec::new();
-        if self.verbosity > 0 {
-            arguments.push(format!("-{}", "v".repeat(self.verbosity as usize)))
-        }
-        if self.quietness > 0 {
-            arguments.push(format!("-{}", "q".repeat(self.quietness as usize)))
-        }
-        if self.color_choice != ColorChoice::Auto {
-            arguments.push(format!(
-                "--color {}",
-                if self.color_choice != ColorChoice::Always {
-                    "always"
-                } else {
-                    "never"
-                }
-            ));
-        }
-        arguments.extend(self.arguments);
-        info!(
-            "executing command `{}`, with arguments {:?}",
-            self.command_name, arguments
-        );
+        let command_name = format!("rfham-{}", self.command_name);
+        let search_path = SearchPath::path().unwrap();
+        if let Some(exec_path) = search_path.find_file(&PathBuf::from(command_name)) {
+            let mut arguments = Vec::new();
+            if self.verbosity > 0 {
+                arguments.push(format!("-{}", "v".repeat(self.verbosity as usize)))
+            }
+            if self.quietness > 0 {
+                arguments.push(format!("-{}", "q".repeat(self.quietness as usize)))
+            }
+            if self.color_choice != ColorChoice::Auto {
+                arguments.push(format!(
+                    "--color {}",
+                    if self.color_choice != ColorChoice::Always {
+                        "always"
+                    } else {
+                        "never"
+                    }
+                ));
+            }
+            arguments.extend(self.arguments);
+            info!(
+                "executing command `{:?}`, with arguments {:?}",
+                exec_path, arguments
+            );
 
-        todo!()
+            match Command::new(exec_path.clone())
+                .args(arguments.as_slice())
+                .status()
+            {
+                Ok(status) => {
+                    info!("sub-process {:?} returned status {status}", &exec_path);
+                    Ok(if status.success() {
+                        ExitCode::SUCCESS
+                    } else {
+                        ExitCode::FAILURE
+                    })
+                }
+                Err(e) => {
+                    error!("sub-process {exec_path:?} returned error {e}");
+                    sub_process_error(exec_path, e).print();
+                    Ok(ExitCode::FAILURE)
+                }
+            }
+        } else {
+            missing_executable(self.command_name).print();
+            Ok(ExitCode::FAILURE)
+        }
     }
 }

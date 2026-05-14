@@ -2,7 +2,7 @@
 //!
 //! [`Frequency`] and [`Wavelength`] are thin wrappers around [`uom`](https://docs.rs/uom)
 //! SI quantities. They add ham-radio-centric constructors, a smart `Display` that chooses
-//! the most readable unit, and bidirectional conversion via λ = c / f.
+//! the most readable unit, and implements the bidirectional relationship $λ = \frac{v}{f}$.
 //!
 //! [`FrequencyRange`] represents a contiguous band segment and supports overlap and
 //! containment queries.
@@ -13,7 +13,7 @@
 //! the most natural unit based on the value:
 //!
 //! ```rust
-//! use rfham_core::frequency::Frequency;
+//! use rfham_core::frequencies::Frequency;
 //!
 //! assert_eq!(format!("{:#}", Frequency::hertz(440.0)),      "440 hertz");
 //! assert_eq!(format!("{:#}", Frequency::kilohertz(7.074)),  "7.074 kilohertz");
@@ -24,7 +24,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use rfham_core::frequency::{Frequency, FrequencyRange};
+//! use rfham_core::frequencies::{Frequency, FrequencyRange};
 //!
 //! // Construct and display
 //! let f = Frequency::megahertz(144.0);
@@ -40,7 +40,7 @@
 //! assert!(!band.contains(Frequency::megahertz(150.0)));
 //! ```
 
-use crate::error::CoreError;
+use crate::{Measure, error::CoreError};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, ops::Range, str::FromStr};
 use uom::{
@@ -52,35 +52,60 @@ use uom::{
 };
 
 // ------------------------------------------------------------------------------------------------
-// Public Macros
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
 // Public Types
 // ------------------------------------------------------------------------------------------------
 
+///
+/// This type represents the frequency of a radio signal usingthe SI unit of frequency
+/// (symbol: $f$), the Hertz (symbol: $\text{Hz}$).
+///
+/// # Definition
+///
+/// Frequency is the number of occurrences of a repeating event per unit of time.
+/// Frequency is an important parameter used in science and engineering to specify the rate of
+/// oscillatory and vibratory phenomena, such as mechanical vibrations, radio waves, and light.
+///
+/// # Representation
+///
+/// The datatype for Frequency is a non-negative `f64` guaranteed to be finite and **not** a NaN.
+///
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd, Deserialize, Serialize)]
 pub struct Frequency(BaseFrequency);
 
+///
+///
+/// This type represents the wavelength (symbol: $\lambda$) of a radio signal using the SI unit
+/// of length, the meter (symbol: $\text{m}$).
+///
+/// # Definition
+///
+/// The wavelength (symbol: $\lambda$) of a sine wave can be measured between any two points
+/// with the same phase, such as between crests (on top), or troughs (on bottom), or
+/// corresponding zero crossings. The wavelength $\lambda$ of a sinusoidal waveform traveling at
+/// constant speed $v$, and frequency $f$ is given by $\lambda = \frac{v}{f}$. Given the
+/// assumption that radio waves travel at approximately the speed of light (symbol: $c$), this
+/// can be expressed as $\lambda = \frac{c}{f}$.
+///
+/// # Representation
+///
+/// The datatype for Wavelength is a non-negative `f64` guaranteed to be finite and **not** a NaN.
+///
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd, Deserialize, Serialize)]
 pub struct Wavelength(BaseLength);
 
-pub const SPEED_OF_LIGHT: f64 = 299792458.0; // m/s
+///
+/// The universal constant, $c$, the speed of light in a vacuum; defined as $299792458\text{ m/s}$.
+///
+pub const SPEED_OF_LIGHT: f64 = 299_792_458.0;
 
+///
+/// Represents a range (Symbol: $Rf$) of frequencies from `start` (symbol: $f_s$) to `end`
+///  (symbol: $f_e$).
+///
+/// $$Rf = \big[f_s,f_e\big)$$
+///
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct FrequencyRange(Range<Frequency>);
-
-// ------------------------------------------------------------------------------------------------
-// Public Functions
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Private Macros
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Private Types
-// ------------------------------------------------------------------------------------------------
 
 // ------------------------------------------------------------------------------------------------
 // Implementations ❯ Frequency
@@ -159,24 +184,98 @@ impl AsRef<BaseFrequency> for Frequency {
     }
 }
 
+impl Measure for Frequency {
+    fn value(&self) -> f64 {
+        self.0.value
+    }
+
+    fn is_valid(value: f64) -> bool {
+        value.is_sign_positive() && value.is_finite() && !value.is_nan()
+    }
+
+    fn is_magnitude() -> bool {
+        true
+    }
+}
+
 impl Frequency {
+    ///
+    /// Construct a new Frequency measured in GigaHertz.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rfham_core::frequencies::Frequency;
+    ///
+    /// let v = Frequency::gigahertz(4.0);
+    /// assert_eq!("4000 MHz ≣ 4 gigahertz".to_string(), format!("{v} ≣ {v:#}"));
+    /// ```
+    ///
     pub fn gigahertz(value: f64) -> Self {
         Self(BaseFrequency::new::<frequency_unit::gigahertz>(value))
     }
+
+    ///
+    /// Construct a new Frequency measured in MegaHertz.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rfham_core::frequencies::Frequency;
+    ///
+    /// let v = Frequency::megahertz(4.0);
+    /// assert_eq!("4 MHz ≣ 4 megahertz".to_string(), format!("{v} ≣ {v:#}"));
+    /// ```
+    ///
     pub fn megahertz(value: f64) -> Self {
         Self(BaseFrequency::new::<frequency_unit::megahertz>(value))
     }
+
+    ///
+    /// Construct a new Frequency measured in KiloHertz.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rfham_core::frequencies::Frequency;
+    ///
+    /// let v = Frequency::kilohertz(4.0);
+    /// assert_eq!("0.004 MHz ≣ 4 kilohertz".to_string(), format!("{v} ≣ {v:#}"));
+    /// ```
+    ///
     pub fn kilohertz(value: f64) -> Self {
         Self(BaseFrequency::new::<frequency_unit::kilohertz>(value))
     }
+
+    ///
+    /// Construct a new Frequency measured in Hertz.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rfham_core::frequencies::Frequency;
+    ///
+    /// let v = Frequency::hertz(4.0);
+    /// assert_eq!("0.000004 MHz ≣ 4 hertz".to_string(), format!("{v} ≣ {v:#}"));
+    /// ```
+    ///
     pub fn hertz(value: f64) -> Self {
         Self(BaseFrequency::new::<frequency_unit::hertz>(value))
     }
 
-    pub const fn value(&self) -> f64 {
-        self.0.value
+    ///
+    /// The interval of time between events is called the period $T = \frac{1}{f}$. It is the reciprocal of
+    /// the frequency and is returned as a number of seconds.
+    ///
+    pub fn period(&self) -> f64 {
+        1.0 / self.value()
     }
 
+    ///
+    /// Implements the natural relationship between frequencies and wave lengths, specifically
+    /// $\lambda = \frac{c}{f}$. where $f$ is the frequency in Hertz, $c$ is the speed of light
+    /// and $\lambda$ is the wavelength in meters.
+    ///
     pub fn to_wavelength(&self) -> Wavelength {
         Wavelength::meters(SPEED_OF_LIGHT / self.value())
     }
@@ -245,54 +344,163 @@ impl FrequencyRange {
         Self::new(Frequency::megahertz(start), Frequency::megahertz(end))
     }
 
+    /// The start value ()infimum, $f_s$ of this range.
     pub const fn start(&self) -> Frequency {
         self.0.start
     }
 
+    /// The end value (supremum), $f_e$ of this range.
     pub const fn end(&self) -> Frequency {
         self.0.end
     }
 
+    ///
+    /// The bandwidth (symbol: $b$) is the magnitude of the range
+    /// $$b = f_e - f_s$$
+    ///
     pub fn bandwidth(&self) -> Frequency {
         Frequency::hertz(self.0.end.value() - self.0.start.value())
     }
 
+    ///
+    /// The mid-point of the band
+    /// $$f_m = f_s + \frac{f_e - f_s}{2}$$
+    ///
     pub fn mid_band(&self) -> Frequency {
         Frequency::hertz(self.0.start.value() + (self.bandwidth().value() / 2.0))
     }
 
+    ///
+    /// Returns `true` if the given frequency is within this range.
+    ///
+    /// Denoted by the in relation $\in$
+    ///
+    /// $$f \in Rf \implies f_s \leq f < f_s$$
+    ///
     pub fn contains(&self, frequency: Frequency) -> bool {
         self.0.contains(&frequency)
     }
 
+    ///
+    /// Returns `true` if the given frequency value in MHz is within this range.
+    ///
+    /// Denoted by the in relation $\in$
+    ///
+    /// $$f \in Rf \implies f_s \leq f < f_s$$
+    ///
     pub fn contains_mhz(&self, frequency: f64) -> bool {
         self.0.contains(&Frequency::megahertz(frequency))
     }
 
+    ///
+    /// Returns `true` if the range is empty. $f_s = f_e$
+    ///
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    ///
+    /// Returns `true` if the ending value of this range is before the starting of `other`.
+    ///
+    /// Denoted by the less-than relation $<$
+    ///
+    /// $$Rf_1 < Rf_2 \implies f_{e_1} < f_{s_2}$$
+    ///
+    pub fn before(&self, other: &Self) -> bool {
+        self.end() < other.start()
+    }
+
+    ///
+    /// Returns `true` if the starting value of this range is after the ending of `other`,
+    ///
+    /// Denoted by the greater-than relation $>$
+    ///
+    /// $$Rf_1 > Rf_2 \implies f_{s_1} > f_{e_2}$$
+    ///
+    pub fn after(&self, other: &Self) -> bool {
+        self.start() > other.end()
+    }
+
+    ///
+    /// Returns `true` if the start value of this range is before the start of `other`,
+    /// regardless of the value of either ending value.
+    ///
+    /// Denoted by the greater-than-similar relation $\lesssim$
+    ///
+    /// $$Rf_1 \lesssim Rf_2 \implies f_{s_1} < f_{s_2}$$
+    ///
     pub fn starts_before(&self, other: &Self) -> bool {
         self.start() < other.start()
     }
 
+    ///
+    /// Returns `true` if the range `other` is contained within this range and both have
+    /// the same starting value.
+    ///
+    /// Denoted by the right-triangle relation $\triangleright$
+    ///
+    /// $$Rf_1 \triangleright Rf_2 \implies f_{s_1} = f_{s_2} \land f_{e_2} \in Rf_1$$
+    ///
     pub fn starts_with(&self, other: &Self) -> bool {
         self.start() == other.start() && self.contains(other.end())
     }
 
+    ///
+    /// Returns `true` if the end value of this range is before the end of `other`,
+    /// regardless of the value of either starting value.
+    ///
+    /// Denoted by the less-than-similar relation $\gtrsim$
+    ///
+    /// $$Rf_1 \gtrsim Rf_2 \implies f_{e_1} < f_{e_2}$$
+    ///
     pub fn ends_before(&self, other: &Self) -> bool {
         self.end() < other.end()
     }
 
+    ///
+    /// Returns `true` if the range `other` is contained within this range and both have
+    /// the same ending value.
+    ///
+    /// Denoted by the left-triangle relation $\triangleleft$
+    ///
+    /// $$Rf_1 \triangleleft Rf_2 \implies f_{e_1} = f_{e_2} \land f_{s_2} \in Rf_1$$
+    ///
     pub fn ends_with(&self, other: &Self) -> bool {
         self.contains(other.start()) && self.end() == other.end()
     }
 
+    ///
+    /// Returns `true` if *both* the start and end value of `other` are contained within
+    /// this range.
+    ///
+    /// Denoted by the sub-set relation $\subset$
+    ///
+    /// $$Rf_1 \subset Rf_2 \implies f_{s_2} \in Rf_1 \land f_{e_2} \in Rf_1$$
+    ///
     pub fn is_subrange(&self, other: &Self) -> bool {
-        self.start() <= other.start() && self.end() >= other.end()
+        self.contains(other.start()) && self.contains(other.end())
     }
 
+    ///
+    /// Returns `true` if *both* the start and end value of this range are contained within
+    /// `other`.
+    ///
+    /// Denoted by the super-set relation $\supset$
+    ///
+    /// $$Rf_1 \supset Rf_2 \implies f_{s_1} \in Rf_2 \land f_{e_1} \in Rf_2$$
+    ///
+    pub fn is_superrange(&self, other: &Self) -> bool {
+        other.contains(self.start()) && self.contains(self.end())
+    }
+
+    ///
+    /// Returns `true` if *either* the start and end value of `other` are contained within
+    /// this range.
+    ///
+    /// Denoted by the intersection relation $\cap$
+    ///
+    /// $$Rf_1 \cap Rf_2 \implies f_{s_2} \in Rf_1 \lor f_{e_2} \in Rf_1$$
+    ///
     pub fn is_overlapping(&self, other: &Self) -> bool {
         self.contains(other.start()) || self.contains(other.end())
     }
@@ -371,27 +579,97 @@ impl AsRef<BaseLength> for Wavelength {
     }
 }
 
+impl Measure for Wavelength {
+    fn value(&self) -> f64 {
+        self.0.value
+    }
+
+    fn is_valid(value: f64) -> bool {
+        value.is_sign_positive() && value.is_finite() && !value.is_nan()
+    }
+
+    fn is_magnitude() -> bool {
+        true
+    }
+}
+
 impl Wavelength {
+    ///
+    /// Construct a new Wavelength measured in millimeters.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rfham_core::frequencies::Wavelength;
+    ///
+    /// let v = Wavelength::millimeters(4.0);
+    /// assert_eq!("0.004 m ≣ 4 millimeters".to_string(), format!("{v} ≣ {v:#}"));
+    /// ```
+    ///
     pub fn millimeters(value: f64) -> Self {
         Self(BaseLength::new::<length_unit::millimeter>(value))
     }
 
+    ///
+    /// Construct a new Wavelength measured in centimeters.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rfham_core::frequencies::Wavelength;
+    ///
+    /// let v = Wavelength::centimeters(4.0);
+    /// assert_eq!("0.04 m ≣ 4 centimeters".to_string(), format!("{v} ≣ {v:#}"));
+    /// ```
+    ///
     pub fn centimeters(value: f64) -> Self {
         Self(BaseLength::new::<length_unit::centimeter>(value))
     }
 
+    ///
+    /// Construct a new Wavelength measured in meters.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rfham_core::frequencies::Wavelength;
+    ///
+    /// let v = Wavelength::meters(4.0);
+    /// assert_eq!("4 m ≣ 4 meters".to_string(), format!("{v} ≣ {v:#}"));
+    /// ```
+    ///
     pub fn meters(value: f64) -> Self {
         Self(BaseLength::new::<length_unit::meter>(value))
     }
 
+    ///
+    /// Construct a new Wavelength measured in kilometers.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rfham_core::frequencies::Wavelength;
+    ///
+    /// let v = Wavelength::kilometers(4.0);
+    /// assert_eq!("4000 m ≣ 4 kilometers".to_string(), format!("{v} ≣ {v:#}"));
+    /// ```
+    ///
     pub fn kilometers(value: f64) -> Self {
         Self(BaseLength::new::<length_unit::kilometer>(value))
     }
 
+    ///
+    /// Return the underlying value in meters as an `f64`.
+    ///
     pub const fn value(&self) -> f64 {
         self.0.value
     }
 
+    ///
+    /// Implements the natural relationship between wave lengths and frequencies, specifically
+    /// $f = \frac{c}{\lambda}$. where $f$ is the frequency in Hertz, $c$ is the speed of light
+    /// and $\lambda$ is the wavelength in meters.
+    ///
     pub fn to_frequency(&self) -> Frequency {
         Frequency::hertz(SPEED_OF_LIGHT / self.value())
     }
@@ -422,20 +700,15 @@ pub fn meters(value: f64) -> Wavelength {
 }
 
 // ------------------------------------------------------------------------------------------------
-// Private Functions
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Sub-Modules
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
 // Unit Tests
 // ------------------------------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
-    use super::{Frequency, FrequencyRange};
+    use crate::{
+        Measure,
+        frequencies::{Frequency, FrequencyRange},
+    };
     use pretty_assertions::assert_eq;
 
     #[test]

@@ -12,7 +12,8 @@ members = [
     "rfham-itu",
     "rfham-maidenhead",
     "rfham-markdown",
-    "rfham-radios",
+    "rfham-radios", 
+    "rfham-services",
 ]
 
 [workspace.lints.rust]

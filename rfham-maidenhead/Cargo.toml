@@ -9,9 +9,10 @@ readme = "README.md"
 # Minimum Supported Rust Version
 rust-version = "1.94"
 
+
 [package.metadata.docs.rs]
 features = ["std"]
-rustdoc-args = ["--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "--html-in-header", "rustdoc/header.html"]
 
 [package.metadata.playground]
 features = ["std"]
@@ -24,6 +25,7 @@ default = ["std"]
 std = []
 
 [dependencies]
+document-features = "0.2"
 lat-long = { version = "0.1", features = [
     "serde",
 ], path = "../../rust-lat-long/" }

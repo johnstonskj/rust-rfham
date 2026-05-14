@@ -84,12 +84,9 @@
 //! Example: CN87aa00mm => point: 47.00208333, -123.99583333, center: 47.00199653, -123.99565972
 //! Example: CN87aa55mm => point: 47.02291667, -123.95416667, center: 47.02282986, -123.95399306
 //! ```
-//! # Features
 //!
-//! TBD
-//!
-//!
-
+//! # Feature flags
+#![doc = document_features::document_features!()]
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(not(feature = "std"))]
 extern crate alloc as std;
@@ -111,7 +108,7 @@ use std::{fmt::Display, marker::PhantomData, str::FromStr};
 /// This String newtype implements the Locator, or *loc* type holding the string encoded square
 /// identifier. Maidenhead locators can be specified at multiple levels of precision with increasing
 /// specificity, and these levels are described in [`MaidenheadPrecision`] and used in the methods
-/// [`from_point_with_precision`] and [`precision`].
+/// `from_point_with_precision` and `precision`.
 ///
 /// This type also implements the Rf-Ham geo `GridIdentifier` trait.
 ///
@@ -178,36 +175,84 @@ pub struct Maidenhead {
 // Constants
 // ------------------------------------------------------------------------------------------------
 
-const DEGREES_PER_CIRCLE: f64 = 360.0;
-const DEGREES_PER_HALF_CIRCLE: f64 = DEGREES_PER_CIRCLE / 2.0;
-const DEGREES_PER_QUARTER_CIRCLE: f64 = DEGREES_PER_HALF_CIRCLE / 2.0;
+/// The number of degrees measured for longitude in the Maidenhead algorithm.
+pub const DEGREES_PER_CIRCLE: f64 = 360.0;
 
-const FIELDS_PER: f64 = 18.0;
-const SQUARES_PER: f64 = 10.0;
-const SUB_SQUARES_PER: f64 = 24.0;
+/// The number of degrees measured for latitude in the Maidenhead algorithm, also used to normalize
+/// negative longitude.
+pub const DEGREES_PER_HALF_CIRCLE: f64 = DEGREES_PER_CIRCLE / 2.0;
 
-const LATITUDE_DEGREES_PER_FIELD: f64 = DEGREES_PER_HALF_CIRCLE / FIELDS_PER;
-const LATITUDE_DEGREES_PER_SQUARE: f64 = LATITUDE_DEGREES_PER_FIELD / SQUARES_PER;
-const LATITUDE_DEGREES_PER_SUB_SQUARE: f64 = LATITUDE_DEGREES_PER_SQUARE / SUB_SQUARES_PER;
-const LATITUDE_DEGREES_PER_EXT_SQUARE: f64 = LATITUDE_DEGREES_PER_SUB_SQUARE / SQUARES_PER;
-const LATITUDE_DEGREES_PER_EXT_SUB_SQUARE: f64 = LATITUDE_DEGREES_PER_EXT_SQUARE / SUB_SQUARES_PER;
+/// Used to normalize negative latitude.
+pub const DEGREES_PER_QUARTER_CIRCLE: f64 = DEGREES_PER_HALF_CIRCLE / 2.0;
 
-const LONGITUDE_DEGREES_PER_FIELD: f64 = DEGREES_PER_CIRCLE / FIELDS_PER;
-const LONGITUDE_DEGREES_PER_SQUARE: f64 = LONGITUDE_DEGREES_PER_FIELD / SQUARES_PER;
-const LONGITUDE_DEGREES_PER_SUB_SQUARE: f64 = LONGITUDE_DEGREES_PER_SQUARE / SUB_SQUARES_PER;
-const LONGITUDE_DEGREES_PER_EXT_SQUARE: f64 = LONGITUDE_DEGREES_PER_SUB_SQUARE / SQUARES_PER;
-const LONGITUDE_DEGREES_PER_EXT_SUB_SQUARE: f64 =
-    LONGITUDE_DEGREES_PER_EXT_SQUARE / SUB_SQUARES_PER;
+/// Any *square* consists of $10 \times 10$ divisions.
+pub const DIVISIONS_PER_SQUARE_ONLY: f64 = 10.0;
 
-const NORTH_POLE_LATITUDE: f64 = 180.0;
-const SOUTH_POLE_LATITUDE: f64 = 0.0;
+/// Any *sub-square* consists of $24 \times 24$ divisions.
+pub const DIVISIONS_PER_SUB_SQUARE_ONLY: f64 = 24.0;
 
+/// Maidenhead divides the earth into $18 \times 18$ **Fields**.
+pub const DIVISIONS_PER_FIELD: f64 = 18.0;
+
+/// Fields are then divided into $10 \times 10$ **Squares**.
+pub const DIVISIONS_PER_SQUARE: f64 = DIVISIONS_PER_FIELD * DIVISIONS_PER_SQUARE_ONLY;
+
+/// Squares are then divided into $24 \times 24$ **Sub-Squares**.
+pub const DIVISIONS_PER_SUB_SQUARE: f64 = DIVISIONS_PER_SQUARE * DIVISIONS_PER_SUB_SQUARE_ONLY;
+
+/// Sub-Squares are then divided into $10 \times 10$ **Extended Squares**.
+pub const DIVISIONS_PER_EXT_SQUARE: f64 = DIVISIONS_PER_SUB_SQUARE * DIVISIONS_PER_SQUARE_ONLY;
+
+/// Extended Squares are then divided into $24 \times 24$ **Extended Sub-Squares**.
+pub const DIVISIONS_PER_EXT_SUB_SQUARE: f64 =
+    DIVISIONS_PER_EXT_SQUARE * DIVISIONS_PER_SUB_SQUARE_ONLY;
+
+/// Each field is therefore $\frac{180\degree}{18} = 10\degree$ in latitude
+pub const LATITUDE_DEGREES_PER_FIELD: f64 = DEGREES_PER_HALF_CIRCLE / DIVISIONS_PER_FIELD;
+
+/// Each square is therefore $\frac{180\degree}{18 \cdot 10} = 1\degree$ in latitude
+pub const LATITUDE_DEGREES_PER_SQUARE: f64 = DEGREES_PER_HALF_CIRCLE / DIVISIONS_PER_SQUARE;
+
+/// Each sub-square is therefore $\frac{180\degree}{18 \cdot 10 \cdot 24} = 0.041\dot{6}\degree$ in latitude
+pub const LATITUDE_DEGREES_PER_SUB_SQUARE: f64 = DEGREES_PER_HALF_CIRCLE / DIVISIONS_PER_SUB_SQUARE;
+
+/// Each extended square is therefore $\frac{180\degree}{18 \cdot 10 \cdot 24 \cdot 10} = 0.0041\dot{6}\degree$ in latitude
+pub const LATITUDE_DEGREES_PER_EXT_SQUARE: f64 = DEGREES_PER_HALF_CIRCLE / DIVISIONS_PER_EXT_SQUARE;
+
+/// Each extended sub-square is therefore $\frac{180\degree}{18 \cdot 10 \cdot 24 \cdot 10 \cdot 24} = 0.0001736\dot{1}\degree$ in latitude
+pub const LATITUDE_DEGREES_PER_EXT_SUB_SQUARE: f64 =
+    DEGREES_PER_HALF_CIRCLE / DIVISIONS_PER_EXT_SUB_SQUARE;
+
+/// Each field is therefore $\frac{360\degree}{18} = 20\degree$ in longitude
+pub const LONGITUDE_DEGREES_PER_FIELD: f64 = DEGREES_PER_CIRCLE / DIVISIONS_PER_FIELD;
+
+/// Each square is therefore $\frac{360\degree}{18 \cdot 10} = 2\degree$ in longitude
+pub const LONGITUDE_DEGREES_PER_SQUARE: f64 = DEGREES_PER_CIRCLE / DIVISIONS_PER_SQUARE;
+
+/// Each sub-square is therefore $\frac{360\degree}{18 \cdot 10 \cdot 24} = 0.08\dot{3}\degree$ in longitude
+pub const LONGITUDE_DEGREES_PER_SUB_SQUARE: f64 = DEGREES_PER_CIRCLE / DIVISIONS_PER_SUB_SQUARE;
+
+/// Each extended square is therefore $\frac{360\degree}{18 \cdot 10 \cdot 24 \cdot 10} = 0.008\dot{3}\degree$ in longitude
+pub const LONGITUDE_DEGREES_PER_EXT_SQUARE: f64 = DEGREES_PER_CIRCLE / DIVISIONS_PER_EXT_SQUARE;
+
+/// Each extended square is therefore $\frac{360}{18 \cdot 10 \cdot 24 \cdot 10 \cdot 24} = 0.000347\dot{2}\degree$ in longitude
+pub const LONGITUDE_DEGREES_PER_EXT_SUB_SQUARE: f64 =
+    DEGREES_PER_CIRCLE / DIVISIONS_PER_EXT_SUB_SQUARE;
+
+/// The *normalized* latitude of the North pole.
+pub const NORTH_POLE_LATITUDE: f64 = 180.0;
+
+/// The *normalized* latitude of the South pole.
+pub const SOUTH_POLE_LATITUDE: f64 = 0.0;
+
+// By convention, field letters are uppercase
 const FIELD_LETTERS: [char; 18] = [
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
 ];
 
-const SQUARE_LETTERS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+const SQUARE_DIGITS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
+// By convention, sub-square letters are lowercase
 const SUB_SQUARE_LETTERS: [char; 26] = [
     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
     't', 'u', 'v', 'w', 'x', 'y', 'z',
@@ -217,7 +262,10 @@ const LETTER_A_ASCII_VALUE: u32 = 'A' as u32;
 
 const LETTER_0_ASCII_VALUE: u32 = '0' as u32;
 
+// The bottom-left corner of a square
 const SQUARE_CORNER_SUFFIX: &str = "00";
+
+// The bottom-left corner of a sub-square
 const SUB_SQUARE_CORNER_SUFFIX: &str = "aa";
 
 // ------------------------------------------------------------------------------------------------
@@ -387,6 +435,7 @@ impl MaidenheadLocator {
 
     pub fn to_point(&self) -> Result<Coordinate, GeoError> {
         fn char_to_value(c: char) -> f64 {
+            // Gives a 0-based index regardless of whether result is upper/lower case
             (c.to_ascii_uppercase() as u32 - LETTER_A_ASCII_VALUE) as f64
         }
 
@@ -428,9 +477,9 @@ impl MaidenheadLocator {
         let longitude: f64 = -DEGREES_PER_HALF_CIRCLE
             + (char_to_value(long_chars[0]) * LONGITUDE_DEGREES_PER_FIELD)
             + (numeric_char_to_value(long_chars[1]) * LONGITUDE_DEGREES_PER_SQUARE)
-            + (char_to_value(long_chars[2]) / 12.0)
-            + (numeric_char_to_value(long_chars[3]) / 120.0)
-            + (char_to_value(long_chars[4]) / 2880.0);
+            + (char_to_value(long_chars[2]) * LONGITUDE_DEGREES_PER_SUB_SQUARE)
+            + (numeric_char_to_value(long_chars[3]) * LONGITUDE_DEGREES_PER_EXT_SQUARE)
+            + (char_to_value(long_chars[4]) * LONGITUDE_DEGREES_PER_EXT_SUB_SQUARE);
 
         let lat_chars: Vec<char> = locator_string
             .chars()
@@ -441,9 +490,9 @@ impl MaidenheadLocator {
         let latitude: f64 = -DEGREES_PER_QUARTER_CIRCLE
             + (char_to_value(lat_chars[0]) * LATITUDE_DEGREES_PER_FIELD)
             + (numeric_char_to_value(lat_chars[1]) * LATITUDE_DEGREES_PER_SQUARE)
-            + (char_to_value(lat_chars[2]) / 24.0)
-            + (numeric_char_to_value(lat_chars[3]) / 240.0)
-            + (char_to_value(lat_chars[4]) / 5760.0);
+            + (char_to_value(lat_chars[2]) * LATITUDE_DEGREES_PER_SUB_SQUARE)
+            + (numeric_char_to_value(lat_chars[3]) * LATITUDE_DEGREES_PER_EXT_SQUARE)
+            + (char_to_value(lat_chars[4]) * LATITUDE_DEGREES_PER_EXT_SUB_SQUARE);
 
         Ok(Coordinate::new(
             Latitude::try_from(latitude)?,
@@ -648,8 +697,10 @@ fn grid_field_string(latitude: f64, longitude: f64) -> String {
 fn grid_square_string(latitude: f64, longitude: f64) -> String {
     format!(
         "{}{}",
-        SQUARE_LETTERS[((longitude / LONGITUDE_DEGREES_PER_SQUARE) % SQUARES_PER).floor() as usize],
-        SQUARE_LETTERS[((latitude / LATITUDE_DEGREES_PER_SQUARE) % SQUARES_PER).floor() as usize],
+        SQUARE_DIGITS[((longitude / LONGITUDE_DEGREES_PER_SQUARE) % DIVISIONS_PER_SQUARE_ONLY)
+            .floor() as usize],
+        SQUARE_DIGITS[((latitude / LATITUDE_DEGREES_PER_SQUARE) % DIVISIONS_PER_SQUARE_ONLY).floor()
+            as usize],
     )
 }
 
@@ -657,8 +708,12 @@ fn grid_square_string(latitude: f64, longitude: f64) -> String {
 fn grid_sub_square_string(latitude: f64, longitude: f64) -> String {
     format!(
         "{}{}",
-        SUB_SQUARE_LETTERS[((longitude * 12.0) % SUB_SQUARES_PER).floor() as usize],
-        SUB_SQUARE_LETTERS[((latitude * 24.0) % SUB_SQUARES_PER).floor() as usize],
+        SUB_SQUARE_LETTERS[((longitude / LONGITUDE_DEGREES_PER_SUB_SQUARE)
+            % DIVISIONS_PER_SUB_SQUARE_ONLY)
+            .floor() as usize],
+        SUB_SQUARE_LETTERS[((latitude / LATITUDE_DEGREES_PER_SUB_SQUARE)
+            % DIVISIONS_PER_SUB_SQUARE_ONLY)
+            .floor() as usize],
     )
 }
 
@@ -666,8 +721,10 @@ fn grid_sub_square_string(latitude: f64, longitude: f64) -> String {
 fn grid_extended_square_string(latitude: f64, longitude: f64) -> String {
     format!(
         "{}{}",
-        SQUARE_LETTERS[((longitude * 120.0) % SQUARES_PER).floor() as usize],
-        SQUARE_LETTERS[((latitude * 240.0) % SQUARES_PER).floor() as usize],
+        SQUARE_DIGITS[((longitude / LONGITUDE_DEGREES_PER_EXT_SQUARE) % DIVISIONS_PER_SQUARE_ONLY)
+            .floor() as usize],
+        SQUARE_DIGITS[((latitude / LATITUDE_DEGREES_PER_EXT_SQUARE) % DIVISIONS_PER_SQUARE_ONLY)
+            .floor() as usize],
     )
 }
 
@@ -675,8 +732,12 @@ fn grid_extended_square_string(latitude: f64, longitude: f64) -> String {
 fn grid_extended_sub_square_string(latitude: f64, longitude: f64) -> String {
     format!(
         "{}{}",
-        SUB_SQUARE_LETTERS[((longitude * 2880.0) % SUB_SQUARES_PER).floor() as usize],
-        SUB_SQUARE_LETTERS[((latitude * 5760.0) % SUB_SQUARES_PER).floor() as usize],
+        SUB_SQUARE_LETTERS[((longitude / LONGITUDE_DEGREES_PER_EXT_SUB_SQUARE)
+            % DIVISIONS_PER_SUB_SQUARE_ONLY)
+            .floor() as usize],
+        SUB_SQUARE_LETTERS[((latitude / LATITUDE_DEGREES_PER_EXT_SUB_SQUARE)
+            % DIVISIONS_PER_SUB_SQUARE_ONLY)
+            .floor() as usize],
     )
 }
 

@@ -1,13 +1,24 @@
-//! Amateur radio callsign parsing and validation.
+//! Provides the [`CallSign`] type for parsing and validating amateur radio callsigns.
 //!
-//! A callsign follows the ITU pattern `[ancillary-prefix/]PREFIX N SUFFIX[/ancillary-suffix]`:
+//! In general an amateur radio callsign is of one of these forms where:
 //!
-//! - **Prefix** — one to three letters (or digit + letters), e.g. `K`, `VE`, `OE3`
-//! - **Separator** — a single digit `0`–`9`
-//! - **Suffix** — one to ten alphanumeric characters ending in a letter
-//! - **Ancillary prefix/suffix** — optional portable / operating-context qualifiers
+//! * *P* – prefix character (letter or numeral, subject to exclusions below). Prefixes can be
+//!   formed using one-letter, two-letters, a digit and a letter, a letter and a digit, or in
+//!   rare cases a digit and two letters. There is no ITU allocation of digit-only prefixes.
+//!   Letter-digit-letter prefixes are possible but there are no known cases of them being
+//!   issued by national bodies.
+//! * *N* – a single numeral which separates prefix from suffix (any digit from 0 to 9).
+//!   Often a cross-hatched Ø is used for the numeral zero to distinguish it from the letter O.
+//! * *S* – suffix character (letter or numeral, last character must be a letter). Digits are
+//!   in practise used sparingly in suffixes and almost always for special events. This avoids
+//!   confusion with separating numerals and digits in prefixes in regularly issued call signs.
 //!
-//! ## Ancillary suffixes
+//!   From [Wikipedia](https://en.wikipedia.org/wiki/Amateur_radio_call_signs)
+//!
+//! ## Ancillary Prefixes and Suffixes
+//!
+//! Ancillary prefixes or suffixes further identify the location and/or operating condition
+//! of an amateur operator.
 //!
 //! | Suffix | Meaning |
 //! |--------|---------|
@@ -19,10 +30,34 @@
 //! | `/QRP` | Low-power (≤5 W) operation |
 //! | `/AG`, `/AE` | FCC licence pending upgrade |
 //!
+//! # Unavailability Rules
+//!
+//!  1. KA2AA-KA9ZZ, KC4AAA-KC4AAF, KC4USA-KC4USZ, KG4AA-KG4ZZ, KC6AA-KC6ZZ, KL9KAA- KL9KHZ,
+//!     KX6AA-KX6ZZ;
+//!  2. Any call sign having the letters SOS or QRA-QUZ as the suffix;
+//!  3. Any call sign having the letters AM-AZ as the prefix (these prefixes are assigned to
+//!     other countries by the ITU);
+//!  4. Any 2-by-3 format call sign having the letter X as the first letter of the suffix;
+//!  5. Any 2-by-3 format call sign having the letters AF, KF, NF, or WF as the prefix and
+//!     the letters EMA as the suffix (U.S Government FEMA stations);
+//!  6. Any 2-by-3 format call sign having the letters AA-AL as the prefix;
+//!  7. Any 2-by-3 format call sign having the letters NA-NZ as the prefix;
+//!  8. Any 2-by-3 format call sign having the letters WC, WK, WM, WR, or WT as the prefix
+//!     (Group X call signs);
+//!  9. Any 2-by-3 format call sign having the letters KP, NP or WP as the prefix and the
+//!     numeral 0, 6, 7, 8 or 9;
+//! 10. Any 2-by-2 format call sign having the letters KP, NP or WP as the prefix and the
+//!     numeral 0, 6, 7, 8 or 9;
+//! 11. Any 2-by-1 format call sign having the letters KP, NP or WP as the prefix and the
+//!     numeral 0, 6, 7, 8 or 9;
+//! 12. Call signs having the single letter prefix (K, N or W), a single digit numeral  
+//!     0, 1, 2, 3, 4, 5, 6, 7, 8, 9 and a single letter suffix are reserved for the
+//!     special event call sign system.
+//!
 //! # Examples
 //!
 //! ```rust
-//! use rfham_core::callsign::CallSign;
+//! use rfham_core::callsigns::CallSign;
 //!
 //! let cs: CallSign = "K7SKJ".parse().unwrap();
 //! assert_eq!(cs.prefix(), "K");
@@ -34,7 +69,7 @@
 //! Ancillary qualifiers round-trip through `Display`:
 //!
 //! ```rust
-//! use rfham_core::callsign::CallSign;
+//! use rfham_core::callsigns::CallSign;
 //!
 //! let cs: CallSign = "LM9L40Y/P".parse().unwrap();
 //! assert!(cs.is_portable());
@@ -44,7 +79,7 @@
 //! Invalid callsigns return an error:
 //!
 //! ```rust
-//! use rfham_core::callsign::CallSign;
+//! use rfham_core::callsigns::CallSign;
 //!
 //! assert!(CallSign::is_valid("K7SKJ"));
 //! assert!(!CallSign::is_valid("NODIGIT"));
@@ -64,20 +99,13 @@ use std::{fmt::Display, str::FromStr, sync::LazyLock};
 // Public Types
 // ------------------------------------------------------------------------------------------------
 
-/// In general an amateur radio callsign is of one of these forms where:
 ///
-/// * *P* – prefix character (letter or numeral, subject to exclusions below). Prefixes can be
-///   formed using one-letter, two-letters, a digit and a letter, a letter and a digit, or in
-///   rare cases a digit and two letters. There is no ITU allocation of digit-only prefixes.
-///   Letter-digit-letter prefixes are possible but there are no known cases of them being
-///   issued by national bodies.
-/// * *N* – a single numeral which separates prefix from suffix (any digit from 0 to 9).
-///   Often a cross-hatched Ø is used for the numeral zero to distinguish it from the letter O.
-/// * *S* – suffix character (letter or numeral, last character must be a letter). Digits are
-///   in practise used sparingly in suffixes and almost always for special events. This avoids
-///   confusion with separating numerals and digits in prefixes in regularly issued call signs.
+/// The type for ITU-format amateur radio callsigns, with parsing and validation from strings.
 ///
-///   From [Wikipedia](https://en.wikipedia.org/wiki/Amateur_radio_call_signs)
+/// This type stores the components of a callsign separately to allow for easy access to the
+/// refix, suffix, and ancillary qualifiers. The `Display` implementation formats the callsign
+/// in the standard manner.
+///
 #[derive(Clone, Debug, PartialEq, Eq, DeserializeFromStr, SerializeDisplay)]
 pub struct CallSign {
     ancillary_prefix: Option<String>,
@@ -88,8 +116,66 @@ pub struct CallSign {
 }
 
 // ------------------------------------------------------------------------------------------------
+// Public Functions
+// ------------------------------------------------------------------------------------------------
+
+///
+/// Returns `true` if the string `s` is a valid ancillary prefix, i.e. consists of only letters
+/// and digits.
+///
+pub fn ancillary_prefix_is_valid(s: &str) -> bool {
+    s.chars().all(|c| c.is_ascii_alphanumeric())
+}
+
+///
+/// Returns `true` if the string `s` is a valid prefix, i.e. consists of only letters
+/// and digits in specific ordering.
+///
+pub fn prefix_is_valid(s: &str) -> bool {
+    CALLSIGN_PREFIX_REGEX.is_match(s)
+}
+
+///
+/// Returns `true` if the string `s` is a valid numeric separator, a single ASCII digit.
+///
+pub fn separator_numeral_is_valid(s: &str) -> bool {
+    s.len() == 1 && s.chars().all(|c| c.is_ascii_digit())
+}
+
+///
+/// Returns `true` if the string `s` is a valid suffix, i.e. consists of only letters
+/// and digits.
+///
+pub fn suffix_is_valid(s: &str) -> bool {
+    !s.is_empty() && s.len() <= 10 && s.chars().all(|c| c.is_ascii_alphanumeric())
+}
+
+///
+/// Returns `true` if the string `s` is a valid suffix, using strict rules, i.e. a
+/// shorter length and must end in a letter.
+///
+pub fn suffix_is_strictly_valid(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= 4
+        && s.chars().all(|c| c.is_ascii_alphanumeric())
+        && s.chars().last().unwrap().is_ascii_alphabetic()
+}
+
+///
+/// Returns `true` if the string `s` is a valid ancillary suffix, i.e. consists of only letters
+/// and digits.
+///
+pub fn ancillary_suffix_is_valid(s: &str) -> bool {
+    s.chars().all(|c| c.is_ascii_alphanumeric())
+}
+
+// ------------------------------------------------------------------------------------------------
 // Implementations
 // ------------------------------------------------------------------------------------------------
+
+static CALLSIGN_PREFIX_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(?:[A-Z][0-9][A-Z]?)|(?:[0-9][A-Z]{0,2})|(?:[A-Z]{1,3})$").unwrap()
+});
 
 static CALLSIGN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
@@ -175,28 +261,102 @@ impl FromStr for CallSign {
 }
 
 impl CallSign {
+    ///
+    /// Construct a new callsign from it's constituent parts/components. Validation of suffixes
+    /// uses a lax definition of validity by default to allow for special-event and commemorative
+    /// callsigns which often have longer suffixes and/or digits in the suffix. For strict
+    /// validation of suffixes, use the `new_strict` constructor.
+    /// The prefix and suffix are required, but ancillary prefixes and suffixes are optional.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if any of the three components are invalid, e.g. if the
+    /// separator numeral is not a single digit from 0 to 9.
+    ///
     pub fn new<S1: Into<String>, N: Into<u8>, S2: Into<String>>(
         prefix: S1,
         separator: N,
         suffix: S2,
     ) -> Self {
+        Self::new_inner(prefix.into(), separator.into(), suffix.into(), false)
+    }
+
+    ///
+    /// Construct a new callsign from it's constituent parts/components. Validation of suffixes
+    /// follow the ITU stricter rules for regular callsigns, which disallow suffixes longer
+    /// than four characters or ending with a digit.
+    /// The prefix and suffix are required, but ancillary prefixes and suffixes are optional.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if any of the three components are invalid, e.g. if the
+    /// separator numeral is not a single digit from 0 to 9.
+    ///
+    pub fn new_strict<S1: Into<String>, N: Into<u8>, S2: Into<String>>(
+        prefix: S1,
+        separator: N,
+        suffix: S2,
+    ) -> Self {
+        Self::new_inner(prefix.into(), separator.into(), suffix.into(), true)
+    }
+
+    fn new_inner(prefix: String, separator: u8, suffix: String, strict: bool) -> Self {
+        assert!(
+            prefix_is_valid(&prefix),
+            "Prefix must be 1-3 characters, with at most one digit in the middle"
+        );
+        assert!(
+            separator <= 9,
+            "Separator numeral must be a single digit from 0 to 9"
+        );
+        if strict {
+            assert!(
+                suffix_is_strictly_valid(&suffix),
+                "Suffix must be 1-4 characters, with the last character a letter"
+            );
+        } else {
+            assert!(suffix_is_valid(&suffix), "Suffix must be 1-10 characters");
+        }
         Self {
             ancillary_prefix: None,
-            prefix: prefix.into(),
-            separator: separator.into(),
-            suffix: suffix.into(),
+            prefix,
+            separator,
+            suffix,
             ancillary_suffix: None,
         }
     }
 
+    ///
+    /// Add an ancillary prefix to this callsign, returning a new `CallSign` instance
+    /// with the ancillary prefix set. The ancillary prefix is typically used to
+    /// indicate a special location.
+    ///
     pub fn with_ancillary_prefix<S: Into<String>>(mut self, prefix: S) -> Self {
         self.ancillary_prefix = Some(prefix.into());
         self
     }
 
+    ///
+    /// Add an ancillary suffix to this callsign, returning a new `CallSign` instance
+    /// with the ancillary suffix set. The ancillary suffix is typically used to
+    /// indicate a special location or operating condition, e.g. `/A` for operation
+    /// from an alternate licensed location.
+    ///
     pub fn with_ancillary_suffix<S: Into<String>>(mut self, suffix: S) -> Self {
         self.ancillary_suffix = Some(suffix.into());
         self
+    }
+
+    ///
+    /// Return a new `CallSign` instance with ancillary prefixes and suffixes removed,
+    /// leaving only the core callsign components. This is useful for comparing the core
+    /// callsigns.
+    pub fn without_ancillaries(&self) -> Self {
+        Self {
+            ancillary_prefix: None,
+            ancillary_suffix: None,
+            ..self.clone()
+        }
     }
 
     pub fn ancillary_prefix(&self) -> Option<&String> {
@@ -286,6 +446,24 @@ impl CallSign {
         self.ancillary_suffix()
             .map(|s| s.eq_ignore_ascii_case("AG") || s.eq_ignore_ascii_case("AE"))
             .unwrap_or_default()
+    }
+
+    ///
+    /// returns `true` only when the core components of the callsign are equal.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rfham_core::callsigns::CallSign;
+    /// use std::str::FromStr;
+    ///
+    /// let callsign1 = CallSign::from_str("K7SKJ/M").unwrap();
+    /// let callsign2 = CallSign::from_str("K7SKJ/VE6").unwrap();
+    ///
+    /// assert!(callsign1.eq_without_ancillaries(&callsign2));
+    /// ```
+    pub fn eq_without_ancillaries(&self, other: &Self) -> bool {
+        self.without_ancillaries() == other.without_ancillaries()
     }
 }
 

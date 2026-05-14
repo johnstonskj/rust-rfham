@@ -27,3 +27,7 @@ TBD
 ## Output
 
 TBD
+
+### Color
+
+### Verbosity

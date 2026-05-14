@@ -18,7 +18,7 @@ pub(crate) mod error;
 pub(crate) mod telemetry;
 
 use self::cli::Cli;
-use crate::error::CliError;
+use crate::error::unhandled_error;
 use clap::Parser;
 use std::process::ExitCode;
 
@@ -46,10 +46,26 @@ const COMMAND_NAME: &str = env!("CARGO_BIN_NAME");
 
 // CLI functions that propogate errors _should_ use `ExitCode` to denote success/failure
 // even if no explicit errors occurred.
-fn main() -> Result<ExitCode, CliError> {
+fn main() -> ExitCode {
     let command_line = Cli::parse();
-    telemetry::init(command_line.max_level_filter())?;
-    command_line.execute()
+
+    match telemetry::init(command_line.max_level_filter()) {
+        Ok(exit_code) => exit_code,
+        Err(e) => {
+            unhandled_error(e).print();
+            return ExitCode::FAILURE;
+        }
+    };
+
+    match command_line.execute() {
+        Ok(exit_code) => exit_code,
+        Err(e) => {
+            unhandled_error(e).print();
+            return ExitCode::FAILURE;
+        }
+    };
+
+    ExitCode::SUCCESS
 }
 
 impl<T, O, E, V> OnceCommand for T

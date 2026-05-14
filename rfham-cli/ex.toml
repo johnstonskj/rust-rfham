@@ -1,0 +1,20 @@
+[station]
+callsign = "K7SKJ"
+operator-name = "Simon Johnston"
+
+[station.location]
+kind = "home"
+grid-locator = "CN87vx"
+country = "US"
+
+[locale]
+length_units = "imperial"
+temperature_units = "imperial"
+time_format = "military"
+
+[services]
+storage_kind = "plain-text"
+
+[services.credentials.qrz-api]
+identifier = "K7SKJ"
+secret = "passw"

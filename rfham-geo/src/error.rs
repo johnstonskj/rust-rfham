@@ -4,10 +4,9 @@
 //! [`GeoResult<T>`] is a type alias for `std::result::Result<T, GeoError>`.
 
 use lat_long::Error as LatLongError;
-use reqwest::Error as RequestError;
-use reqwest::StatusCode;
 use rfham_core::error::CoreError;
 use serde_json::Error as JsonError;
+use strum::ParseError as EnumParseError;
 use thiserror::Error;
 
 // ------------------------------------------------------------------------------------------------
@@ -31,17 +30,14 @@ pub enum GeoError {
     #[error("An error occured in a Geo-IP provider; error: {0}")]
     GeoIpProvider(String),
 
-    #[error("An HTTP service returned non-success code ; status-code: {0}")]
-    Http(StatusCode),
-
-    #[error("An error occured calling an HTTP service; status-code: {0}")]
-    Reqwest(#[from] RequestError),
-
     #[error("Core library error detected; error: {0}")]
     Core(#[from] CoreError),
 
     #[error("An error occured serializing/deserializing JSON; error: {0}")]
     Serialization(#[from] JsonError),
+
+    #[error("An error occured parsing an enum/variant; error: {0}")]
+    EnumParser(#[from] EnumParseError),
 }
 
 ///

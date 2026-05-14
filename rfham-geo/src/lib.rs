@@ -7,19 +7,15 @@
 //! - **Geo-IP lookup** ([`geoip`]) — map an IP address to location, locale, and ASN data
 //!   via pluggable [`geoip::Provider`] implementations.
 //!
-//! # Module overview
-//!
-//! | Module | Key types | Purpose |
-//! |--------|-----------|---------|
-//! | [`grid`] | [`grid::GridIdentifier`], [`grid::GridPolygon`], [`grid::GridSystem`] | Locator-grid trait abstractions |
-//! | [`geoip`] | [`geoip::IpGeoData`], [`geoip::Provider`] | IP-to-location resolution |
-//! | [`geoip::providers`] | [`geoip::providers::GeoIpLookup`], [`geoip::providers::NoOp`] | Concrete provider implementations |
-//! | [`error`] | [`error::GeoError`], [`error::GeoResult`] | Crate-wide error and result types |
-//!
 //! # Features
 //!
 //! - **`std`** *(default)*: enables standard-library support. Disable for `no_std` + `alloc`
 //!   environments (note: the HTTP provider requires `std`).
+
+// https://nominatim.org
+// https://nominatim.openstreetmap.org/search?q=Bellevue+WA&limit=1&format=jsonv2
+// https://nominatim.openstreetmap.org/reverse?lat=<value>&lon=<value>&<params>
+// https://geocoding-api.open-meteo.com/v1/search?name=Seattle
 
 // ------------------------------------------------------------------------------------------------
 // Modules
@@ -30,3 +26,5 @@ pub mod error;
 pub mod geoip;
 
 pub mod grid;
+
+pub use lat_long::{Coordinate, Latitude, Longitude};

@@ -1,4 +1,5 @@
-//! Regulatory, standards-setting, and maintaining agencies.
+//! The type [`Agency`] describes primarily regulatory, standards-setting,
+//! and maintaining agencies.
 //!
 //! [`Agency`] describes an organisation with a name, optional abbreviation,
 //! an [`AgencyKind`] classification, and an optional [`Jurisdiction`].
@@ -10,8 +11,11 @@
 //! # Examples
 //!
 //! ```rust
-//! use rfham_core::agency::{agency_fcc, agency_itu, AgencyKind};
-//! use rfham_core::country::CountryCode;
+//! use rfham_core::{
+//!     agencies::{agency_fcc, agency_itu, AgencyKind},
+//!     countries::CountryCode,
+//!     StringLike,
+//! };
 //! use std::str::FromStr;
 //!
 //! let itu = agency_itu();
@@ -29,7 +33,7 @@
 //! `AgencyKind` serialises to its short string form:
 //!
 //! ```rust
-//! use rfham_core::agency::AgencyKind;
+//! use rfham_core::agencies::AgencyKind;
 //! use std::str::FromStr;
 //!
 //! assert_eq!(AgencyKind::Regulatory.to_string(), "regulatory");
@@ -37,17 +41,15 @@
 //! ```
 
 use crate::{
-    CountryCode,
+    CountryCode, StringLike,
     countries::{country_code_uk, country_code_us},
     error::CoreError,
+    names::{Label, Name},
 };
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::{fmt::Display, str::FromStr};
-
-// ------------------------------------------------------------------------------------------------
-// Public Macros
-// ------------------------------------------------------------------------------------------------
+use url::Url;
 
 // ------------------------------------------------------------------------------------------------
 // Public Types
@@ -55,15 +57,17 @@ use std::{fmt::Display, str::FromStr};
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Agency {
-    name: String,
-    abbreviation: Option<String>,
+    name: Label,
+    abbreviation: Option<Name>,
     kind: AgencyKind,
     jurisdiction: Option<Jurisdiction>,
-    url: Option<String>,
+    url: Option<Url>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, DeserializeFromStr, SerializeDisplay)]
 pub enum AgencyKind {
+    // An organization recognized as the publisher of standards governing a particular domain.
+    
     StandardsSetting,
     Regulatory,
     Maintaining,
@@ -81,60 +85,67 @@ pub enum Jurisdiction {
 // Public Functions
 // ------------------------------------------------------------------------------------------------
 
+/// Returns an [`Agency`] struct for the International Telecommunication Union (ITU).
 pub fn agency_itu() -> Agency {
     Agency::new(
-        "The International Telecommunication Union",
+        Label::new_unchecked("The International Telecommunication Union"),
         AgencyKind::StandardsSetting,
     )
-    .with_abbreviation("ITU")
+    .with_abbreviation(Name::new_unchecked("ITU"))
     .with_jurisdiction(Jurisdiction::International)
-    .with_url("https://www.itu.int")
+    .with_url("https://www.itu.int".parse().unwrap())
 }
 
+/// Returns an [`Agency`] struct for the International Amateur Radio Union (IARU).
 pub fn agency_iaru() -> Agency {
     Agency::new(
-        "The International Amateur Radio Union",
+        Label::new_unchecked("The International Amateur Radio Union"),
         AgencyKind::Maintaining,
     )
-    .with_abbreviation("IARU")
+    .with_abbreviation(Name::new_unchecked("IARU"))
     .with_jurisdiction(Jurisdiction::International)
-    .with_url("https://www.iaru.org")
+    .with_url("https://www.iaru.org".parse().unwrap())
 }
 
+/// Returns an [`Agency`] struct for the American Radio Relay League (ARRL).
 pub fn agency_arrl() -> Agency {
-    Agency::new("The American Radio Relay League", AgencyKind::Maintaining)
-        .with_abbreviation("ARRL")
-        .with_jurisdiction(Jurisdiction::International)
-        .with_url("http://www.arrl.org")
+    Agency::new(
+        Label::new_unchecked("The American Radio Relay League"),
+        AgencyKind::Maintaining,
+    )
+    .with_abbreviation(Name::new_unchecked("ARRL"))
+    .with_jurisdiction(Jurisdiction::International)
+    .with_url("http://www.arrl.org".parse().unwrap())
 }
 
+/// Returns an [`Agency`] struct for the Federal Communications Commission (FCC).
 pub fn agency_fcc() -> Agency {
-    Agency::new("Federal Communications Commission", AgencyKind::Regulatory)
-        .with_abbreviation("FCC")
-        .with_jurisdiction(Jurisdiction::Just(country_code_us()))
-        .with_url("https://www.fcc.gov")
+    Agency::new(
+        Label::new_unchecked("Federal Communications Commission"),
+        AgencyKind::Regulatory,
+    )
+    .with_abbreviation(Name::new_unchecked("FCC"))
+    .with_jurisdiction(Jurisdiction::Just(country_code_us()))
+    .with_url("https://www.fcc.gov".parse().unwrap())
 }
 
+/// Returns an [`Agency`] struct for the UK Office of Communications (Ofcom).
 pub fn agency_ofcom() -> Agency {
-    Agency::new("Ofcom", AgencyKind::Regulatory)
+    Agency::new(Label::new_unchecked("Ofcom"), AgencyKind::Regulatory)
         .with_jurisdiction(Jurisdiction::Just(country_code_uk()))
-        .with_url("https://www.ofcom.org.uk")
+        .with_url("https://www.ofcom.org.uk".parse().unwrap())
 }
 
+/// Returns an [`Agency`] struct for the Radio Society of Great Britain (RSGB).
 pub fn agency_rsgb() -> Agency {
-    Agency::new("Radio Society of Great Britain", AgencyKind::Maintaining)
-        .with_abbreviation("RSGB")
-        .with_jurisdiction(Jurisdiction::Just(country_code_uk()))
-        .with_url("https://www.rsgb.org")
+    Agency::new(
+        Label::new_unchecked("Radio Society of Great Britain"),
+        AgencyKind::Maintaining,
+    )
+    .with_abbreviation(Name::new_unchecked("RSGB"))
+    .with_jurisdiction(Jurisdiction::Just(country_code_uk()))
+    .with_url("https://www.rsgb.org".parse().unwrap())
 }
-
-// ------------------------------------------------------------------------------------------------
-// Private Macros
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Private Types
-// ------------------------------------------------------------------------------------------------
 
 // ------------------------------------------------------------------------------------------------
 // Implementations ❯ Agency
@@ -180,9 +191,9 @@ impl Display for Agency {
 }
 
 impl Agency {
-    pub fn new(name: &str, kind: AgencyKind) -> Self {
+    pub fn new(name: Label, kind: AgencyKind) -> Self {
         Self {
-            name: name.to_string(),
+            name,
             abbreviation: None,
             kind,
             jurisdiction: None,
@@ -190,8 +201,8 @@ impl Agency {
         }
     }
 
-    pub fn with_abbreviation(mut self, abbreviation: &str) -> Self {
-        self.abbreviation = Some(abbreviation.to_string());
+    pub fn with_abbreviation(mut self, abbreviation: Name) -> Self {
+        self.abbreviation = Some(abbreviation);
         self
     }
 
@@ -200,8 +211,8 @@ impl Agency {
         self
     }
 
-    pub fn with_url(mut self, url: &str) -> Self {
-        self.url = Some(url.to_string());
+    pub fn with_url(mut self, url: Url) -> Self {
+        self.url = Some(url);
         self
     }
 
@@ -209,11 +220,11 @@ impl Agency {
         self.jurisdiction.as_ref().map(|v| v.contains(country))
     }
 
-    pub fn name(&self) -> &String {
+    pub fn name(&self) -> &Label {
         &self.name
     }
 
-    pub fn abbreviation(&self) -> Option<&String> {
+    pub fn abbreviation(&self) -> Option<&Name> {
         self.abbreviation.as_ref()
     }
 
@@ -225,7 +236,7 @@ impl Agency {
         self.jurisdiction.as_ref()
     }
 
-    pub fn url(&self) -> Option<&String> {
+    pub fn url(&self) -> Option<&Url> {
         self.url.as_ref()
     }
 }
@@ -401,7 +412,10 @@ mod tests {
 
     #[test]
     fn test_agency_no_jurisdiction_returns_none() {
-        let a = Agency::new("Test Agency", AgencyKind::Regulatory);
+        let a = Agency::new(
+            Label::from_str("Test Agency").unwrap(),
+            AgencyKind::Regulatory,
+        );
         assert_eq!(
             a.within_jurisdiction(&CountryCode::from_str("US").unwrap()),
             None

@@ -3,6 +3,7 @@
 //! [`CoreError`] is the single error enum used across all modules in this crate.
 //! [`Result<T>`] is a type alias for `std::result::Result<T, CoreError>`.
 
+use std::num::ParseFloatError;
 use thiserror::Error;
 
 #[cfg(feature = "std")]
@@ -29,15 +30,21 @@ pub enum CoreError {
     #[error("Value `{0}` is not valid for type `{1}`")]
     InvalidValue(String, &'static str),
 
+    #[error("Value `{0}` is not valid for type `{1}`, in the context of `{2}`")]
+    InvalidValueCtx(String, &'static str, &'static str),
+
     #[error("Unable to convert from UTF-8 to string; error: {0}")]
     FromUtf(#[from] FromUtf8Error),
 
     #[cfg(feature = "std")]
     #[error("An I/O error occurred; error: {0}")]
     Io(#[from] IoError),
+
+    #[error("Unable to parse float value from string; error: {0}")]
+    ParseFloat(#[from] ParseFloatError),
 }
 
 ///
 /// A `Result` type that specifically uses this crate's `Error`.
 ///
-pub type Result<T> = std::result::Result<T, CoreError>;
+pub type CoreResult<T> = std::result::Result<T, CoreError>;

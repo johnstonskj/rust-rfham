@@ -1,0 +1,47 @@
+[package]
+name = "rfham-services"
+version = "0.1.0"
+edition = "2024"
+description = "Service Abstractions for ham information."
+license = "MIT OR Apache-2.0"
+keywords = ["ham", "radio"]
+readme = "README.md"
+# Minimum Supported Rust Version
+rust-version = "1.94"
+
+[package.metadata.docs.rs]
+features = ["std"]
+rustdoc-args = ["--generate-link-to-definition"]
+
+[package.metadata.playground]
+features = ["std"]
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies.wasm-bindgen-test]
+version = "0.3"
+
+[dependencies]
+lat-long = { version = "0.1", features = [
+    "serde",
+], path = "../../rust-lat-long/" }
+reqwest = { version = "0.13.2", features = ["blocking", "json"] }
+rfham-config = { version = "0.1.1", path = "../rfham-config" }
+rfham-core = { version = "0.1.1", path = "../rfham-core" }
+rfham-geo = { version = "0.1.0", path = "../rfham-geo" }
+rfham-maidenhead = { version = "0.1.0", path = "../rfham-maidenhead" }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+serde_with = { version = "3.18", default-features = false, features = [
+    "alloc",
+    "macros",
+] }
+serde-xml-rs = { version = "0.8" }
+strum = { version = "0.28", features = ["derive"] }
+thiserror = { version = "2.0", default-features = false }
+tracing = "0.1"
+open = "5.3.5"
+
+[dev-dependencies]
+pretty_assertions = "1.4"
+
+[lints]
+workspace = true

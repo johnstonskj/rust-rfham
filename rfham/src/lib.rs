@@ -56,7 +56,8 @@ pub mod config {
     pub use rfham_config::error::ConfigError;
     pub use rfham_config::paths::ConfigPath;
     pub use rfham_config::{
-        self, Configuration, Equipment, Location, LocationKind, Mobility, Mode, Station, Usage,
+        self, Configuration, Equipment, Location, LocationKind, Station,
+        equipment::{Mobility, Mode, Usage},
     };
 }
 
