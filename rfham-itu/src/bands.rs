@@ -26,12 +26,15 @@ use rfham_core::{
     frequencies::{FrequencyRange, gigahertz, hertz, kilohertz, megahertz},
 };
 use serde_with::{DeserializeFromStr, SerializeDisplay};
+use strum::EnumIter;
 
 // ------------------------------------------------------------------------------------------------
 // Public Types
 // ------------------------------------------------------------------------------------------------
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, DeserializeFromStr, SerializeDisplay)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, EnumIter, DeserializeFromStr, SerializeDisplay,
+)]
 #[repr(u32)]
 pub enum FrequencyBand {
     ExtremelyLow = 1,

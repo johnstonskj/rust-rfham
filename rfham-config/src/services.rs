@@ -13,7 +13,7 @@ use crate::{
     error::ConfigError,
     fields::{CFG_FIELD_CREDENTIAL_STORAGE, CFG_FIELD_CREDENTIALS, CFG_FIELD_SERVICES},
     fmt::{FormatterOptions, OutputKind},
-    paths::{ConfigPath, PathTarget, Value},
+    paths::{ConfigPath, PathElement, PathTarget, Value},
 };
 use rfham_core::{StringLike, fmt::FormattedWriter, names::Name};
 use rfham_markdown::{blank_line, bulleted_list_item, header};
@@ -129,26 +129,33 @@ impl FormattedWriter for Services {
 }
 
 impl PathTarget for Services {
-    fn path_name(&self) -> Option<Name> {
+    fn path_name() -> Option<Name> {
         Some(Name::new_unchecked(CFG_FIELD_SERVICES))
     }
 
     fn value(&self, path: &ConfigPath) -> Result<Value, ConfigError> {
         let (head, _tail) = path.split();
-        match head.as_str() {
-            name if name == CFG_FIELD_CREDENTIAL_STORAGE => {
-                Ok(Value::EnumValue(self.storage_kind.to_string()))
+        if let PathElement::Name(name) = head {
+            match name.as_str() {
+                name if name == CFG_FIELD_CREDENTIAL_STORAGE => {
+                    Ok(Value::EnumValue(self.storage_kind.to_string()))
+                }
+                name if name == CFG_FIELD_CREDENTIALS => Err(ConfigError::RestrictedPath),
+                name => Err(ConfigError::InvalidPathComponent(
+                    name.to_string(),
+                    CFG_FIELD_SERVICES,
+                    Self::value_names().collect(),
+                )),
             }
-            name if name == CFG_FIELD_CREDENTIALS => Err(ConfigError::RestrictedPath),
-            name => Err(ConfigError::InvalidPathComponent(
-                name.to_string(),
+        } else {
+            Err(ConfigError::InvalidPathElementName(
+                head.to_string(),
                 CFG_FIELD_SERVICES,
-                self.value_names().collect(),
-            )),
+            ))
         }
     }
 
-    fn value_names(&self) -> impl Iterator<Item = &'static str> {
+    fn value_names() -> impl Iterator<Item = &'static str> {
         [CFG_FIELD_CREDENTIAL_STORAGE, CFG_FIELD_CREDENTIALS].into_iter()
     }
 }

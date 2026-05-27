@@ -1,0 +1,93 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/johnstonskj/rust-rfham/refs/heads/main/schema/2026-05/itu-ciraf-zone-map.json",
+    "title": "ITU/CIRAF Zones",
+    "description": "Mapping from ITU prefix to zone.",
+    "type": "object",
+    "propertyNames": {
+        "$ref": "#/$defs/prefix"
+    },
+    "additionalProperties": {
+        "$ref": "#/$defs/zoneDefinition"
+    },
+    "$defs": {
+        "prefix": {
+            "type": "string",
+            "pattern": "^[A-Z0-9]{1,4}$"
+        },
+        "zoneDefinition": {
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/zoneAssertion"
+                },
+                {
+                    "$ref": "#/$defs/zoneAssertionList"
+                }
+            ]
+        },
+        "zoneAssertion": {
+            "type": "object",
+            "properties": {
+                "zone": {
+                    "$ref": "#/$defs/zoneId"
+                }
+            },
+            "required": [
+                "zone"
+            ],
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/latitudeAssertion"
+                }
+            ],
+            "additionalProperties": false
+        },
+        "zoneAssertionList": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/zoneAssertion"
+            }
+        },
+        "latitudeAssertion": {
+            "type": "object",
+            "oneOf": [
+                {
+                    "south-of": {
+                        "$ref": "#/$defs/latitude"
+                    }
+                },
+                {
+                    "north-of": {
+                        "$ref": "#/$defs/latitude"
+                    }
+                },
+                {
+                    "lat-between": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/$defs/latitude"
+                        },
+                        "minItems": 2,
+                        "maxItems": 2
+                    }
+                }
+            ],
+            "additionalProperties": false
+        },
+        "zoneId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 85
+        },
+        "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+        },
+        "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+        }
+    }
+}

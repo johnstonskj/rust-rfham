@@ -227,11 +227,18 @@ pub fn kilowatts(value: f64) -> Power {
 mod tests {
     use crate::{Measure, power::Power};
     use pretty_assertions::assert_eq;
+    use std::str::FromStr;
 
     #[test]
     fn test_display_watts() {
         assert_eq!("5 W", &Power::watts(5.0).to_string());
         assert_eq!("100 W", &Power::watts(100.0).to_string());
+    }
+
+    #[test]
+    fn test_from_str_watts() {
+        assert_eq!(Power::watts(5.0), Power::from_str("5 W").unwrap());
+        assert_eq!(Power::watts(100.0), Power::from_str("100 W").unwrap());
     }
 
     #[test]

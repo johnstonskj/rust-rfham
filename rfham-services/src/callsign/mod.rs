@@ -8,11 +8,14 @@
 //! ```rust
 //! ```
 //!
-
-// https://haminfo.tetranz.com/map/K7SKJ
-// https://www.radioreference.com/db/ham/callsign/?cs=K7SKJ
-// https://www.radioqth.net/lookup
-// https://wireless2.fcc.gov/UlsApp/UlsSearch/searchLicense.jsp
+//! # See Also
+//!
+//! Additional, potential, sources:
+//!
+//! * https://www.radioreference.com/db/ham/callsign/?cs=K7SKJ
+//! * https://www.radioqth.net/lookup
+//! * https://wireless2.fcc.gov/UlsApp/UlsSearch/searchLicense.jsp
+//!
 
 use crate::error::ServiceError;
 use lat_long::Coordinate;

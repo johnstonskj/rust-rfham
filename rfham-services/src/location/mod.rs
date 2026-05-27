@@ -10,6 +10,7 @@
 //!
 
 use crate::error::ServiceError;
+use lat_long::Coordinate;
 use rfham_core::{StringLike, names::Name};
 use rfham_geo::geoip::Location;
 use serde_with::{DeserializeFromStr, SerializeDisplay};
@@ -45,6 +46,10 @@ pub enum Provider {
     IpInfoLegacy,
     #[strum(serialize = "geoiplookup")]
     GeoIpLookup,
+}
+
+pub trait ReverseGeocodingService {
+    fn lookup(&self, location: &Coordinate) -> Result<Name, ServiceError>;
 }
 
 // ------------------------------------------------------------------------------------------------

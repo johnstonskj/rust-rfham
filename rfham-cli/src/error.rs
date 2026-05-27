@@ -13,6 +13,7 @@ use std::{
     fmt::{Display, Error as FmtError},
     path::Path,
 };
+use strum::ParseError;
 use strum::{Display as EnumDisplay, EnumIs, EnumIter, EnumString};
 use thiserror::Error;
 use tracing_subscriber::filter::FromEnvError;
@@ -36,6 +37,9 @@ pub enum CliError {
 
     #[error("An error occured during formatting; error: {0}")]
     FmtError(#[from] FmtError),
+
+    #[error("An error occured parsing an enum value; error: {0}")]
+    ParseError(#[from] ParseError),
 
     #[error("An error occured loading or initializing the configuration; error: {0}")]
     Config(#[from] ConfigError),

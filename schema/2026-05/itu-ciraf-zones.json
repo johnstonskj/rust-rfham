@@ -1,0 +1,19 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/johnstonskj/rust-rfham/refs/heads/main/schema/2026-05/itu-ciraf-zones.json",
+    "title": "ITU/CIRAF Zones",
+    "description": "Names for the ITU/CIRAF zones.",
+    "type": "object",
+    "propertyNames": {
+        "$ref": "#/$defs/zoneId"
+    },
+    "additionalProperties": {
+        "type": "string"
+    },
+    "$defs": {
+        "zoneId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]?$"
+        }
+    }
+}

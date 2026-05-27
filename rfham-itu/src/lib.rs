@@ -25,3 +25,5 @@ pub mod allocations;
 pub mod bands;
 pub mod callsigns;
 pub mod regions;
+pub mod srd;
+pub mod zones;

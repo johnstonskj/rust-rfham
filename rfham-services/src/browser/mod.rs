@@ -41,6 +41,8 @@ pub enum BrowserPageProvider {
     HaminfoMap,
     #[strum(serialize = "k7fry-map")]
     K7Fry,
+    #[strum(serialize = "zone-check")]
+    ZoneCheck,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -58,6 +60,7 @@ pub fn get_provider(
     match provider {
         BrowserPageProvider::HaminfoMap => Ok(Box::new(haminfo::MapPage)),
         BrowserPageProvider::K7Fry => Ok(Box::new(k7fry::MapPage)),
+        BrowserPageProvider::ZoneCheck => Ok(Box::new(zone_check::ZoneCheckPage)),
     }
 }
 
@@ -121,6 +124,26 @@ mod k7fry {
 
         fn provider(&self) -> BrowserPageProvider {
             BrowserPageProvider::HaminfoMap
+        }
+    }
+}
+
+mod zone_check {
+    use crate::{
+        browser::{BrowserPageProvider, BrowserPageService, PageData},
+        error::ServiceError,
+    };
+
+    #[derive(Debug, Default)]
+    pub(crate) struct ZoneCheckPage;
+
+    impl BrowserPageService for ZoneCheckPage {
+        fn url(&self, _: PageData) -> Result<String, ServiceError> {
+            Ok("https://zone-check.eu/".to_string())
+        }
+
+        fn provider(&self) -> BrowserPageProvider {
+            BrowserPageProvider::ZoneCheck
         }
     }
 }

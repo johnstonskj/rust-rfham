@@ -1,10 +1,13 @@
-[station]
 callsign = "K7SKJ"
 operator-name = "Simon Johnston"
+default-station = 0
 
-[station.location]
-kind = "home"
-grid-locator = "CN87vx"
+[[stations]]
+kind = "Home"
+label = "My home/primary location"
+
+[stations.location]
+grid-locator = "CN87wo"
 country = "US"
 
 [locale]
@@ -12,9 +15,31 @@ length_units = "imperial"
 temperature_units = "imperial"
 time_format = "military"
 
+[[equipment]]
+brand = "Icom"
+model = "705"
+label = "IC-705"
+usage = [
+    "Local",
+    "DX",
+    "QRP",
+]
+modes = [
+    "FM",
+    "Digital",
+    "SSB",
+]
+mobility = "StationFixed"
+bands = [
+    "HF",
+    "VHF",
+    "UHF",
+]
+max-power = 10.0
+
 [services]
 storage_kind = "plain-text"
 
 [services.credentials.qrz-api]
 identifier = "K7SKJ"
-secret = "passw"
+secret = "hhzz"

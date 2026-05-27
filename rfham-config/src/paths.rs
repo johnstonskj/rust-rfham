@@ -21,6 +21,7 @@ use std::{
     path::PathBuf,
     str::FromStr,
 };
+use strum::{EnumIs, EnumTryAs};
 
 // ------------------------------------------------------------------------------------------------
 // Public Macros
@@ -31,14 +32,20 @@ use std::{
 // ------------------------------------------------------------------------------------------------
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ConfigPath(Vec<Name>);
+pub struct ConfigPath(Vec<PathElement>);
+
+#[derive(Clone, Debug, PartialEq, Eq, EnumIs, EnumTryAs)]
+pub enum PathElement {
+    Name(Name),
+    Index(usize),
+}
 
 pub trait PathTarget: Debug {
-    fn path_name(&self) -> Option<Name>;
+    fn path_name() -> Option<Name>;
+
+    fn value_names() -> impl Iterator<Item = &'static str>;
 
     fn value(&self, path: &ConfigPath) -> Result<Value, ConfigError>;
-
-    fn value_names(&self) -> impl Iterator<Item = &'static str>;
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -68,6 +75,45 @@ pub enum Value {
 // Implementations
 // ------------------------------------------------------------------------------------------------
 
+impl From<Name> for PathElement {
+    fn from(value: Name) -> Self {
+        Self::Name(value)
+    }
+}
+
+impl From<usize> for PathElement {
+    fn from(value: usize) -> Self {
+        Self::Index(value)
+    }
+}
+
+impl Display for PathElement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Index(v) => v.to_string(),
+                Self::Name(v) => v.to_string(),
+            }
+        )
+    }
+}
+
+impl FromStr for PathElement {
+    type Err = ConfigError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.chars().all(|c| c.is_ascii_digit()) {
+            Ok(Self::Index(usize::from_str(s)?))
+        } else {
+            Ok(Self::Name(Name::from_str(s)?))
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+
 impl Display for ConfigPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -75,7 +121,7 @@ impl Display for ConfigPath {
             "{}",
             self.0
                 .iter()
-                .map(Name::to_string)
+                .map(|v| v.to_string())
                 .collect::<Vec<_>>()
                 .join(".")
         )
@@ -83,27 +129,40 @@ impl Display for ConfigPath {
 }
 
 impl FromStr for ConfigPath {
-    type Err = CoreError;
+    type Err = ConfigError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let results: Result<Vec<Name>, CoreError> = s.split('.').map(Name::from_str).collect();
+        let results: Result<Vec<PathElement>, ConfigError> =
+            s.split('.').map(PathElement::from_str).collect();
         let values = results?;
         if !values.is_empty() {
             Ok(Self(values))
         } else {
-            Err(CoreError::InvalidValueFromStr(s.to_string(), "ConfigPath"))
+            Err(CoreError::InvalidValueFromStr(s.to_string(), "ConfigPath").into())
         }
     }
 }
 
 impl From<Name> for ConfigPath {
     fn from(value: Name) -> Self {
+        Self::from(PathElement::from(value))
+    }
+}
+
+impl From<usize> for ConfigPath {
+    fn from(value: usize) -> Self {
+        Self::from(PathElement::from(value))
+    }
+}
+
+impl From<PathElement> for ConfigPath {
+    fn from(value: PathElement) -> Self {
         Self::from(vec![value])
     }
 }
 
-impl From<Vec<Name>> for ConfigPath {
-    fn from(values: Vec<Name>) -> Self {
+impl From<Vec<PathElement>> for ConfigPath {
+    fn from(values: Vec<PathElement>) -> Self {
         assert!(
             !values.is_empty(),
             "ConfigPath must have at least one component"
@@ -121,19 +180,19 @@ impl ConfigPath {
         self.0.len() == 1
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Name> {
+    pub fn iter(&self) -> impl Iterator<Item = &PathElement> {
         self.0.iter()
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Name> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut PathElement> {
         self.0.iter_mut()
     }
 
-    pub fn push(&mut self, name: Name) {
+    pub fn push(&mut self, name: PathElement) {
         self.0.push(name);
     }
 
-    pub fn pop(&mut self) -> Option<Name> {
+    pub fn pop(&mut self) -> Option<PathElement> {
         if !self.is_single() {
             self.0.pop()
         } else {
@@ -141,7 +200,7 @@ impl ConfigPath {
         }
     }
 
-    pub fn head(&self) -> &Name {
+    pub fn head(&self) -> &PathElement {
         &self.0[0]
     }
 
@@ -153,11 +212,11 @@ impl ConfigPath {
         }
     }
 
-    pub fn field_name(&self) -> &Name {
+    pub fn last(&self) -> &PathElement {
         self.0.last().unwrap()
     }
 
-    pub fn split(&self) -> (&Name, Option<ConfigPath>) {
+    pub fn split(&self) -> (&PathElement, Option<ConfigPath>) {
         (self.head(), self.tail())
     }
 }

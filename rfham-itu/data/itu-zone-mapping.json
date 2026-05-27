@@ -1,0 +1,1101 @@
+{
+    "KL": {
+        "zone": 1
+    },
+    "VE6": {
+        "zone": 2
+    },
+    "VE7": {
+        "zone": 2
+    },
+    "VE8": [
+        {
+            "south-of": 80,
+            "west-of": -110,
+            "zone": 2
+        },
+        {
+            "south-of": 80,
+            "between": [
+                -90,
+                -110
+            ],
+            "zone": 3
+        },
+        {
+            "south-of": 80,
+            "long-between": [
+                -70,
+                -90
+            ],
+            "zone": 4
+        }
+    ],
+    "VY1": {
+        "zone": 2
+    },
+    "VE5": {
+        "zone": 3
+    },
+    "VE3": [
+        {
+            "south-of": 80,
+            "long-between": [
+                -90,
+                -110
+            ],
+            "zone": 3
+        },
+        {
+            "south-of": 80,
+            "long-between": [
+                -70,
+                -90
+            ],
+            "zone": 4
+        }
+    ],
+    "VE4": [
+        {
+            "south-of": 80,
+            "long-between": [
+                -90,
+                -110
+            ],
+            "zone": 3
+        },
+        {
+            "south-of": 80,
+            "long-between": [
+                -70,
+                -90
+            ],
+            "zone": 4
+        }
+    ],
+    "OX": {
+        "south-of": 80,
+        "zone": 5
+    },
+    "W6": {
+        "west-of": -110,
+        "zone": 6
+    },
+    "W7": [
+        {
+            "west-of": -110,
+            "not": "US-WY",
+            "zone": 6
+        },
+        {
+            "east-of": -110,
+            "zone": 7
+        }
+    ],
+    "W5": {
+        "or": [
+            {
+                "is-not": "US-MS",
+                "zone": 7
+            },
+            {
+                "is": "US-MS",
+                "zone": 8
+            }
+        ]
+    },
+    "W0": {
+        "zone": 7
+    },
+    "W1": {
+        "zone": 8
+    },
+    "W2": {
+        "zone": 8
+    },
+    "W3": {
+        "zone": 8
+    },
+    "W4": {
+        "zone": 8
+    },
+    "W8": {
+        "zone": 8
+    },
+    "W9": {
+        "zone": 8
+    },
+    "4U": {
+        "or": [
+            {
+                "is": "US-NY",
+                "zone": 8
+            },
+            {
+                "is": "CH",
+                "zone": 28
+            }
+        ]
+    },
+    "CY9": {
+        "zone": 9
+    },
+    "CY0": {
+        "zone": 9
+    },
+    "FP": {
+        "zone": 9
+    },
+    "VE1": {
+        "zone": 9
+    },
+    "VE2": {
+        "or": [
+            {
+                "east-of": -70,
+                "zone": 9
+            }
+        ]
+    },
+    "VO1": {
+        "zone": 9
+    },
+    "VO2": {
+        "zone": 9
+    },
+    "VY2": {
+        "zone": 9
+    },
+    "FO8": {
+        "zone": 10
+    },
+    "XE": {
+        "zone": 10
+    },
+    "XF4": {
+        "zone": 10
+    },
+    "C6": {
+        "zone": 11
+    },
+    "CO": {
+        "zone": 11
+    },
+    "FG": {
+        "zone": 11
+    },
+    "FM": {
+        "zone": 11
+    },
+    "FJ": {
+        "zone": 11
+    },
+    "FS": {
+        "zone": 11
+    },
+    "HH": {
+        "zone": 11
+    },
+    "HI": {
+        "zone": 11
+    },
+    "HK0": {
+        "zone": 11
+    },
+    "HP": {
+        "zone": 11
+    },
+    "HR": {
+        "zone": 11
+    },
+    "J3": {
+        "zone": 11
+    },
+    "J6": {
+        "zone": 11
+    },
+    "J7": {
+        "zone": 11
+    },
+    "J8": {
+        "zone": 11
+    },
+    "KG4": {
+        "zone": 11
+    },
+    "KP1": {
+        "zone": 11
+    },
+    "KP3": {
+        "zone": 11
+    },
+    "KP4": {
+        "zone": 11
+    },
+    "KP5": {
+        "zone": 11
+    },
+    "P4": {
+        "zone": 11
+    },
+    "PJ": {
+        "or": [
+            {
+                "is": "NL",
+                "zone": 11
+            },
+            {
+                "is": "SX",
+                "zone": 11
+            }
+        ]
+    },
+    "TG": {
+        "zone": 11
+    },
+    "TI": {
+        "zone": 11
+    },
+    "V2": {
+        "zone": 11
+    },
+    "V3": {
+        "zone": 11
+    },
+    "V4": {
+        "zone": 11
+    },
+    "VP2": {
+        "or": [
+            {
+                "is": "AI",
+                "zone": 11
+            },
+            {
+                "is": "VG",
+                "zone": 11,
+            },
+            {
+                "is": "MS",
+                "zone": 11
+            }
+        ]
+    },
+    "VP5": {
+        "zone": 11
+    },
+    "VP9": {
+        "zone": 11
+    },
+    "YN": {
+        "zone": 11
+    },
+    "YS": {
+        "zone": 11
+    },
+    "YV0": {
+        "zone": 11
+    },
+    "ZF": {
+        "zone": 11
+    },
+    "6Y": {
+        "zone": 11
+    },
+    "8P": {
+        "zone": 11
+    },
+    "9Y": {
+        "zone": 11
+    },
+    "CP": {
+        "zone": 12
+    },
+    "FY": {
+        "zone": 12
+    },
+    "HC": {
+        "zone": 12
+    },
+    "HC8": {
+        "zone": 12
+    },
+    "HK": {
+        "zone": 12
+    },
+    "HK0": {
+        "zone": 12
+    },
+    "OA": {
+        "zone": 12
+    },
+    "PZ": {
+        "zone": 12
+    },
+    "TI9": {
+        "zone": 12
+    },
+    "YV": {
+        "zone": 12
+    },
+    "8R": {
+        "zone": 12
+    },
+    "PY": {
+        "or": [
+            {
+                "west-of": -60,
+                "zone": 12
+            },
+            {
+                "north-of": -16.5,
+                "east-of": -60,
+                "zone": 13
+            },
+            {
+                "south-of": -16.5,
+                "zone": 15
+            }
+        ]
+    },
+    "PY0": {
+        "or": [
+            {
+                "is": "BR-PE",
+                "zone": 13
+            },
+            {
+                "is": "BR-ES",
+                "zone": 15
+            }
+        ]
+    },
+    "CE": {
+        "or": [
+            {
+                "north-of": -40
+                "zone": 14
+            },
+            {
+                "south-of": -40,
+                "zone": 16
+            }
+        ]
+    },
+    "CE0": {
+        "zone": 14
+    },
+    "CX": {
+        "zone": 14
+    },
+    "LU": {
+        "or": [
+            {
+                "north-of": -40,
+                "zone": 14,
+            },
+            {
+                "south-of": -40,
+                "zone": 16
+            }
+        ]
+    },
+    "ZP": {
+        "zone": 14
+    },
+    "VP8": {
+        "or": [
+            {
+                "is": "FK",
+                "zone": 16
+            }
+            {
+                "is": "GS",
+                "zone": 73
+            },
+            {
+                "is": "AQ",
+                "zone": 73
+            }
+        ]
+    },
+    "TF": 17,
+    "JW": {
+        "or": [
+            {
+                "south-of": 80,
+                "zone": 18
+            }
+        ]
+    },
+    "JX": {
+        "zone": 18
+    },
+    "LA": {
+        "zone": 18
+    },
+    "OH": {
+        "zone": 18
+    },
+    "OH0": {
+        "zone": 18
+    },
+    "OJ0": {
+        "zone": 18
+    },
+    "OY": {
+        "zone": 18
+    },
+    "OZ": {
+        "zone": 18
+    },
+    "SM": {
+        "zone": 18
+    },
+    "UA1": {
+        "or": [
+            {
+                "lat-between": [
+                    60,
+                    80
+                ],
+                "west-of": 50,
+                "zone": 19
+            },
+            {
+                "lat-between": [
+                    60,
+                    80
+                ],
+                "east-of": 50,
+                "zone": 20
+            },
+            {
+                "south-of": 60,
+                "zone": 29
+            }
+        ]
+    },
+    "UA9": {
+        "or": [
+            {
+                "lat-between": [
+                    60,
+                    80
+                ],
+                "west-of": 50,
+                "zone": 19
+            },
+            {
+                "lat-between": [
+                    60,
+                    80
+                ],
+                "long-between": [
+                    50,
+                    75
+                ],
+                "zone": 20
+            },
+            {
+                "lat-between": [
+                    60,
+                    80
+                ],
+                "long-between": [
+                    50,
+                    75
+                ],
+                "zone": 20
+            },
+            {
+                "lat-between": [
+                    60,
+                    80
+                ],
+                "long-between": [
+                    70,
+                    90
+                ],
+                "zone": 21
+            },
+            {
+                "south-of": 90,
+                "west-of": 75,
+                "zone": 30
+            },
+            {
+                "south-of": 60,
+                "long-between": [
+                    75,
+                    90
+                ],
+                "zone": 31
+            }
+        ]
+    },
+    "R1F": {
+        "south-of": 80,
+        "zone": 20
+    },
+    "UA0": {
+        "or": [
+            {
+                "lat-between": [
+                    60,
+                    80
+                ],
+                "long-between": [
+                    70,
+                    90
+                ],
+                "zone": 21
+            },
+            {
+                "lat-between": [
+                    60,
+                    80
+                ],
+                "long-between": [
+                    90,
+                    110
+                ],
+                "zone": 22
+            },
+            {
+                "lat-between": [
+                    60,
+                    80
+                ],
+                "long-between": [
+                    110,
+                    135
+                ],
+                "zone": 23
+            },
+            {
+                "lat-between": [
+                    60,
+                    80
+                ],
+                "long-between": [
+                    135,
+                    155
+                ],
+                "zone": 24
+            },
+            {
+                "lat-between": [
+                    60,
+                    80
+                ],
+                "long-between": [
+                    155,
+                    170
+                ],
+                "zone": 25
+            },
+            {
+                "lat-between": [
+                    60,
+                    80
+                ],
+                "east-of": 170,
+                "zone": 26
+            },
+            {
+                "south-of": 60,
+                "long-between": [
+                    75,
+                    90
+                ],
+                "zone": 31
+            },
+            {
+                "south-of": 60,
+                "long-between": [
+                    90,
+                    110
+                ],
+                "zone": 32
+            }
+            {
+                "south-of": 60,
+                "long-between": [
+                    110 135
+                ],
+                "zone": 33
+            }
+        ]
+    },
+    "C3": 27,
+    "EI": 27,
+    "F": 27,
+    "G": 27,
+    "GD": 27,
+    "GI": 27,
+    "GJ": 27,
+    "GM": 27,
+    "GU": 27,
+    "GW": 27,
+    "LX": 27,
+    "ON": 27,
+    "PA": 27,
+    "3A": 27,
+    "DL": 28,
+    "": 28,
+    "HA": 28,
+    "HB": 28,
+    "HB0": 28,
+    "HV": 28,
+    "I"{
+        "excluding": [
+            "IG9",
+            "IH9"
+        ]
+    },
+    "IS": 28,
+    "LZ": 28,
+    "OE": 28,
+    "OK": 28,
+    "OM": 28,
+    "S5": 28,
+    "SP": 28,
+    "SV": 28,
+    "SV": {
+        "is": "GR"
+    },
+    "SV5": 28,
+    "SV9": 28,
+    "T7": 28,
+    "T9": 28,
+    "TK": 28,
+    "YO": 28,
+    "YU": 28,
+    "Z3": 28,
+    "ZA": 28,
+    "1A0": 28,
+    "9A": 28,
+    "9H": 28,
+    "R1M": 29,
+    "EK": 29,
+    "ER": 29,
+    "ES": 29,
+    "EU": 29,
+    "LY": 29,
+    "UA2": 29,
+    "UA3": 29,
+    "UA4": {
+        "or": [
+            {
+                "west-of": 50,
+                "zone": 29
+            },
+            {
+                "east-of"50,
+                "zone": 30
+            }
+        ]
+    },
+    "UA6": 29,
+    "UN": {
+        "or": [
+            {
+                "west-of": 50,
+                "zone": 29
+            },
+            {
+                "long-between": [
+                    50,
+                    75
+                ],
+                "zone": 30
+            },
+            {}
+        ]
+    },
+    "UR": 29,
+    "YL": 29,
+    "4J": 29,
+    "4L": 29,
+    "EX": {
+        "or": [
+            {
+                "west-of"75,
+                "zone": 30
+            },
+            {
+                "east-of": 75,
+                "zone": 31
+            }
+        ]
+    },
+    "EY": 29,
+    "EZ": 29,
+    "UK": 29,
+    "JT": {
+        "or": {
+            "west-of": 110,
+            "zone": 32
+        },
+        {
+            "east-of": 110,
+            "zone": 33
+        }
+    },
+    "BY": {
+        "or": [
+            {
+                "north-of: 44,"zone": 33
+            }
+        ]
+    },
+    UA0 (south of 60N and between 135 and 155E including Primor’ye and Sakhalin but excluding the Kurils): 34,
+    UA0 (south of 60N and between 155 and 170E including the Kurils): 35,
+    "CT3": 36,
+    "CU": 36,
+    "EA8": 36,
+    "CN": 37,
+    "CT": 37,
+    "EA": 37,
+    "EA6": 37,
+    "EA9": 37,
+    "IG9": 37,
+    "IH9": 37,
+    "S0": 37,
+    "ZB": 37,
+    "3V": 37,
+    "7X": 37,
+    "SU": 38,
+    "5A": 38,
+    "A4": 39,
+    "A6": 39,
+    "A7": 39,
+    "A9": 39,
+    "HZ": 39,
+    "JY": 39,
+    "OD": 39,
+    "TA": 39,
+    "YI": 39,
+    "YK": 39,
+    "ZC4": 39,
+    "4X": 39,
+    "5B": 39,
+    "7O": 39,
+    "9K": 39,
+    "EP": 40,
+    "YA": 40,
+    "A5": 41,
+    "AP: 41,"S2: 41,
+    "VQ9: 41,"VU": {"or": [{
+        "except": "IN-AN",
+        "zone": 41
+    },
+    {
+        "is": "IN-AN",
+        "zone": 49
+    }
+}
+    "4S: 41,"8Q: 41,
+"BY": {
+    "or": [
+        {
+            "west-of": 90,
+            "zone": 42
+        },
+        {
+            "long-between": [
+                90,
+                110
+            ],
+            "excluding": "CN-HI",
+            "zone": 43
+        },
+        {
+            "south-of": 44,
+            "east-of": 110,
+            "including": "CN-HI",
+        }
+    ]
+},
+"9N": 42,
+"BV": 44,
+"BV9P": 44,
+"HL": 44,
+"P5": 44,
+"VR2": 44,
+"VS6": 44,
+"XX9": 44,
+"JA": 45,
+"JD1": {
+    "or": [
+        {
+            "east-of": 153.97,
+            "zone": 45
+        },
+        {}
+    ]
+},
+"C5": 46,
+"D4": 46,
+"EL": 46,
+"J5": 46,
+"TU": 46,
+"TY": 46,
+"TZ": 46,
+"XT": 46,
+"3X": 46,
+"5N": 46,
+"5T": 46,
+"5U": 46,
+"5V": 46,
+"6W": 46,
+"9G": 46,
+"9L": 46,
+"S9": 47,
+"TJ": 47,
+"TL": 47,
+"TT": 47,
+"3C": 47,
+"E3": 48,
+"ET": 48,
+"J2": 48,
+"ST": 48,
+"ST0": 48,
+"T5": 48,
+"5X": 48,
+"5Z": 48,
+"HS": 49,
+"XU": 49,
+"XV": 49,
+"XW": 49,
+"XZ": 49,
+"DU": 50,
+    BY (Scarborough Reef): 50,
+"1S": 50,
+"H4": 51,
+"P2": 51,
+"YB8"{
+    "or": [
+        {
+            "east-of": 130,
+            "zone": 51
+        }
+    ]
+},
+"YB9"{
+    "or": [
+        {
+            "east-of": 130,
+            "zone": 51
+        }
+    ]
+},
+"D2": 52,
+"TN": 52,
+"TR": 52,
+"3C0": 52,
+"9Q": 52,
+"9U": 52,
+"9X": 52,
+"C9": 53,
+"D6": 53,
+"FH": 53,
+"FR": 53,
+"S7": 53,
+"Z2": 53,
+"3B6": 53,
+"3B7": 53,
+"3B8": 53,
+"3B9": 53,
+"5H": 53,
+"5R": 53,
+"7Q": 53,
+"9J": 53,
+"V8": 54,
+    VK9 (Christmas): 54, 
+    VK9 (Cocos-Keeling): 54,
+"YB1": 54,
+"YB2": 54,
+"YB3": 54,
+"YB4": 54,
+"YB5": 54,
+"YB6": 54,
+"YB7": 54,
+"YB8": {
+    "or": {
+        "west-of": 130,
+        "zone": 54
+    }
+}
+    "YB9": {
+    "or": {
+        "west-of": 130,
+        "zone": 54
+    }
+}
+    "9M2": 54,
+"9M6": 54,
+"9M8": 54,
+"9V": 54,
+"VK4": 55,
+"VK8": 55,
+    VK9 (Willis): 55
+    "FK": 56,
+    VK9 (Mellish Reef): 56,
+"YJ": 56,
+"3D2": 56,
+"A2": 57,
+"V5": 57,
+"ZS": 57,
+"ZS8": 57,
+"3DA": 57,
+"7P": 57,
+"VK6": 58,
+"VK1": 59,
+"VK2": 59,
+"VK3": 59,
+"VK5": 59,
+"VK7": 59,
+    VK9 (Lord Howe): 60, 
+    VK9 (Norfolk): 60, 
+    VK0 (Macquarie): 60,
+"ZL": 60,
+"ZL7": 60,
+"ZL8": 60,
+"ZL9": 60,
+"KH1": 61,
+"KH3": 61,
+"KH4": 61,
+"KH5": {
+    "or": [
+        {
+            "except": "UM-86",
+            "zone"61
+        }
+            {
+            "is": "UM-86",
+            "zone"62
+        }
+    ]
+},
+"KH6": 61,
+"KH7": 61,
+"KH7K": 61,
+"T32": {
+    "or": [
+        {
+            "north-of": 0,
+            "zone": 61
+        },
+        {
+            "south-of": 0,
+            "zone": 63
+        }
+    ]
+},
+"A3": 62,
+"FW": 62,
+"KH8": 62,
+"T31": 62,
+    ZK1 (North Cooks): 62,
+"ZK2": 62,
+"ZK3": 62,
+"5W": 62,
+    CE0 (Easter): 63,
+"FO": 63,
+"VR6": 63, 
+    ZK1 (South Cooks): 63
+    "KC6": 64,
+"KT8": 64,
+"KH2": 64,
+"KH0": 64, 
+    V6 (west of 150E): 64
+    "C2": 65,
+"KH9": 65,
+"T2": 65,
+"T30": 65,
+"T33": 65, 
+    V6 (east of 150E): 65,
+"V7": 65,
+"ZD7": 66,
+"ZD8": 66,
+"ZD9": 66
+    3Y (Bouvet): 67
+    FT (Amsterdam): 68, 
+    FT (Crozet): 68, 
+    FT (Kerguelen): 68, 
+    VK0 (Heard): 68,
+3Y (Peter 1): 72,
+    JW (north of 80N): 75, 
+    OX (north of 80N): 75, 
+    R1F (FJL north of 80N): 75, 
+    UA0 (Severnaya Zemlya north of 80N): 75, 
+    VE8 (north of 80N): 75
+    CE0 (Salas-y-Gomez): 78
+    JD1 (Minami Torishima): 90
+
+    "": {
+    "or": [
+        {
+            "is": "AQ",
+            "north-of": -80,
+            "long-between": [
+                -20,
+                40
+            ],
+            "zone": 67
+        },
+        {
+            "is": "AQ",
+            "north-of": -80,
+            "long-between": [
+                40,
+                100
+            ],
+            "zone": 69
+        },
+        {
+            "is": "AQ",
+            "north-of": -80,
+            "long-between": [
+                100,
+                160
+            ],
+            "zone": 70
+        },
+        {
+            "is": "AQ",
+            "north-of": -80,
+            "long-between": [
+                160,
+                -140
+            ],
+            "zone": 71
+        },
+        {
+            "is": "AQ",
+            "north-of": -80,
+            "long-between": [
+                -140,
+                -80
+            ],
+            "zone": 72
+        },
+        {
+            "is": "AQ",
+            "north-of": -80,
+            "long-between": [
+                -80,
+                -20
+            ],
+            "zone": 73
+        },
+        {
+            "is": "AQ",
+            "south-of": -80,
+            "zone": 74
+        },
+    ]
+}
+}

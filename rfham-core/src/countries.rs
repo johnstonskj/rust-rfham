@@ -60,6 +60,11 @@ use std::{collections::HashSet, env::VarError, fmt::Display, str::FromStr, sync:
 )]
 pub struct CountryCode(String);
 
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, DeserializeFromStr, SerializeDisplay,
+)]
+pub struct DivisionCode(CountryCode, String);
+
 pub const ENVVAR_COUNTRY_CODE: &str = "RFHAM_COUNTRY";
 
 ///
@@ -237,6 +242,53 @@ impl TryFrom<CountryCodeNumeric> for CountryCode {
     fn try_from(value: CountryCodeNumeric) -> Result<Self, Self::Error> {
         let country_code = country_code_decoded(value)?;
         CountryCode::from_str(&country_code)
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+
+impl Display for DivisionCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}-{}", self.0, self.1)
+    }
+}
+
+impl FromStr for DivisionCode {
+    type Err = CoreError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut parts = s.splitn(2, '-');
+        let country_part = parts
+            .next()
+            .ok_or_else(|| CoreError::InvalidValueFromStr(s.to_string(), "DivisionCode"))?;
+        let division_part = parts
+            .next()
+            .ok_or_else(|| CoreError::InvalidValueFromStr(s.to_string(), "DivisionCode"))?;
+
+        Self::new(CountryCode::from_str(country_part)?, division_part)
+    }
+}
+
+impl DivisionCode {
+    pub fn new<S: Into<String>>(country_code: CountryCode, division: S) -> Result<Self, CoreError> {
+        let division = division.into();
+        if !Self::is_valid_division_part(division.as_str()) {
+            Err(CoreError::InvalidValueFromStr(division, "DivisionCode"))
+        } else {
+            Ok(Self(country_code, division))
+        }
+    }
+
+    pub fn country_code(&self) -> &CountryCode {
+        &self.0
+    }
+
+    pub fn division(&self) -> &str {
+        &self.1
+    }
+
+    pub fn is_valid_division_part(s: &str) -> bool {
+        s.len() == 2 && s.chars().all(|c| c.is_ascii_alphanumeric())
     }
 }
 

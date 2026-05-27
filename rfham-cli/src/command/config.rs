@@ -8,24 +8,29 @@ use crate::{
 use colored::Colorize;
 use icu_locale_core::Locale as OsLocale;
 use inquire::{
-    Confirm, InquireError, Password, PasswordDisplayMode, Select, Text,
+    Confirm, InquireError, MultiSelect, Password, PasswordDisplayMode, Select, Text,
     error::CustomUserError,
     ui::{Attributes, Color, RenderConfig, Styled},
     validator::Validation,
 };
 use rfham_config::{
-    Configuration, Locale, Location, LocationKind, Services, Station, TimeFormat, Units,
+    Configuration, Equipment, Locale, Location, Services, Station, TimeFormat, Units,
+    equipment::{Mobility, Mode, Usage},
     error::ConfigError,
     fmt::{FormatterOptions, OutputKind},
     paths::{ConfigPath, PathTarget, Value},
     services::{CredentialStorageKind, Credentials},
+    stations::StationKind,
 };
-use rfham_core::{callsigns::CallSign, countries::CountryCode, fmt::FormattedWriter};
+use rfham_core::{
+    callsigns::CallSign, countries::CountryCode, error::CoreError, fmt::FormattedWriter,
+    power::Power,
+};
 use rfham_geo::grid::GridIdentifier;
-use rfham_itu::{callsigns::ItuSeriesAllocation, regions::Region};
+use rfham_itu::{bands::FrequencyBand, callsigns::ItuSeriesAllocation, regions::Region};
 use rfham_maidenhead::MaidenheadLocator;
 use rfham_services::{callsign::CallSignInfoProvider, location::get_default_provider};
-use std::{io::stdout, path::PathBuf, process::ExitCode, str::FromStr};
+use std::{collections::HashSet, io::stdout, path::PathBuf, process::ExitCode, str::FromStr};
 use strum::IntoEnumIterator;
 use sys_locale::get_locale;
 use tracing::info;
@@ -80,21 +85,21 @@ impl OnceCommand for ShowCurrentConfig {
             if let Some(config_path) = self.path {
                 match config.value(&config_path) {
                     Ok(Value::None) => {
-                        println!("field {} is not set", config_path.field_name());
+                        println!("field {} is not set", config_path.last());
                         Ok(ExitCode::SUCCESS)
                     }
                     Ok(value) => {
                         if self.compact_output {
                             println!(
                                 "{}{} {} {} {}",
-                                config_path.field_name(),
+                                config_path.last(),
                                 ":".dimmed(),
                                 value.type_label().italic(),
                                 "=".dimmed(),
                                 value.to_string().bold()
                             );
                         } else {
-                            println!("field: {}", config_path.field_name());
+                            println!("field: {}", config_path.last());
                             println!(" type: {}", value.type_label().italic());
                             println!("value: {}", value.to_string().bold());
                         }
@@ -144,7 +149,6 @@ impl OnceCommand for InitializeConfig {
     type Error = CliError;
 
     fn execute(self) -> Result<Self::Output, Self::Error> {
-        // TODO: if the command-line `--interactive` flag is set then use the `inquire` crate.
         let config_file_path = if let Some(config_file) = &self.config_file {
             config_file.clone()
         } else {
@@ -205,17 +209,16 @@ impl InitializeConfig {
         let ip_lookup = get_default_provider()?;
         let location = ip_lookup.lookup()?;
         println!("Looks like your location is {location:?}");
-        let location = Location::new(LocationKind::Home)
+        let location = Location::default()
             .with_grid_locator(self.locator)
             .with_itu_region(self.itu_region)
             .with_country(self.country)
             .with_mailing_address(self.mailing_address);
-        let station = Station::new(self.callsign)
-            .with_operator_name(self.operator_name)
-            .with_location(Some(location));
-        let mut config = Configuration::default()
+        let station = Station::new(StationKind::Home, location);
+        let mut config = Configuration::new(self.callsign)
             .with_path(Some(config_file_path))
-            .with_station(Some(station));
+            .with_operator_name(self.operator_name)
+            .with_station(station);
         info!("about to write config {config:?}");
         config
             .save(self.overwrite)
@@ -224,12 +227,14 @@ impl InitializeConfig {
     }
 
     pub fn interactive(self, config_file_path: PathBuf) -> Result<ExitCode, CliError> {
-        println!();
-        println!(
-            "Hi {}, let's build a new configuration together ...",
-            self.callsign
+        heading(
+            1,
+            &format!(
+                "Hi {}, let's build a new configuration together ...",
+                self.callsign
+            ),
         );
-        println!();
+
         let render_cfg: RenderConfig = RenderConfig::default()
             .with_prompt_prefix(
                 Styled::new("?")
@@ -245,7 +250,41 @@ impl InitializeConfig {
             .with_default(name_default.as_str())
             .prompt()?;
 
-        let location = Location::new(LocationKind::Home);
+        heading(2, "Now, let's talk about your station ...");
+
+        let options = StationKind::iter()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>();
+        let station_kind = Select::new(
+            "What kind of station should be your default?",
+            options.clone(),
+        )
+        .with_render_config(render_cfg)
+        .prompt()?;
+        let station_kind = StationKind::from_str(&station_kind)?;
+
+        let station_label: Option<String> = match Text::new("Label this station (esc to skip)?")
+            .with_render_config(render_cfg)
+            .with_default(station_kind.label())
+            .prompt()
+        {
+            Ok(label) => Some(label),
+            Err(InquireError::OperationCanceled) => None,
+            Err(e) => return Err(CliError::from(e)),
+        };
+
+        let station_callsign: Option<CallSign> =
+            match Text::new("Stattion-specific callsign (esc to use operator callsign)?")
+                .with_render_config(render_cfg)
+                .with_default(station_kind.label())
+                .prompt()
+            {
+                Ok(callsign) => Some(CallSign::from_str(&callsign)?),
+                Err(InquireError::OperationCanceled) => None,
+                Err(e) => return Err(CliError::from(e)),
+            };
+
+        let location = Location::default();
 
         let default_country_code: Option<String> = if let Some(country) = self.country {
             Some(country.to_string())
@@ -325,8 +364,11 @@ impl InitializeConfig {
             location
         };
 
-        let station = Station::new(self.callsign.clone()).with_location(Some(location));
-        let station = station.with_operator_name(Some(operator_name));
+        let station = Station::new(station_kind, location)
+            .with_label(station_label)
+            .with_callsign(station_callsign);
+
+        heading(2, "Next, we can set some locale-specific defaults ...");
 
         let config_locale = if Confirm::new("Do you want to set locale-specific defaults?")
             .with_render_config(render_cfg)
@@ -338,11 +380,21 @@ impl InitializeConfig {
             let options = Units::iter().map(|v| v.to_string()).collect::<Vec<_>>();
             let units = Select::new("Use which units for length?", options.clone())
                 .with_render_config(render_cfg)
+                .with_starting_cursor(if country == "US" || country == "GB" {
+                    1
+                } else {
+                    0
+                })
                 .prompt()?;
             let locale = locale.with_length_units(Units::from_str(&units).unwrap());
 
             let units = Select::new("Use which units for temperature?", options)
                 .with_render_config(render_cfg)
+                .with_starting_cursor(if country == "US" || country == "GB" {
+                    1
+                } else {
+                    0
+                })
                 .prompt()?;
             let locale = locale.with_temperature_units(Units::from_str(&units).unwrap());
 
@@ -361,11 +413,104 @@ impl InitializeConfig {
             None
         };
 
+        heading(2, "Finally, we can set some optional connections ...");
+
+        let mut equipment = Vec::default();
         if Confirm::new("Do you want to add any equipment records?")
             .with_render_config(render_cfg)
             .with_default(false)
             .prompt()?
-        {}
+        {
+            loop {
+                let brand: String = Text::new("Brand Name?")
+                    .with_render_config(render_cfg)
+                    .prompt()?;
+                let model: String = Text::new("Model Name/ID?")
+                    .with_render_config(render_cfg)
+                    .prompt()?;
+                let label_default = format!("{brand} {model}");
+
+                let record = Equipment::new(brand, model);
+
+                let record = match Text::new("Label this record (esc to skip)?")
+                    .with_render_config(render_cfg)
+                    .with_default(&label_default)
+                    .prompt()
+                {
+                    Ok(label) => record.with_label(Some(label)),
+                    Err(InquireError::OperationCanceled) => record,
+                    Err(e) => return Err(CliError::from(e)),
+                };
+
+                let options = Usage::iter().map(|v| v.to_string()).collect::<Vec<_>>();
+                let usage = MultiSelect::new("Used in?", options.clone())
+                    .with_render_config(render_cfg)
+                    .prompt()?;
+                let record = if !usage.is_empty() {
+                    let usage: Result<HashSet<Usage>, strum::ParseError> =
+                        usage.iter().map(|s| Usage::from_str(s)).collect();
+                    record.with_usage(usage?)
+                } else {
+                    record
+                };
+
+                let options = Mode::iter().map(|v| v.to_string()).collect::<Vec<_>>();
+                let modes = MultiSelect::new("Used for?", options.clone())
+                    .with_render_config(render_cfg)
+                    .prompt()?;
+                let record = if !modes.is_empty() {
+                    let modes: Result<HashSet<Mode>, strum::ParseError> =
+                        modes.iter().map(|s| Mode::from_str(s)).collect();
+                    record.with_modes(modes?)
+                } else {
+                    record
+                };
+
+                let options = Mobility::iter().map(|v| v.to_string()).collect::<Vec<_>>();
+                let mobility = Select::new("Mobility kind?", options.clone())
+                    .with_render_config(render_cfg)
+                    .prompt()?;
+                let mobility = Some(Mobility::from_str(&mobility)?);
+                let record = record.with_mobility(mobility);
+
+                let options = FrequencyBand::iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<_>>();
+                let bands = MultiSelect::new("Supported Bands?", options.clone())
+                    .with_render_config(render_cfg)
+                    .with_starting_cursor(FrequencyBand::Medium as usize)
+                    .prompt()?;
+                let record = if !bands.is_empty() {
+                    let bands: Result<HashSet<FrequencyBand>, CoreError> =
+                        bands.iter().map(|s| FrequencyBand::from_str(s)).collect();
+                    record.with_bands(bands?)
+                } else {
+                    record
+                };
+
+                let record = match Text::new("Max Power in Watts (esc to skip)?")
+                    .with_render_config(render_cfg)
+                    .with_validator(power_validator)
+                    .prompt()
+                {
+                    Ok(power) => {
+                        record.with_max_power(Some(Power::from_str(&format!("{power} W"))?))
+                    }
+                    Err(InquireError::OperationCanceled) => record,
+                    Err(e) => return Err(CliError::from(e)),
+                };
+
+                equipment.push(record);
+
+                if !Confirm::new("Add another?")
+                    .with_render_config(render_cfg)
+                    .with_default(false)
+                    .prompt()?
+                {
+                    break;
+                }
+            }
+        }
 
         let services: Option<Services> =
             if Confirm::new("Do you want to connect to any web services?")
@@ -405,11 +550,13 @@ impl InitializeConfig {
             .with_default(true)
             .prompt()?;
         if write_config {
-            let mut config = Configuration::default()
+            let mut config = Configuration::new(self.callsign)
                 .with_path(Some(config_file_path.clone()))
-                .with_station(Some(station))
+                .with_operator_name(Some(operator_name))
+                .with_station(station)
                 .with_locale(config_locale)
-                .with_services(services.unwrap_or_default());
+                .with_services(services.unwrap_or_default())
+                .with_equipment(equipment);
 
             info!("about to write config {config:?}");
             config
@@ -461,4 +608,34 @@ fn maidenhead_validator(input: &str) -> Result<Validation, CustomUserError> {
     }
 }
 
+fn power_validator(input: &str) -> Result<Validation, CustomUserError> {
+    let parts: Vec<&str> = input.split('.').collect();
+    if parts.len() > 2 {
+        Ok(Validation::Invalid(
+            "Power values may only have a single decimal point".into(),
+        ))
+    } else if parts.len() == 2 && parts[0].is_empty() {
+        Ok(Validation::Invalid(
+            "Power values must have digits before the decimal point".into(),
+        ))
+    } else if !input.chars().all(|c| c.is_ascii_digit() || c == '.') {
+        Ok(Validation::Invalid(
+            "Power values may only be numeric".into(),
+        ))
+    } else {
+        Ok(Validation::Valid)
+    }
+}
+
 // TODO: fn map_user_cancelled(e: InquireError) -> CliError
+
+fn heading(level: u8, text: &str) {
+    let text = text.bright_blue();
+    let text = match level {
+        1 => text.bold().underline(),
+        2 => text.bold().italic(),
+        3 => text.bold(),
+        _ => text,
+    };
+    println!("\n{text}\n");
+}
