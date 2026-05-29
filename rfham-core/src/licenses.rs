@@ -5,8 +5,7 @@
 //!
 //! # Examples
 //!
-//! ```rust
-//! ```
+//! TBD
 //!
 
 use crate::{StringLike, error::CoreError};
