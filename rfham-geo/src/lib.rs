@@ -5,7 +5,9 @@
 //! - **Grid systems** ([`grid`]) — trait abstractions for identifier-based locator systems
 //!   (e.g. Maidenhead / QTH, implemented in separate crates).
 //! - **Geo-IP lookup** ([`geoip`]) — map an IP address to location, locale, and ASN data
-//!   via pluggable [`geoip::Provider`] implementations.
+//!   via pluggable implementations.
+//! - **Geocentric Conversions** ([`geocentric`]) - conversions between Latitude/Longitude and
+//!   X,Y,Z coordinate systems.
 //!
 //! # Features
 //!
@@ -22,6 +24,8 @@
 // ------------------------------------------------------------------------------------------------
 
 pub mod error;
+
+pub mod geocentric;
 
 pub mod geoip;
 

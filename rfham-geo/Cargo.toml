@@ -11,7 +11,7 @@ rust-version = "1.94"
 
 [package.metadata.docs.rs]
 features = ["std"]
-rustdoc-args = ["--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "--html-in-header", "rustdoc/header.html"]
 
 [package.metadata.playground]
 features = ["std"]
