@@ -1,9 +1,12 @@
 //! This module provides types for geocentric, or Earth-centered, Earth-fixed coordinate system
 //! (acronym ECEF), coordinate systems.
 //!
-//! ![Geocentric and Geographic Coordinates](rustdoc/geospir.gif)
+//! The following diagram demonstrates the difference between geocentric `X,Y,Z` coordinates
+//! and geodetic `φ,λ,h` coordinates.
 //!
-//! Specifically a [`CartesianCoordinate`] structure which is a coordinate with 3 dimensions having
+//! ![Geocentric and Geographic Coordinates](https://raw.githubusercontent.com/johnstonskj/rust-rfham/refs/heads/main/rustdoc/geosphir.gif)
+//!
+//! The [`CartesianCoordinate`] structure is a 3 dimensional coordinate having
 //! a common origin. This origin is *usually* the datum associated with a specific coordinate system.
 //!
 //! A [`Datum`] trait representing the values necessarily provided by a coordinate system to convert
