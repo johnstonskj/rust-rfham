@@ -1,4 +1,4 @@
-//! IP-to-location lookup types and the [`Provider`] trait.
+//! IP-to-location lookup response types.
 //!
 //! This module defines the data model returned by any geo-IP lookup: [`Location`] is the
 //! top-level result, continent, country, city, etc.
@@ -322,7 +322,7 @@ mod tests {
     #[test]
     fn test_serialize_roundtrip() {
         let data = Location::new(
-            ContinentCode::NA.into(),
+            Some(ContinentCode::NA.into()),
             Country::new("US".parse().unwrap(), "United States"),
             "Texas".to_string(),
             "Irving".to_string(),
@@ -336,7 +336,7 @@ mod tests {
         );
 
         let json = to_string_pretty(&data).unwrap();
-        assert!(json.contains("23.64.167.34"));
+        assert!(json.contains("-96.9489"));
         assert!(json.contains("Texas"));
 
         let deserialized: Location = serde_json::from_str(&json).unwrap();
