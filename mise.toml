@@ -1,3 +1,8 @@
 [tools]
+"cargo:cargo-audit" = "latest"
+"cargo:cargo-nextest" = "latest"
+"cargo:cargo-tarpaulin" = "latest"
+"cargo:flamegraph" = "latest"
+mdbook = "latest"
 rust = "latest"
 taplo = "latest"
