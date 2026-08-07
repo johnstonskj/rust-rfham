@@ -6,7 +6,7 @@ use crate::{
 use clap::{Args, Subcommand};
 use rfham_config::load_global_config;
 use rfham_core::countries::CountryCode;
-use rfham_itu::allocations::FrequencyAllocation;
+use rfham_itu::allocations::AllocationBand;
 use std::process::ExitCode;
 use tracing::instrument;
 
@@ -29,8 +29,9 @@ pub enum BandPlanCommands {
 pub struct CmdShowBandPlan {
     /// Show only this band
     #[arg(short = 'b', long, requires = "country")]
-    band: Vec<FrequencyAllocation>,
+    band: Vec<AllocationBand>,
 
+    // TODO: add a license option to show only band data for a given license class.
     /// Show the band plan for this country
     #[arg(env = "RFHAM_COUNTRY")]
     country: CountryCode,

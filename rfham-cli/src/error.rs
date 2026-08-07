@@ -4,7 +4,7 @@
 
 use colored::Colorize;
 use inquire::error::InquireError;
-use rfham_config::error::ConfigError;
+use rfham_config::{connections::ParseConnectionString, error::ConfigError};
 use rfham_core::error::CoreError;
 use rfham_geo::error::GeoError;
 use rfham_markdown::MarkdownError;
@@ -40,6 +40,9 @@ pub enum CliError {
 
     #[error("An error occured parsing an enum value; error: {0}")]
     ParseError(#[from] ParseError),
+
+    #[error("An error occured parsing the input as a connection string; error: {0}")]
+    ParseConnectionString(#[from] ParseConnectionString),
 
     #[error("An error occured loading or initializing the configuration; error: {0}")]
     Config(#[from] ConfigError),

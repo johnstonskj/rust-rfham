@@ -1,9 +1,9 @@
 use crate::{OnceCommand, command::antennas::CalculateAntennaLengths, error::CliError};
 use clap::{Args, Subcommand, ValueEnum};
 use rfham_antennas::AntennaForm;
-use rfham_core::countries::CountryCode;
 use rfham_config::load_global_config;
-use rfham_itu::allocations::FrequencyAllocation;
+use rfham_core::countries::CountryCode;
+use rfham_itu::allocations::AllocationBand;
 use std::process::ExitCode;
 
 // ------------------------------------------------------------------------------------------------
@@ -21,7 +21,7 @@ pub enum AntennaCommands {
 pub struct CmdAntennaLength {
     /// Calculate for an antenna working on this band.
     #[arg(short = 'b', long, requires = "country")]
-    band: FrequencyAllocation,
+    band: AllocationBand,
 
     /// Calculate for a random length antenna for multiple bands
     #[arg(short = 'r', long, default_value_t = false, conflicts_with = "band")]

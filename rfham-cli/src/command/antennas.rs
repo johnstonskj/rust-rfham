@@ -5,7 +5,7 @@ use crate::{
 use rfham_antennas::SimpleDipole;
 use rfham_bands::{uk_rsgb::rsgb_band_plan, us_fcc::arrl_voluntary_band_plan};
 use rfham_core::{StringLike, countries::CountryCode};
-use rfham_itu::allocations::FrequencyAllocation;
+use rfham_itu::allocations::AllocationBand;
 use rfham_markdown::ToMarkdown;
 use std::{io::stdout, process::ExitCode};
 
@@ -16,7 +16,7 @@ use std::{io::stdout, process::ExitCode};
 #[derive(Debug)]
 pub struct CalculateAntennaLengths {
     country: CountryCode,
-    band: FrequencyAllocation,
+    band: AllocationBand,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -43,7 +43,7 @@ impl OnceCommand for CalculateAntennaLengths {
 }
 
 impl CalculateAntennaLengths {
-    pub fn new(country: CountryCode, band: FrequencyAllocation) -> Self {
+    pub fn new(country: CountryCode, band: AllocationBand) -> Self {
         Self { country, band }
     }
 }

@@ -4,7 +4,7 @@ use crate::{
 };
 use rfham_bands::{uk_rsgb::rsgb_band_plan, us_fcc::arrl_voluntary_band_plan};
 use rfham_core::{StringLike, countries::CountryCode};
-use rfham_itu::allocations::FrequencyAllocation;
+use rfham_itu::allocations::AllocationBand;
 use rfham_markdown::{Table, ToMarkdownWith, blank_line, header};
 use std::{io::stdout, process::ExitCode};
 
@@ -21,7 +21,7 @@ pub struct ShowItuAllocations;
 #[derive(Debug)]
 pub struct ShowBandPlan {
     country: CountryCode,
-    bands: Vec<FrequencyAllocation>,
+    bands: Vec<AllocationBand>,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -33,7 +33,7 @@ impl OnceCommand for ShowItuAllocations {
     type Error = CliError;
 
     fn execute(self) -> Result<Self::Output, Self::Error> {
-        FrequencyAllocation::write_markdown(&mut stdout())?;
+        AllocationBand::write_markdown(&mut stdout())?;
         Ok(ExitCode::SUCCESS)
     }
 }
@@ -55,7 +55,7 @@ impl OnceCommand for ShowBandPlan {
 }
 
 impl ShowBandPlan {
-    pub fn new(country: CountryCode, bands: Vec<FrequencyAllocation>) -> Self {
+    pub fn new(country: CountryCode, bands: Vec<AllocationBand>) -> Self {
         Self { country, bands }
     }
 }

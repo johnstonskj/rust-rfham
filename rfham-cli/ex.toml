@@ -19,22 +19,10 @@ time_format = "military"
 brand = "Icom"
 model = "705"
 label = "IC-705"
-usage = [
-    "Local",
-    "DX",
-    "QRP",
-]
-modes = [
-    "FM",
-    "Digital",
-    "SSB",
-]
+usage = ["Local", "DX", "QRP"]
+modes = ["FM", "Digital", "SSB"]
 mobility = "StationFixed"
-bands = [
-    "HF",
-    "VHF",
-    "UHF",
-]
+bands = ["HF", "VHF", "UHF"]
 max-power = 10.0
 
 [services]
@@ -43,3 +31,13 @@ storage_kind = "plain-text"
 [services.credentials.qrz-api]
 identifier = "K7SKJ"
 secret = "hhzz"
+
+[connections.kx3]
+type = "serial"
+path = "/dev/something"
+baud-rate = 9600
+
+[connections.ic-705]
+type = "ip"
+address = "192.10.10.51"
+port = 9090

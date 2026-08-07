@@ -13,11 +13,13 @@
 //! ```
 
 use crate::{
+    connections::Connection,
     error::{ConfigError, ConfigResult},
     fields::{
-        CFG_FIELD_CALLSIGN, CFG_FIELD_EQUIPMENT, CFG_FIELD_LANGUAGE, CFG_FIELD_LENGTH_UNITS,
-        CFG_FIELD_LOCALE, CFG_FIELD_OPERATOR_NAME, CFG_FIELD_PATH, CFG_FIELD_SERVICES,
-        CFG_FIELD_STATION, CFG_FIELD_TEMPERATURE_UNITS, CFG_FIELD_TIME_DISPLAY,
+        CFG_FIELD_CALLSIGN, CFG_FIELD_CONNECTION, CFG_FIELD_CONNECTIONS, CFG_FIELD_EQUIPMENT,
+        CFG_FIELD_LANGUAGE, CFG_FIELD_LENGTH_UNITS, CFG_FIELD_LOCALE, CFG_FIELD_NAME,
+        CFG_FIELD_OPERATOR_NAME, CFG_FIELD_PATH, CFG_FIELD_SERVICES, CFG_FIELD_STATION,
+        CFG_FIELD_TEMPERATURE_UNITS, CFG_FIELD_TIME_DISPLAY,
     },
     fmt::{FormatterOptions, OutputKind},
     paths::{ConfigPath, PathElement, PathTarget, Value},
@@ -29,6 +31,7 @@ use rfham_markdown::{blank_line, bulleted_list_item, header};
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::{
+    collections::HashMap,
     fs::{self, File, create_dir_all},
     io::Write,
     path::{Path, PathBuf},
@@ -59,6 +62,8 @@ pub struct Configuration {
     equipment: Vec<Equipment>,
     #[serde(default)]
     services: Services,
+    #[serde(default)]
+    connections: HashMap<String, Connection>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
@@ -203,8 +208,23 @@ impl FormattedWriter for Configuration {
                         equipment.write_with(writer, &options.with_additional_depth(2))?;
                     }
                 }
+
                 self.services
                     .write_with(writer, &options.with_additional_depth(1))?;
+
+                if !self.connections.is_empty() {
+                    blank_line(writer)?;
+                    header(writer, options.nesting_depth() + 1, "Rig Connections")?;
+                    blank_line(writer)?;
+                    for (name, conn) in &self.connections {
+                        header(
+                            writer,
+                            options.nesting_depth() + 2,
+                            format!("{name} ({})", if conn.is_ip() { "IP" } else { "Serial" }),
+                        )?;
+                        conn.write_with(writer, &options.with_additional_depth(3))?;
+                    }
+                }
             }
             OutputKind::MarkdownTable => {
                 todo!()
@@ -310,6 +330,41 @@ impl PathTarget for Configuration {
                         ))
                     }
                 }
+                name if name == CFG_FIELD_CONNECTIONS => {
+                    if let Some(path) = tail {
+                        let (head, tail) = path.split();
+                        if let PathElement::Name(name) = head {
+                            if tail.is_none() {
+                                Err(ConfigError::PathTooShort(
+                                    head.to_string(),
+                                    CFG_FIELD_CONNECTION,
+                                    vec![], // TODO: this needs to be static
+                                ))
+                            } else if let Some(connection) = self.connections.get(&name.to_string())
+                            {
+                                connection.value(&tail.unwrap())
+                            } else {
+                                Err(ConfigError::InvalidPathComponent(
+                                    name.to_string(),
+                                    CFG_FIELD_CONNECTION,
+                                    vec![],
+                                ))
+                            }
+                        } else {
+                            Err(ConfigError::InvalidPathComponent(
+                                head.to_string(),
+                                CFG_FIELD_NAME,
+                                vec![],
+                            ))
+                        }
+                    } else {
+                        Err(ConfigError::PathTooShort(
+                            head.to_string(),
+                            CFG_FIELD_CONNECTIONS,
+                            vec![CFG_FIELD_NAME],
+                        ))
+                    }
+                }
                 _ => Err(ConfigError::InvalidPathComponent(
                     head.to_string(),
                     CFG_FILE_ROOT,
@@ -332,6 +387,7 @@ impl PathTarget for Configuration {
             CFG_FIELD_STATION,
             CFG_FIELD_EQUIPMENT,
             CFG_FIELD_SERVICES,
+            CFG_FIELD_CONNECTIONS,
         ]
         .into_iter()
     }
@@ -352,6 +408,7 @@ impl Configuration {
             locale: None,
             equipment: Vec::default(),
             services: Services::default(),
+            connections: HashMap::default(),
         }
     }
 
@@ -374,20 +431,34 @@ impl Configuration {
         self.with_stations(vec![station])
     }
 
-    pub fn with_stations<I: IntoIterator<Item = Station>>(mut self, stations: I) -> Self {
+    pub fn with_stations<I>(mut self, stations: I) -> Self
+    where
+        I: IntoIterator<Item = Station>,
+    {
         let stations: Vec<Station> = stations.into_iter().collect();
         assert!(!stations.is_empty());
         self.stations = stations;
         self
     }
 
-    pub fn with_equipment(mut self, equipment: Vec<Equipment>) -> Self {
-        self.equipment = equipment;
+    pub fn with_equipment<I>(mut self, equipment: I) -> Self
+    where
+        I: IntoIterator<Item = Equipment>,
+    {
+        self.equipment = Vec::from_iter(equipment.into_iter());
         self
     }
 
     pub fn with_services(mut self, services: Services) -> Self {
         self.services = services;
+        self
+    }
+
+    pub fn with_connections<I>(mut self, connections: I) -> Self
+    where
+        I: IntoIterator<Item = (String, Connection)>,
+    {
+        self.connections = HashMap::from_iter(connections.into_iter());
         self
     }
 
@@ -447,7 +518,10 @@ impl Configuration {
         self.stations.push(station);
     }
 
-    pub fn set_stations<I: IntoIterator<Item = Station>>(&mut self, stations: I) {
+    pub fn set_stations<I>(&mut self, stations: I)
+    where
+        I: IntoIterator<Item = Station>,
+    {
         let stations: Vec<Station> = stations.into_iter().collect();
         assert!(!stations.is_empty());
         self.stations = stations;
@@ -463,6 +537,29 @@ impl Configuration {
 
     pub fn set_services(&mut self, services: Services) {
         self.services = services
+    }
+
+    pub fn connections(&self) -> impl Iterator<Item = (&String, &Connection)> {
+        self.connections.iter()
+    }
+
+    pub fn connection(&self, name: &String) -> Option<&Connection> {
+        self.connections.get(name)
+    }
+
+    pub fn connection_names(&self) -> impl Iterator<Item = &String> {
+        self.connections.keys()
+    }
+
+    pub fn add_connection(&mut self, name: String, connection: Connection) {
+        self.connections.insert(name, connection);
+    }
+
+    pub fn set_connections<I: IntoIterator<Item = (String, Connection)>>(
+        &mut self,
+        connections: I,
+    ) {
+        self.connections = HashMap::from_iter(connections.into_iter());
     }
 
     pub fn exists(&self) -> bool {
@@ -637,6 +734,7 @@ impl Locale {
 // Sub-modules
 // ────────────────────────────────────────────────────────────────────────────────────────────────
 
+pub mod connections;
 pub mod equipment;
 pub use equipment::Equipment;
 pub mod error;

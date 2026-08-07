@@ -2,6 +2,7 @@
 //! Provides this crate's [`Error`] and [`Result`] types.
 //!
 
+use crate::connections::ParseConnectionString;
 use rfham_core::error::CoreError;
 use rfham_markdown::error::MarkdownError;
 use std::{io::Error as IoError, num::ParseIntError};
@@ -31,6 +32,9 @@ pub enum ConfigError {
 
     #[error("An error occured parsing the input as an integer value; error: {0}")]
     ParseInt(#[from] ParseIntError),
+
+    #[error("An error occured parsing the input as a connection string; error: {0}")]
+    ParseConnectionString(#[from] ParseConnectionString),
 
     #[error("An error occured serializing the configuration file; error {0}")]
     Serializer(#[from] SerializerError),

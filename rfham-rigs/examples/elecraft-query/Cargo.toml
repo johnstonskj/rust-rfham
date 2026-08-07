@@ -1,0 +1,10 @@
+
+[package]
+name = "elecraft-query"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+rfham-config = { path = "../../../rfham-config" }
+rfham-rigs = { path = "../../" }

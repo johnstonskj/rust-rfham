@@ -415,7 +415,7 @@ impl InitializeConfig {
 
         heading(2, "Finally, we can set some optional connections ...");
 
-        let mut equipment = Vec::default();
+        let mut equipment: Vec<Equipment> = Vec::default();
         if Confirm::new("Do you want to add any equipment records?")
             .with_render_config(render_cfg)
             .with_default(false)

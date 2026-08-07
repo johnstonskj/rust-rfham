@@ -1,6 +1,7 @@
-//! Catalogue of known amateur radio transceivers (reserved for future implementation).
-
-// use statements here
+use crate::{Frequency, Level, error::RigError};
+use serde::{Deserialize, Serialize};
+use std::time::Duration;
+use strum::{EnumIs, EnumTryAs};
 
 // ------------------------------------------------------------------------------------------------
 // Public Macros
@@ -9,6 +10,29 @@
 // ------------------------------------------------------------------------------------------------
 // Public Types
 // ------------------------------------------------------------------------------------------------
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, EnumIs, EnumTryAs)]
+pub enum Reply {
+    Rig(RigReply),
+    Vfo(VfoReply),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, EnumIs, EnumTryAs)]
+pub enum RigReply {
+    AfGain(Level),
+    // ...
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, EnumIs, EnumTryAs)]
+pub enum VfoReply {
+    Frequency(Frequency),
+    // ...
+}
+
+pub trait ReplySource {
+    fn receive(&mut self) -> Result<Reply, RigError>;
+    fn receive_or_timeout(&mut self, timeout: Duration) -> Result<Reply, RigError>;
+}
 
 // ------------------------------------------------------------------------------------------------
 // Public Functions
@@ -33,3 +57,10 @@
 // ------------------------------------------------------------------------------------------------
 // Sub-Modules
 // ------------------------------------------------------------------------------------------------
+
+// ------------------------------------------------------------------------------------------------
+// Unit Tests
+// ------------------------------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {}

@@ -118,7 +118,9 @@ static ZONE_NAMES: LazyLock<ZoneNameMap> = LazyLock::new(|| {
         .collect::<HashMap<_, _>>()
 });
 
+#[allow(dead_code)]
 static ZONE_MAPPING_JSON: &str = include_str!("../data/itu-zone-mapping.json");
+#[allow(dead_code)]
 static ZONE_MAPPING: LazyLock<ZoneDefinitions> = LazyLock::new(|| {
     serde_json::from_str(ZONE_MAPPING_JSON).expect("Failed to parse ITU prefix->zone mapping JSON")
 });

@@ -68,6 +68,10 @@ pub enum Commands {
     #[command(subcommand)]
     Config(ConfigCommands),
 
+    /// Rig Connection test/scripting.
+    #[command(subcommand)]
+    Connect(ConnectionCommands),
+
     #[command(external_subcommand)]
     External(#[arg(num_args = 1..)] Vec<String>),
 }
@@ -134,6 +138,7 @@ impl OnceCommandWith for Commands {
             Self::BandPlan(cmds) => cmds.execute(),
             Self::CallSign(cmds) => cmds.execute(),
             Self::Config(cmds) => cmds.execute(),
+            Self::Connect(cmds) => cmds.execute(),
             // One-shot commands.
             Self::Completions { shell } => GenerateCompletions::new(shell).execute(),
             Self::External(args) => RunExternalSubCommand::new(
@@ -160,3 +165,5 @@ mod callsign;
 use callsign::CallSignCommands;
 mod config;
 use config::ConfigCommands;
+mod connect;
+use connect::ConnectionCommands;

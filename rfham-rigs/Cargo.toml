@@ -1,0 +1,35 @@
+[package]
+name = "rfham-rigs"
+description = "Rig data and control"
+version = "0.1.1"
+readme = "README.md"
+publish = true
+
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+keywords.workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+chrono = { version = "0.4.45", default-features = false, features = [
+    "alloc",
+    "clock",
+    "now",
+] }
+rfham-config = { version = "0.1.1", path = "../rfham-config" }
+rfham-core = { version = "0.1.1", path = "../rfham-core" }
+rfham-iri = { version = "0.1.0", path = "../rfham-iri" }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serialport = { version = "4.9.0", features = ["serde"] }
+strum = { version = "0.28", features = ["derive"] }
+thiserror = { version = "2.0", default-features = false }
+toml = { version = "1.1.3", features = ["serde"] }
+tracing = "0.1.44"
+
+[lints]
+workspace = true
