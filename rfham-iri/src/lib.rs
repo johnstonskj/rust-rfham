@@ -1,19 +1,62 @@
 //!
-//! Provides ..., a one-line description
+//! Provides a *Universal Rig Name* type, based on the W3C URN, allowing for structured naming of
+//! the entities of an ham radio setup.
 //!
 //! More detailed description
 //!
-//! # Examples
+//! # Specification
 //!
-//! ```rust
+//! The following BNF describes the structure of a *urn*, which can be made into a fully compliant
+//! URN with the prefix `urn:`.
+//!
+//! ```bnf
+//! Urn         ::= Scheme SubScheme Brand Model Version? More?
+//! Scheme      ::= 'rfham'
+//! SubScheme   ::= ':' ( 'amp' | 'ant' | 'meter' | 'pan' | 'rig' | 'rotator' | 'tuner' )
+//! Brand       ::= '/' Name
+//! Model       ::= '/' Name
+//! Version     ::= '/' EscapeEncodedString
+//! More        ::= '#' EscapeEncodedString
+//! Name        ::= ASCII_ALNUM ( ASCII_ALNUM | '-' | '_' )*
+//! EscapeEncodedString
+//!             ::= /* See RFC2396 §2.4 */
 //! ```
 //!
+//! # Examples
+//!
+//! The following demonstrates the macro [`rfham`] which can convert identifiers into strings
+//! and uses slashes as separators which produces an effect that looks more like the final URN
+//! result.
+//!
+//! ```rust
+//! assert_eq!(
+//!     "rfham:rig/icom/ic-705",
+//!     &rfham!(rig / Icom / "ic-705").to_string()
+//! );
+//! ```
+//!
+//!
+//! # Feature flags
+#![doc = document_features::document_features!()]
+#![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
+use core::{fmt::Display, str::FromStr};
 use rfham_core::Name;
-use serde::{Deserialize, Serialize};
-use std::{fmt::Display, str::FromStr};
 use strum::{AsRefStr, Display as EnumDisplay, EnumIs, EnumIter, EnumString};
 use thiserror::Error;
+
+#[cfg(feature = "alloc")]
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
+
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 // ------------------------------------------------------------------------------------------------
 // Public Macros
@@ -33,7 +76,7 @@ macro_rules! rfham {
     };
     ($kind:ident / $brand:literal / $model:ident) => {
         $crate::UniversalRigName::$kind(
-            <::rfham_core::names::Name as ::std::str::FromStr>::from_str($brand).unwrap(),
+            <::rfham_core::names::Name as ::core::str::FromStr>::from_str($brand).unwrap(),
             <::rfham_core::names::Name as ::rfham_core::StringLike>::new_unchecked(stringify!(
                 $model
             )),
@@ -44,13 +87,13 @@ macro_rules! rfham {
             <::rfham_core::names::Name as ::rfham_core::StringLike>::new_unchecked(stringify!(
                 $brand
             )),
-            <::rfham_core::names::Name as ::std::str::FromStr>::from_str($model).unwrap(),
+            <::rfham_core::names::Name as ::core::str::FromStr>::from_str($model).unwrap(),
         )
     };
     ($kind:ident / $brand:literal / $model:literal) => {
         $crate::UniversalRigName::$kind(
-            <::rfham_core::names::Name as ::std::str::FromStr>::from_str($brand).unwrap(),
-            <::rfham_core::names::Name as ::std::str::FromStr>::from_str($model).unwrap(),
+            <::rfham_core::names::Name as ::core::str::FromStr>::from_str($brand).unwrap(),
+            <::rfham_core::names::Name as ::core::str::FromStr>::from_str($model).unwrap(),
         )
     };
 }
@@ -61,19 +104,8 @@ macro_rules! rfham {
 
 pub const RFHAM_URN_SCHEME: &str = "rfham";
 
-///
-///
-/// ```bnf
-/// Urn         ::= Scheme SubScheme Brand Model Version? More?
-/// Scheme      ::= 'rfham'
-/// SubScheme   ::= ':' ( 'amp' | 'ant' | 'rig' | 'tuner' )
-/// Brand       ::= '/' Name
-/// Model       ::= '/' Name
-/// Version     ::= '/' UrlEncodedString
-/// More        ::= '#' UrlEncodedString
-/// ```
-///
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct UniversalRigName {
     kind: Kind,
     brand: Name,
@@ -90,26 +122,25 @@ pub struct UniversalRigName {
     Eq,
     PartialOrd,
     Ord,
-    Deserialize,
-    Serialize,
     EnumIs,
     EnumDisplay,
     AsRefStr,
     EnumString,
     EnumIter,
 )]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub enum Kind {
     ///
     /// An RF power amplifier. This may be internal to a transceiver, or external.
     ///
-    #[serde(rename = "amp")]
+    #[cfg_attr(feature = "serde", serde(rename = "amp"))]
     #[strum(serialize = "amp")]
     Amplifier,
 
     ///
     /// An antenna; in general this is a description of the antenna's characteristics.
     ///
-    #[serde(rename = "ant")]
+    #[cfg_attr(feature = "serde", serde(rename = "ant"))]
     #[strum(serialize = "ant")]
     Antenna,
 
@@ -117,7 +148,7 @@ pub enum Kind {
     /// An S-meter, SWR meter, power meter, or other measurement device.
     /// This may be internal to a transceiver, or external.
     ///
-    #[serde(rename = "meter")]
+    #[cfg_attr(feature = "serde", serde(rename = "meter"))]
     #[strum(serialize = "meter")]
     Meter,
 
@@ -125,21 +156,21 @@ pub enum Kind {
     /// A panadapter, which is a device that provides a visual representation of the RF spectrum.
     /// This may be internal to a transceiver, or external.
     ///
-    #[serde(rename = "pan")]
+    #[cfg_attr(feature = "serde", serde(rename = "pan"))]
     #[strum(serialize = "pan")]
     PanAdapter,
 
     ///
     /// A receiver, or transceiver, which is a device that can both transmit and receive radio signals.
     ///
-    #[serde(rename = "rig")]
+    #[cfg_attr(feature = "serde", serde(rename = "rig"))]
     #[strum(serialize = "rig")]
     Rig,
 
     ///
     /// An antenna rotator, which is a device that can rotate an antenna to point in different directions.
     ///
-    #[serde(rename = "rotator")]
+    #[cfg_attr(feature = "serde", serde(rename = "rotator"))]
     #[strum(serialize = "rotator")]
     Rotator,
 
@@ -147,7 +178,7 @@ pub enum Kind {
     /// An antenna tuner, which is a device that matches the impedance of the antenna to the transmitter.
     /// This may be internal to a transceiver, or external.
     ///
-    #[serde(rename = "tuner")]
+    #[cfg_attr(feature = "serde", serde(rename = "tuner"))]
     #[strum(serialize = "tuner")]
     Tuner,
 }
@@ -185,7 +216,7 @@ pub enum UrnError {
 const URN_SUPER_SCHEME: &str = "urn";
 
 impl Display for UniversalRigName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         format!(
             "{RFHAM_URN_SCHEME}:{}/{}/{}{}{}",
             self.kind.as_ref().to_ascii_lowercase(),

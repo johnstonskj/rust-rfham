@@ -13,9 +13,25 @@ license.workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[features]
+default = ["std", "serde"]
+#! This library supports `no_std` if you set `default-features` to `false`.
+
+## Use the standard library global heap allocator, required whether you use `std` or `no_std`.
+alloc = []
+
+## This feature adds Serde support for serialization of the URN type.
+serde = ["dep:serde", "alloc"]
+
+## Enables the `std` library, and associated feature in dependencies.
+std = ["serde?/std"]
+
 [dependencies]
+document-features = "0.2"
 rfham-core = { version = "0.1.1", path = "../rfham-core" }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0", default-features = false, features = [
+    "derive",
+], optional = true }
 strum = { version = "0.28", features = ["derive"] }
 thiserror = { version = "2.0", default-features = false }
 
