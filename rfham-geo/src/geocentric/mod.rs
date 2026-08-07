@@ -290,13 +290,13 @@ impl FromStr for CartesianCoordinate {
                     );
                     CoreError::InvalidValueFromStr(s.to_string(), "CartesianCoordinate")
                 })?),
-                y: Length::new::<meter>(f64::from_str(parts[1].trim()).map_err(|_| {
+                y: Length::new::<meter>(f64::from_str(parts[1].trim()).map_err(|e| {
                     error!(
                         "Invalid representation of an f64 value parsing `y`; value: {s}, error: {e}"
                     );
                     CoreError::InvalidValueFromStr(s.to_string(), "CartesianCoordinate")
                 })?),
-                z: Length::new::<meter>(f64::from_str(parts[2].trim()).map_err(|_| {
+                z: Length::new::<meter>(f64::from_str(parts[2].trim()).map_err(|e| {
                     error!(
                         "Invalid representation of an f64 value parsing `z`; value: {s}, error: {e}"
                     );

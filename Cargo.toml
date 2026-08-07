@@ -9,12 +9,22 @@ members = [
     "rfham-config",
     "rfham-core",
     "rfham-geo",
+    "rfham-iri",
     "rfham-itu",
     "rfham-maidenhead",
     "rfham-markdown",
-    "rfham-radios", 
+    "rfham-rigs",
+    "rfham-rigs/examples/elecraft-query",
     "rfham-services",
 ]
+
+[workspace.package]
+edition = "2024"
+authors = ["Simon Johnston <johnstonskj@gmail.com"]
+repository = "https://github.com/johnstonskj/rust-rfham"
+homepage = "https://simonkjohnston.life/rust-rfham"
+license = "MIT OR Apache-2.0"
+keywords = ["ham", "radio"]
 
 [workspace.lints.rust]
 exported_private_dependencies = "deny"

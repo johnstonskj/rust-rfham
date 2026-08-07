@@ -1,18 +1,19 @@
 [package]
 name = "rfham-itu"
-version = "0.1.2"
-edition = "2024"
 description = "Data Types representing ITU standards underlying Ham operations."
-repository = "https://github.com/johnstonskj/rust-rfham"
-homepage = "https://simonkjohnston.life/rust-rfham"
-license = "MIT OR Apache-2.0"
-keywords = ["ham", "radio"]
+version = "0.1.2"
 readme = "README.md"
-# Minimum Supported Rust Version
-rust-version = "1.94"
+publish = true
 
-[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies.wasm-bindgen-test]
-version = "0.3"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+keywords.workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 colored = { version = "3.1", optional = true }
@@ -36,10 +37,11 @@ uom = { version = "0.38", default-features = false, features = [
     "si",
 ] }
 
-
 [dev-dependencies]
 pretty_assertions = "1.4"
 
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies.wasm-bindgen-test]
+version = "0.3"
 
 [lints]
 workspace = true

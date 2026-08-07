@@ -1,15 +1,16 @@
 [package]
 name = "rfham-cli"
-version = "0.1.1"
-edition = "2024"
 description = "CLI for accessing RF-Ham tools."
-repository = "https://github.com/johnstonskj/rust-rfham"
-homepage = "https://simonkjohnston.life/rust-rfham"
-license = "MIT OR Apache-2.0"
-keywords = ["ham", "radio"]
+version = "0.1.1"
 readme = "README.md"
-# Minimum Supported Rust Version
-rust-version = "1.94"
+publish = true
+
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+keywords.workspace = true
 
 [[bin]]
 name = "rfham"
@@ -24,6 +25,7 @@ clap-verbosity-flag = { version = "3", default-features = false, features = [
 colorchoice = "1.0"
 colorchoice-clap = "1.0"
 colored = "3.1"
+crossterm = { version = "0.29.0", default-features = false }
 icu_locale_core = { version = "2.2", features = ["alloc"] }
 inquire = { version = "0.9", features = ["date"] }
 rfham-antennas = { version = "0.1.1", path = "../rfham-antennas" }
@@ -34,6 +36,7 @@ rfham-geo = { version = "0.1.1", path = "../rfham-geo" }
 rfham-itu = { version = "0.1.2", path = "../rfham-itu" }
 rfham-maidenhead = { version = "0.1.0", path = "../rfham-maidenhead" }
 rfham-markdown = { version = "0.1.1", path = "../rfham-markdown" }
+rfham-rigs = { version = "0.1.0", path = "../rfham-rigs" }
 rfham-services = { version = "0.1.0", path = "../rfham-services" }
 search_path = "0.1"
 strum = { version = "0.28", features = ["derive"] }
@@ -42,4 +45,3 @@ thiserror = { version = "2.0", default-features = false }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 whoami = "2.1"
-crossterm = { version = "0.29.0", default-features = false }

@@ -42,7 +42,7 @@ use rfham_core::{
     licenses::{LicenseClass, LicenseKey},
     power::Power,
 };
-use rfham_itu::{allocations::FrequencyAllocation, regions::Region};
+use rfham_itu::{allocations::AllocationBand, regions::Region};
 use rfham_markdown::{
     Column, ColumnJustification, MarkdownError, Table, ToMarkdown, ToMarkdownWith, blank_line,
     bulleted_list, bulleted_list_item, header, link_to_string, numbered_list_item, plain_text,
@@ -69,7 +69,7 @@ pub struct BandPlan {
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     licenses: HashMap<LicenseKey, LicenseClass>,
     #[serde(skip_serializing_if = "HashMap::is_empty")]
-    bands: HashMap<FrequencyAllocation, PlanBand>,
+    bands: HashMap<AllocationBand, PlanBand>,
     #[serde(skip_serializing_if = "Option::is_none")]
     default_max_power: Option<Power>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -78,7 +78,7 @@ pub struct BandPlan {
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Band {
-    allocation: FrequencyAllocation,
+    allocation: AllocationBand,
     #[serde(flatten)]
     range: FrequencyRange,
 }
@@ -205,7 +205,7 @@ const BANDWIDTH_DEFAULT: &str = "-";
 // ------------------------------------------------------------------------------------------------
 
 impl ToMarkdownWith for BandPlan {
-    type Context = Vec<FrequencyAllocation>;
+    type Context = Vec<AllocationBand>;
 
     fn write_markdown_with<W: std::io::Write>(
         &self,
@@ -326,7 +326,7 @@ impl BandPlan {
         region: Region,
         countries: Vec<CountryCode>,
         licenses: HashMap<LicenseKey, LicenseClass>,
-        bands: HashMap<FrequencyAllocation, PlanBand>,
+        bands: HashMap<AllocationBand, PlanBand>,
         default_max_power: Option<Power>,
         notes: Vec<String>,
     ) -> Self {
@@ -391,7 +391,7 @@ impl BandPlan {
     //     self
     // }
 
-    pub fn with_bands(mut self, bands: HashMap<FrequencyAllocation, PlanBand>) -> Self {
+    pub fn with_bands(mut self, bands: HashMap<AllocationBand, PlanBand>) -> Self {
         self.bands = bands;
         self
     }
@@ -419,7 +419,7 @@ impl BandPlan {
         self.name.as_str()
     }
 
-    pub fn band(&self, itu: &FrequencyAllocation) -> Option<&PlanBand> {
+    pub fn band(&self, itu: &AllocationBand) -> Option<&PlanBand> {
         self.bands.get(itu)
     }
 
@@ -437,14 +437,14 @@ impl Display for Band {
 }
 
 impl Band {
-    pub fn new_default(allocation: FrequencyAllocation, region: Region) -> Self {
+    pub fn new_default(allocation: AllocationBand, region: Region) -> Self {
         let range = allocation
             .range(region)
             .expect("Could not create band from allocation missing in {region:#}.");
         Self::new(allocation, range.start(), range.end())
     }
 
-    pub fn new(allocation: FrequencyAllocation, start: Frequency, end: Frequency) -> Self {
+    pub fn new(allocation: AllocationBand, start: Frequency, end: Frequency) -> Self {
         assert!(start < end);
         Self {
             allocation,
@@ -452,7 +452,7 @@ impl Band {
         }
     }
 
-    pub fn allocation(&self) -> &FrequencyAllocation {
+    pub fn allocation(&self) -> &AllocationBand {
         &self.allocation
     }
 

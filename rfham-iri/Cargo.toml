@@ -1,0 +1,23 @@
+[package]
+name = "rfham-iri"
+description = "Support the rfham URN/IRI scheme"
+version = "0.1.0"
+publish = true
+
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+rfham-core = { version = "0.1.1", path = "../rfham-core" }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+strum = { version = "0.28", features = ["derive"] }
+thiserror = { version = "2.0", default-features = false }
+
+[lints]
+workspace = true

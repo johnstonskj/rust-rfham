@@ -1,23 +1,20 @@
 [package]
 name = "rfham-services"
-version = "0.1.0"
-edition = "2024"
 description = "Service Abstractions for ham information."
-license = "MIT OR Apache-2.0"
-keywords = ["ham", "radio"]
+version = "0.1.0"
 readme = "README.md"
-# Minimum Supported Rust Version
-rust-version = "1.94"
+publish = true
+
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+keywords.workspace = true
 
 [package.metadata.docs.rs]
-features = ["std"]
 rustdoc-args = ["--generate-link-to-definition"]
-
-[package.metadata.playground]
-features = ["std"]
-
-[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies.wasm-bindgen-test]
-version = "0.3"
+targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 lat-long = { version = "0.1", features = [
@@ -42,6 +39,9 @@ open = "5.3.5"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies.wasm-bindgen-test]
+version = "0.3"
 
 [lints]
 workspace = true

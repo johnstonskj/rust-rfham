@@ -16,7 +16,7 @@ use rfham_core::{
     countries::country_code_uk,
     licenses::LicenseKey,
 };
-use rfham_itu::{allocations::FrequencyAllocation::*, regions::Region};
+use rfham_itu::{allocations::AllocationBand::*, regions::Region};
 
 // ------------------------------------------------------------------------------------------------
 // Public Macros

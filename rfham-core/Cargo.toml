@@ -1,25 +1,28 @@
 [package]
 name = "rfham-core"
-version = "0.1.1"
-edition = "2024"
 description = "Core data types for RF-Ham libraries."
-repository = "https://github.com/johnstonskj/rust-rfham"
-homepage = "https://simonkjohnston.life/rust-rfham"
-license = "MIT OR Apache-2.0"
-keywords = ["ham", "radio"]
+version = "0.1.1"
 readme = "README.md"
-# Minimum Supported Rust Version
-rust-version = "1.94"
+publish = true
+
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+keywords.workspace = true
 
 [package.metadata.docs.rs]
 features = ["std"]
-rustdoc-args = ["--generate-link-to-definition", "--html-in-header", "rustdoc/header.html"]
+rustdoc-args = [
+    "--generate-link-to-definition",
+    "--html-in-header",
+    "rustdoc/header.html",
+]
+targets = ["x86_64-unknown-linux-gnu"]
 
 [package.metadata.playground]
 features = ["std"]
-
-[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies.wasm-bindgen-test]
-version = "0.3"
 
 [features]
 default = ["std"]
@@ -61,6 +64,9 @@ url = { version = "2.5", default-features = false, features = ["serde"] }
 
 [dev-dependencies]
 pretty_assertions = "1.4"
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies.wasm-bindgen-test]
+version = "0.3"
 
 [lints]
 workspace = true

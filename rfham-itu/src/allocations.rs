@@ -29,7 +29,7 @@ use std::io::Write;
 // ------------------------------------------------------------------------------------------------
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, DeserializeFromStr, SerializeDisplay)]
-pub enum FrequencyAllocation {
+pub enum AllocationBand {
     Band2200M,
     Band630M,
     Band160M,
@@ -67,7 +67,7 @@ pub enum FrequencyAllocation {
 // Implementations
 // ------------------------------------------------------------------------------------------------
 
-impl Display for FrequencyAllocation {
+impl Display for AllocationBand {
     // This is only safe because we call display for the normal format only during the alternate.
     #[allow(clippy::recursive_format_impl)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -148,7 +148,7 @@ impl Display for FrequencyAllocation {
     }
 }
 
-impl FromStr for FrequencyAllocation {
+impl FromStr for AllocationBand {
     type Err = CoreError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -192,7 +192,7 @@ impl FromStr for FrequencyAllocation {
     }
 }
 
-impl FrequencyAllocation {
+impl AllocationBand {
     pub const fn band(&self) -> FrequencyBand {
         match self {
             Self::Band2200M => FrequencyBand::Low,
@@ -507,33 +507,33 @@ impl FrequencyAllocation {
 
 #[cfg(test)]
 mod test {
-    use super::FrequencyAllocation;
+    use super::AllocationBand;
     use rfham_core::frequencies::{kilohertz, megahertz};
 
     #[test]
     fn test_write_markdown_band_plan() {
-        FrequencyAllocation::write_markdown(&mut std::io::stdout()).unwrap();
+        AllocationBand::write_markdown(&mut std::io::stdout()).unwrap();
     }
 
     #[test]
     fn test_total_range() {
         assert_eq!(
             "3.5 MHz - 4 MHz".to_string(),
-            FrequencyAllocation::Band80M.total_range().to_string()
+            AllocationBand::Band80M.total_range().to_string()
         );
     }
 
     #[test]
     fn test_frequency_classifier() {
-        assert_eq!(None, FrequencyAllocation::classify(kilohertz(130.0)));
+        assert_eq!(None, AllocationBand::classify(kilohertz(130.0)));
         assert_eq!(
-            Some(FrequencyAllocation::Band2200M),
-            FrequencyAllocation::classify(kilohertz(136.0))
+            Some(AllocationBand::Band2200M),
+            AllocationBand::classify(kilohertz(136.0))
         );
         assert_eq!(
-            Some(FrequencyAllocation::Band1_25M),
+            Some(AllocationBand::Band1_25M),
             // National calling frequency for FM Simplex
-            FrequencyAllocation::classify(megahertz(223.500))
+            AllocationBand::classify(megahertz(223.500))
         );
     }
 }

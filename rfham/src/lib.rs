@@ -37,7 +37,7 @@ pub mod geo {
 }
 
 pub mod itu {
-    pub use rfham_itu::allocations::FrequencyAllocation;
+    pub use rfham_itu::allocations::AllocationBand;
     pub use rfham_itu::bands::FrequencyBand;
     pub use rfham_itu::callsigns::{ItuInternationalOrganization, ItuSeriesAllocation};
     pub use rfham_itu::regions::Region;
@@ -45,9 +45,8 @@ pub mod itu {
 
 pub mod bands {
     pub use rfham_bands::{
-        Band, BandPlan, BandRestrictions, BandwidthRestriction, CallingFrequency, LicenseClass,
-        LicenseKey, PlanBand, PowerMeasure, PowerRestriction, RepeaterUsage, SatelliteUsage,
-        Segment, UsageRestriction,
+        Band, BandPlan, BandRestrictions, BandwidthRestriction, CallingFrequency, PlanBand,
+        PowerMeasure, PowerRestriction, RepeaterUsage, SatelliteUsage, Segment, UsageRestriction,
     };
     pub use rfham_bands::{uk_rsgb, us_fcc};
 }
@@ -56,7 +55,7 @@ pub mod config {
     pub use rfham_config::error::ConfigError;
     pub use rfham_config::paths::ConfigPath;
     pub use rfham_config::{
-        self, Configuration, Equipment, Location, LocationKind, Station,
+        self, Configuration, Equipment, Location, Station,
         equipment::{Mobility, Mode, Usage},
     };
 }

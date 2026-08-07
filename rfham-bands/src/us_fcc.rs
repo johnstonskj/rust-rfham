@@ -21,7 +21,7 @@ use rfham_core::{
     licenses::LicenseKey,
     power::watts,
 };
-use rfham_itu::{allocations::FrequencyAllocation::*, regions::Region};
+use rfham_itu::{allocations::AllocationBand::*, regions::Region};
 
 // ------------------------------------------------------------------------------------------------
 // Public Macros

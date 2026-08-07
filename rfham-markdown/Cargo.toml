@@ -1,24 +1,21 @@
 [package]
 name = "rfham-markdown"
-version = "0.1.1"
-edition = "2024"
 description = "Markdown writer (utility) for RF-Ham libraries."
-repository = "https://github.com/johnstonskj/rust-rfham"
-homepage = "https://simonkjohnston.life/rust-rfham"
-license = "MIT OR Apache-2.0"
+version = "0.1.1"
 readme = "README.md"
-# Minimum Supported Rust Version
-rust-version = "1.94"
+publish = true
+
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+keywords.workspace = true
 
 [package.metadata.docs.rs]
 features = ["std"]
 rustdoc-args = ["--generate-link-to-definition"]
-
-[package.metadata.playground]
-features = ["std"]
-
-[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies.wasm-bindgen-test]
-version = "0.3"
+targets = ["x86_64-unknown-linux-gnu"]
 
 [features]
 default = ["std"]
@@ -28,6 +25,9 @@ no-color = ["std", "colored/no-color"]
 [dependencies]
 colored = { version = "3.1", optional = true }
 thiserror = { version = "2.0", default-features = false }
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies.wasm-bindgen-test]
+version = "0.3"
 
 [lints]
 workspace = true
