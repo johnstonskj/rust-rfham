@@ -4,8 +4,8 @@ use rfham_rigs::{
         CatWrapper, Vfo,
         common::{GetOperatingFrequency, GetTransceiverId},
         elecraft::{
-            GetInstalledOptions, GetK2CommandMode, GetK3CommandMode, GetK3IconsAndStatus,
-            GetOperatingMode, InstalledOptions,
+            k3_kx::{GetInstalledOptions, GetK3IconsAndStatus, GetOperatingMode, InstalledOptions},
+            meta::{GetK2CommandMode, GetK3CommandMode},
         },
     },
     rigs::elecraft::kx3,

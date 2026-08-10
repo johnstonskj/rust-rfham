@@ -24,6 +24,7 @@ chrono = { version = "0.4.45", default-features = false, features = [
 rfham-config = { version = "0.1.1", path = "../rfham-config" }
 rfham-core = { version = "0.1.1", path = "../rfham-core" }
 rfham-iri = { version = "0.1.0", path = "../rfham-iri" }
+rfham-itu = { version = "0.1.2", path = "../rfham-itu" }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serialport = { version = "4.9.0", features = ["serde"] }
 strum = { version = "0.28", features = ["derive"] }
