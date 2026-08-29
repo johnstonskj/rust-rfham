@@ -67,7 +67,6 @@ pub struct Agency {
 #[derive(Clone, Copy, Debug, PartialEq, DeserializeFromStr, SerializeDisplay)]
 pub enum AgencyKind {
     // An organization recognized as the publisher of standards governing a particular domain.
-    
     StandardsSetting,
     Regulatory,
     Maintaining,

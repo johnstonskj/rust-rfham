@@ -1,10 +1,11 @@
+//!
 //! Radio transceiver trait and known-model registry (skeletal).
 //!
-//! This crate defines the [`Radio`] marker trait that concrete radio models will
-//! implement. The [`known`] module is reserved for a catalogue of popular amateur
-//! transceivers. Both are currently stubs awaiting implementation.
+//! This crate defines the [`Rig`] marker trait that concrete radio models will
+//! implement.
+//!
 
-use crate::error::RigError;
+use crate::error::{RigError, invalid_response_length};
 use rfham_config::connections::Connection;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, str::FromStr};
@@ -21,11 +22,6 @@ use std::{fmt::Display, str::FromStr};
     Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize,
 )]
 pub struct Level(u8);
-
-#[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize,
-)]
-pub struct Frequency(u64);
 
 // ------------------------------------------------------------------------------------------------
 // Public Functions
@@ -71,12 +67,10 @@ impl TryFrom<&[u8]> for Level {
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         if value.len() != 1 {
-            return Err(RigError::InvalidResponseLength {
-                expecting: 1,
-                given: value.len(),
-            });
+            Err(invalid_response_length(1, value.len()))
+        } else {
+            Ok(Self(value[0]))
         }
-        Ok(Self(value[0]))
     }
 }
 
@@ -100,6 +94,7 @@ impl FromStr for Level {
 
 impl Level {
     pub const OFF: Level = Level(u8::MIN);
+    #[allow(clippy::identity_op)]
     pub const MIN: Level = Level(u8::MIN + 1);
     pub const MAX: Level = Level(u8::MAX);
     pub const MID: Level = Level(Self::MAX.0 / 2);
@@ -142,118 +137,6 @@ impl Level {
 }
 
 // ------------------------------------------------------------------------------------------------
-
-impl Display for Frequency {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let as_string = self.0.to_string();
-        let digits = as_string.len();
-        if f.alternate() {
-            if digits > 12 {
-                // THz
-                format!(
-                    "{}.{}.{}.{}.{}",
-                    &as_string[..digits - 12],
-                    &as_string[digits - 12..digits - 9],
-                    &as_string[digits - 9..digits - 6],
-                    &as_string[digits - 6..digits - 3],
-                    &as_string[digits - 3..]
-                )
-                .fmt(f)
-            } else if digits > 9 {
-                // GHz
-                format!(
-                    "{}.{}.{}.{}",
-                    &as_string[..digits - 9],
-                    &as_string[digits - 9..digits - 6],
-                    &as_string[digits - 6..digits - 3],
-                    &as_string[digits - 3..]
-                )
-                .fmt(f)
-            } else if digits > 6 {
-                // MHz
-                format!(
-                    "{}.{}.{}",
-                    &as_string[..digits - 6],
-                    &as_string[digits - 6..digits - 3],
-                    &as_string[digits - 3..]
-                )
-                .fmt(f)
-            } else if digits > 3 {
-                // kHz
-                format!("{}.{}", &as_string[..digits - 3], &as_string[digits - 3..]).fmt(f)
-            } else {
-                // Hz
-                as_string.fmt(f)
-            }
-        } else {
-            as_string.fmt(f)
-        }
-    }
-}
-
-impl From<u64> for Frequency {
-    fn from(value: u64) -> Self {
-        Self(value)
-    }
-}
-
-impl From<Frequency> for u64 {
-    fn from(frequency: Frequency) -> u64 {
-        frequency.0
-    }
-}
-
-impl FromStr for Frequency {
-    type Err = RigError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let value = u64::from_str(s).map_err(|e| RigError::ParseFrequency {
-            frequency: s.to_string(),
-            error: e,
-        })?;
-        Ok(Self(value))
-    }
-}
-
-impl TryFrom<&[u8]> for Frequency {
-    type Error = RigError;
-
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        let string = protocol::cat::common::to_ascii_string(value);
-        let frequency = u64::from_str(&string).map_err(|e| RigError::ParseFrequency {
-            frequency: string,
-            error: e,
-        })?;
-        Ok(Self(frequency))
-    }
-}
-
-impl From<Frequency> for Vec<u8> {
-    fn from(frequency: Frequency) -> Vec<u8> {
-        format!("{:011}", frequency.0).into_bytes()
-    }
-}
-
-impl Frequency {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        self.to_bytes_with_floor(0)
-    }
-
-    pub fn to_string_with_floor(&self, floor: usize) -> String {
-        let string = self.to_string();
-        assert!(floor <= string.len());
-        (&string[0..string.len() - floor]).to_string()
-    }
-
-    pub fn to_bytes_with_floor(&self, floor: usize) -> Vec<u8> {
-        self.to_string_with_floor(floor)
-            .chars()
-            .map(|c| c as u8 - b'0')
-            .collect()
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
 // Private Modules
 // ------------------------------------------------------------------------------------------------
 
@@ -265,6 +148,9 @@ pub use features::*;
 
 mod replies;
 pub use replies::*;
+
+mod modes;
+pub use modes::*;
 
 // ------------------------------------------------------------------------------------------------
 // Modules

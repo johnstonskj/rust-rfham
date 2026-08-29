@@ -1,665 +1,693 @@
 //!
 //! CAT commands for the Elecraft KH1 portable transceiver.
 //!
-//! Commands follow the **B2** programmer's reference
-//! (Elecraft KH1 Programmer's Reference, rev. B2, Jan 2026).
+//! The KH1 is a minimalist QRP CW/DATA transceiver. Its command set is much smaller than the
+//! K3/K4, and most commands are SET-only; the radio instead pushes state changes via AI mode.
+//! Notable differences from the K3/K4 command set:
 //!
-//! The KH1 is a minimalist QRP CW/DATA transceiver. Its command set is much
-//! smaller than the K3/K4, and most commands are SET-only. Notable differences:
+//! * The `FA` command uses 10 Hz resolution in an 8-digit field, not the 11-digit 1 Hz resolution
+//!   used by the K3/K4 (e.g. `FA00014074;` = 14.074 MHz, where the last digit is tens of Hz).
+//! * Some commands mirror K3/KX equivalents in format, but with restricted ranges.
 //!
-//! - **FA** uses 10 Hz resolution in an 8-digit field (not the 11-digit Hz used by
-//!   K3/K4). `FA00014074;` = 14.074 MHz (last digit = tens of Hz).
-//! - Most commands have no GET form; the radio pushes state changes via AI mode.
-//! - Some commands mirror K3/KX equivalents in format but with restricted ranges.
+//! Commands follow the specification in reference **1** unless otherwise noted.
+//!
+//! # References
+//!
+//! 1. [Elecraft KH1 Programmer's Reference, rev.
+//!    B2](https://ftp.elecraft.com/KH1/Manuals%20Downloads/Elecraft%20KH1%20Programmer's%20Ref,%20rev%20B2.pdf),
+//!    Jan 2026.
 //!
 
-use super::meta::parse_decimal_u8;
 use crate::{
     error::RigError,
-    protocol::cat::{Command, CommandWithResponse, common::validate_response},
+    protocol::{
+        Frequency,
+        cat::{
+            Command,
+            common::{
+                bool_from_ascii_1_0, bytes_to_vec, u8_from_ascii, u32_from_ascii,
+                validate_integer_in_range, validate_response,
+            },
+        },
+    },
 };
+use tracing::error;
 
 // ------------------------------------------------------------------------------------------------
-// AG — AF Gain (SET only; separate headphones and speaker values)
+// Public Types
 // ------------------------------------------------------------------------------------------------
 
-///
-/// Set headphone AF gain (KH1, SET only).
-///
-/// RSP format: `AG0nnn;` — `nnn` = 000–060.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetHeadphoneGain {
-    pub level: u8,
-}
-///
-/// Set speaker AF gain (KH1, SET only).
-///
-/// RSP format: `AG1nnn;` — `nnn` = 000–060.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetSpeakerGain {
-    pub level: u8,
-}
-
+// ------------------------------------------------------------------------------------------------
+// Public Types: SetAfGain
 // ------------------------------------------------------------------------------------------------
 
-impl Command for SetHeadphoneGain {
-    fn command_id(&self) -> &[u8] {
-        b"AG"
+define_command!("Set AF gain (`AG`).
+
+AF gain can also be incremented/decremented using the ENAU/ENAD commands.
+
+# Command format
+
+> `AG{nn};`
+
+Where *nn* is the AF gain level, between `00` and `30`." =>
+    SetAfGain {
+        level: u8
     }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        let mut v = vec![b'0'];
-        v.extend_from_slice(format!("{:03}", self.level.min(60)).as_bytes());
-        Some(v)
-    }
-}
-
-impl Command for SetSpeakerGain {
-    fn command_id(&self) -> &[u8] {
-        b"AG"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        let mut v = vec![b'1'];
-        v.extend_from_slice(format!("{:03}", self.level.min(60)).as_bytes());
-        Some(v)
-    }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// DS — Display Text (GET/SET; line 1 or 2, 16 chars)
+// Public Types: GetDisplayText, SetDisplayText
 // ------------------------------------------------------------------------------------------------
 
-///
-/// Query a display line on the KH1.
-///
-/// RSP format: `DSn ssssssssssssssss;` — `n` = 1 or 2 (line number),
-/// followed by up to 16 ASCII characters (space-padded).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetDisplayText {
-    pub line: u8,
-}
+define_command!("Get the contents of a display line (`DS`).
 
-// ------------------------------------------------------------------------------------------------
+The LCD supports 8 special characters, some of which change depending on the radio's
+operational context. For a GET, the host app must translate these to suitable characters within the
+host's display environment. For a SET, the host app must embed low-hex ASCII values for special
+characters that make sense in the KH1's context. List of characters and contexts TBD.
 
-impl Command for GetDisplayText {
-    fn command_id(&self) -> &[u8] {
-        b"DS"
+# Command format
+
+> `DS{l};`
+
+Where *l* is the display line number, `1` for the top line, or `2` for the bottom line.
+
+# Response format
+
+> `DS{l}{ssssssssssssssss};`
+
+Where:
+
+* *l* is the display line number, `1` for the top line, or `2` for the bottom line
+* *ssssssssssssssss* is the 16-character line content, space-padded." =>
+    GetDisplayText {
+        line: u8
     }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'0' + self.line.clamp(1, 2)])
-    }
-}
+);
 
-///
-/// Set a display line on the KH1 (up to 16 characters).
-///
-/// RSP format: `DSn ssssssssssssssss;` — `n` = 1 or 2 (line number),
-/// text is space-padded to exactly 16 characters.
-///
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SetDisplayText {
-    /// Line 1 or 2.
-    pub line: u8,
-    /// Text content (truncated and padded to 16 characters).
-    pub text: Vec<u8>,
-}
+define_command!("Set the contents of a display line (`DS`).
+
+The LCD supports 8 special characters, some of which change depending on the radio's
+operational context. For a GET, the host app must translate these to suitable characters within the
+host's display environment. For a SET, the host app must embed low-hex ASCII values for special
+characters that make sense in the KH1's context. List of characters and contexts TBD.
+
+# Command format
+
+> `DS{l}{ssssssssssssssss};`
+
+Where:
+
+* *l* is the display line number, `1` for the top line, or `2` for the bottom line
+* *ssssssssssssssss* is the text content, truncated or space-padded to exactly 16 characters
+
+**Note**: The DS SET string is flashed for about 1.5 seconds. Use subsequent DS SETs to keep the
+flashed string on the display longer." =>
+    SetDisplayText no_copy {
+        "Display line, `1` or `2`."
+        line: u8,
+        "Text content (truncated and padded to 16 characters)."
+        text: Vec<u8>
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: EmulateEncoderRotation, Encoder, Direction
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Emulate encoder rotation (`EN`).
+
+# Command format
+
+> `EN{e}{d};`
+
+Where:
+
+* *e* is the encoder type, 'A' (AF gain) or 'V' (VFO)
+* *d* is the rotational direction, 'U' (up/clockwise) or 'D' (down/counter-clockwise)." =>
+    EmulateEncoderRotation {
+        encoder: Encoder,
+        direction: EncoderDirection
+    }
+);
+
+define_command_enum!(
+    "Constants for the encoders present on the KH1" => Encoder {
+        "AF Gain" => AfGain = b'A',
+        "VFO" => Vfo = b'V'
+    }
+);
+
+define_command_enum!(
+    "Constants for the rotational direction of an encoder." =>
+    EncoderDirection {
+        "Turned Up/Clockwise" => Up = b'U',
+        "Turned Down/Counter-Clockwise" => Down = b'D'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: SetOperatingFrequency
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Set the VFO A operating frequency (`FA`).
+
+Unlike the K3/K4 `FA` command, which uses 11-digit 1 Hz resolution, the KH1 `FA` command uses
+8-digit **10 Hz** resolution.
+
+# Command format
+
+> `FA{ffffffff};`
+
+Where *ffffffff* is the frequency,  is in 10 Hz units e.g. 1400000 = 14000.00 kHz." =>
+    SetOperatingFrequency {
+        freq_10hz: u32
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: SetVfoOffset
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Set the VFO offset (`FO`).
+
+# Command format
+
+> `FO{nn};`
+
+Where *nn* is a value between `00` and `99` applied as positive offsets, in Hz, from
+the original VFO frequency; this is intended for use with FT8 transmit.
+
+**Note**: Sending `00`-`98` also puts the VFO display into 1-Hz format as a reminder
+that this is in effect. If *nn* = `99`, the offset is removed and the display returns
+to the original format." =>
+    SetVfoOffset {
+        offset_hz: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetHelpInformation
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get Help Information (`H`).
+
+Responds with terse help information.
+
+# Command format
+
+> `H;`
+
+# Response format
+
+> `H{s..};`
+
+Where *s..* is an undefined number of characters." =>
+    GetHelpInformation
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: EmulateHandKeyPress, HandKeyState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Emulate a hand-key press. (`HK`)
+
+This command is especially useful for starting and stopping transmit when sending FT8 messages.
+
+# Command format
+
+> `HK{m};`
+
+Where *m* is `1` for key-down, and `0` for key-up.
+
+**Note**: If you use `SW` to emulate TUNE (transmit key-down), exit TUNE using `SW4T` ('x' switch 
+tap) rather than `HK0`." =>
+    EmulateHandKeyPress {
+        state: HandKeyState
+    }
+);
+
+define_command_enum!(
+    "Represents the state of the HandKey for the [`EmulateHandKeyPress`] command." =>
+    HandKeyState {
+        KeyDown = b'1',
+        KeyUp = b'0'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetTransceiverId
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get transceiver identification (`I`).
+
+# Command format
+
+> `I;`
+
+# Response format
+
+> `I{sss};`
+
+Where: *sss* will be `KH1` under normal conditions, if the radio is in the boot loader, it responds
+to with `kh1`." =>
+    GetTransceiverId
+);
+
+pub const KH1_ID_NORMAL: &str = "KH1";
+pub const KH1_ID_IN_BOOT_LOADER: &str = "kh1";
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: LoadFirmware
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Load Firmware (`LD`).
+
+Jump to the boot loader.
+
+# Command format
+
+> `LD;`
+" =>
+    LoadFirmware
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: DumpLog, LogAction
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Dump Logs (`LG`).
+
+# Command format
+
+> `LG{n};`
+
+Where *n* is the action; `0` dump, `1` stop, `2` (ontinue, `3` erase.
+
+## Notes
+
+1. Time stamps are sent once per minute while sending.
+2. During dumps, no GET commands should be sent to the KH1, as the results will end up embedded
+   in the log text stream. SETs are OK (e.g., LG1/LG2 to stop/continue a dump).
+3. Uppercase log text was transmitted. Lowercase log text was entered as a NOTE (i.e. after tapping
+   MSG) or during TX TEST mode.
+4. Dump and Erase can also be accomplished using the KH1’s LOGGING menu entry." =>
+    DumpLog {
+        action: LogAction
+    }
+);
+
+define_command_enum!(
+    "Log action for DumpLog" => LogAction {
+        Dump = b'0',
+        Stop = b'1',
+        Continue = b'2',
+        Erase = b'3'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: SetOperatingMode
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Set the operating mode (`MD`).
+
+# Command format
+
+> `MD{n};`
+
+Where *n* is one of:
+
+* `0`; LSB.
+* `1`; USB.
+* `2`; CW.
+* `4`; DATA.
+
+**Note:** the KH1 supports only modes `0`, `1`, `2`, and `4`.
+
+**Note**: In SSB modes, the KH1 operates cross-mode (CW transmit, SSB receive). SSB receiving
+operarators hear the KH1's CW at a 700 Hz pitch." =>
+    SetOperatingMode {
+        mode: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: SelectMenuItem
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Select a menu item by its 3-character ID (`MN`).
+
+# Command format
+
+> `MN{sss};`
+
+Where *sss* is the 3-character ASCII menu item identifier, space-padded if shorter (e.g. `MNK␣␣S;`
+for keyer speed). See the B2 reference for the full menu ID list." =>
+    SelectMenuItem {
+        "3-character menu item ID (ASCII, space-padded if shorter)."
+        item_id: [u8; 3]
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetMenuParameter, SetMenuParameter
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the current menu parameter value (`MP`).
+
+# Command format
+
+> `MP;`
+
+# Response format
+
+> `MP{nnn};`
+
+Where *nnn* is the value for the currently selected menu item, between `000` and `255`." =>
+    GetMenuParameter
+);
+
+define_command!("Set the current menu parameter value (`MP`).
+
+# Command format
+
+> `MP{nnn};`
+
+Where *nnn* is the value for the currently selected menu item, between `000` and `255`." =>
+    SetMenuParameter {
+        value: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetFirmwareRevision
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the firmware revision string (`RV`).
+
+# Command format
+
+> `RV;`
+
+# Response format
+
+> `RV{xx.xx};`
+
+Where *xx.xx* is the firmware version string, e.g. `01.08`." =>
+    GetFirmwareRevision
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetTransceiverSerialNumber
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the transceiver serial number (`SN`).
+
+# Command format
+
+> `SN;`
+
+# Response format
+
+> `SN{nnnnn};`
+
+Where *nnnnn* is the 5-digit serial number." =>
+    GetTransceiverSerialNumber
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetTransceiverStatus, TransceiverStatus
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get combined transceiver status (`ST`).
+
+# Command format
+
+> `ST;`
+
+# Response format
+
+> `ST{n}{s}{a};`
+
+Where:
+
+* *n*; number of self-test errors since power-up
+* *s*; `S` if this unit has an assigned serial number, otherwise `s` (lower-case)
+* *a*; `A` if an ATU module is found, otherwise `a` (lower-case)
+
+**Note**: The ATU presence test is independent of the MENU:ATU MODE setting." =>
+    GetTransceiverStatus
+);
+
+define_command_struct!(
+    "KH1 TransceiverStatus returned by [`GetTransceiverStatus`]." =>
+    TransceiverStatus {
+        "Number of self-test errors since power-up." =>
+        self_test_errors: u8,
+        "Set to `true` if this unit has an assigned serial number, otherwise `false`." =>
+        serial_numer_assigned: bool,
+        "Set to `true` if an ATU module is found, otherwise `false`." =>
+        atu_module_found: bool
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: EmulateButtonTap, EmulateButtonHold
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Emulate a button tap (`SW`).
+
+# Command format
+
+> `SW{n}{t};`
+
+Where *n* is the button number, `1`-`4` (regular pushbutton switches) or `5`-`6` (encoder switches).
+
+The value of *t* **must** be `T` which distinguishes this action from [`EmulateButtonHold`], which
+shares the same `SW` command identifier." =>
+    EmulateButtonTap {
+        button: u8
+    }
+);
+
+define_command!("Emulate a button hold (`SW`).
+
+# Command format
+
+> `SW{n}{t};`
+
+
+Where *n* is the button number, `1`-`4` (regular pushbutton switches) or `5`-`6` (encoder switches).
+
+The value of *t* **must** be `H` which distinguishes this action from [`EmulateButtonTap`], which
+shares the same `SW` command identifier." =>
+    EmulateButtonHold {
+        button: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetTransmitLowLimit, GetTransmitHighLimit
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the lower transmit frequency limit for the current band (`TXL`).
+
+# Command format
+
+> `TXL{n};`
+
+Where *n* is `0` to `4` for `40` to `15` meters
+
+# Response format
+
+> `TXL{fffff};`
+
+Where *fffff* is the lower limit, in kHz.
+
+**Note**: transmit limits are set for the user's country of operation at the factory." =>
+    GetTransmitLowerLimit {
+        band: TransmitBand
+    }
+);
+
+define_command!("Get the upper transmit frequency limit for the current band (`TXH`).
+
+# Command format
+
+> `TXH{n};`
+
+Where *n* is `0` to `4` for `40` to `15` meters
+
+# Response format
+
+> `TXH{fffff};`
+
+Where *fffff* is the upper limit, in kHz.
+
+**Note**: transmit limits are set for the user's country of operation at the factory." =>
+    GetTransmitUpperLimit {
+        band: TransmitBand
+    }
+);
+
+define_command_enum!(
+    "Transmit band for [`GetTransmitLowerLimit`] and [`GetTransmitUpperLimit`]." =>
+    TransmitBand {
+        Band40m = b'0',
+        Band30m = b'1',
+        Band20m = b'2',
+        Band17m = b'3',
+        Band15m = b'4'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Implementations
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(
+    SetAfGain => b"AG"
+    format level uint 2,
+    if |cmd: &SetAfGain| validate_integer_in_range("level", "u8", cmd.level, 0, 30)
+);
 
 // ------------------------------------------------------------------------------------------------
 
-impl CommandWithResponse for GetDisplayText {
-    type Response = Vec<u8>;
-    fn expected_response_length(&self) -> usize {
-        17
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
-        let d = validate_response(bytes, b"DS", 17)?;
-        Ok(d[1..].to_vec())
-    }
-}
+impl_command!(GetDisplayText => b"DS" with Some |cmd: &GetDisplayText| {
+    vec![b'0' + cmd.line]
+}, if |cmd: &GetDisplayText| validate_integer_in_range("line", "u8", cmd.line, 1, 2));
 
-impl Command for SetDisplayText {
-    fn command_id(&self) -> &[u8] {
-        b"DS"
+impl_command_with_response!(GetDisplayText => 18, |bytes: &[u8]| {
+    Ok(bytes[2..].to_vec())
+} => Vec<u8>);
+
+impl_command!(SetDisplayText => b"DS" with Some |cmd: &SetDisplayText| {
+    let mut bytes = vec![b'0' + cmd.line, b' '];
+    let len = cmd.text.len().min(16);
+    bytes.extend_from_slice(&cmd.text[..len]);
+    while bytes.len() < 18 {
+        bytes.push(b' ');
     }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        let mut v = vec![b'0' + self.line.clamp(1, 2), b' '];
-        let len = self.text.len().min(16);
-        v.extend_from_slice(&self.text[..len]);
-        while v.len() < 18 {
-            v.push(b' ');
-        }
-        Some(v)
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// EN — Enable/Disable Front Panel (SET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Enable or disable the front panel controls (KH1, SET only).
-///
-/// RSP format: `ENn;` — `n` = `0` (panel disabled / remote-only) or `1` (panel enabled).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetFrontPanel {
-    pub enabled: bool,
-}
-
-impl Command for SetFrontPanel {
-    fn command_id(&self) -> &[u8] {
-        b"EN"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// FA — VFO A Frequency (KH1 format: 8 digits, 10 Hz units)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Set VFO A frequency on the KH1 (SET only).
-///
-/// RSP format: `FAnnnnnnnn;` — `nnnnnnnn` = 8-digit frequency in **tens of Hz**.
-/// For example, `14074000` × 10 Hz = 140,740,000 Hz = 14.074 MHz.
-///
-/// **Note:** This differs from the K3/K4 `FA` command which uses 11-digit 1 Hz resolution.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetOperatingFrequency {
-    pub freq_10hz: u32,
-}
+    bytes
+}, if |cmd: &SetDisplayText| validate_integer_in_range("line", "u8", cmd.line, 1, 2));
 
 // ------------------------------------------------------------------------------------------------
 
-impl Command for SetOperatingFrequency {
-    fn command_id(&self) -> &[u8] {
-        b"FA"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:08}", self.freq_10hz).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// FO — Filter Offset (SET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Set the filter offset (KH1, SET only).
-///
-/// RSP format: `FOnnn;` — `nnn` = 000–999 (offset in Hz; adjusts filter passband center).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetFilterOffset {
-    pub offset_hz: u16,
-}
+impl_command!(EmulateEncoderRotation => b"EN" with Some |cmd: &EmulateEncoderRotation| {
+    vec![cmd.encoder as u8, cmd.direction as u8]
+});
 
 // ------------------------------------------------------------------------------------------------
 
-impl Command for SetFilterOffset {
-    fn command_id(&self) -> &[u8] {
-        b"FO"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.offset_hz.min(999)).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// H — Battery/Power Status (GET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query battery and power status (KH1, GET only).
-///
-/// RSP format: `Hnnns;` — `nnn` = battery level (0–100 percent), `s` = source
-/// indicator (`B`=battery, `U`=USB/external).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetPowerStatus;
-
-///
-/// Battery / power status returned by `GetPowerStatus`.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct PowerStatus {
-    /// Battery level in percent (0–100).
-    pub battery_pct: u8,
-    /// `true` = powered from USB/external; `false` = battery.
-    pub external_power: bool,
-}
+impl_command!(SetOperatingFrequency => b"FA" with Some |cmd: &SetOperatingFrequency| {
+    format!("{:08}", cmd.freq_10hz).into_bytes()
+});
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetPowerStatus, b"H");
+impl_command!(
+    SetVfoOffset => b"FO"
+    format offset_hz uint 2,
+    if |cmd: &SetVfoOffset| validate_integer_in_range("offset_hz", "u8", cmd.offset_hz, 0, 99)
+);
 
-impl CommandWithResponse for GetPowerStatus {
-    type Response = PowerStatus;
-    fn expected_response_length(&self) -> usize {
-        4
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<PowerStatus, RigError> {
-        let d = validate_response(bytes, b"H", 4)?;
-        Ok(PowerStatus {
-            battery_pct: parse_decimal_u8(&d[0..3])?,
-            external_power: d[3] == b'U',
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetHelpInformation => b"H");
+
+impl_command_with_response!(GetHelpInformation => string);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(EmulateHandKeyPress => b"HK" for as byte state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetTransceiverId => b"I");
+impl_command_with_response!(GetTransceiverId => string);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(LoadFirmware => b"LD");
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(DumpLog => b"LG" for as byte action);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(SetOperatingMode => b"MD" with Some |cmd: &SetOperatingMode| {
+    vec![b'0' + cmd.mode]
+}, if |cmd: &SetOperatingMode| validate_kh1_operating_mode_digit(cmd.mode));
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(SelectMenuItem => b"MN" with Some |cmd: &SelectMenuItem| {
+    cmd.item_id.to_vec()
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetMenuParameter => b"MP");
+impl_command_with_response!(GetMenuParameter => 3, u8_from_ascii => u8);
+
+impl_command!(SetMenuParameter => b"MP" format value uint 3);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetFirmwareRevision => b"RV");
+impl_command_with_response!(GetFirmwareRevision => 4, bytes_to_vec => Vec<u8>);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetTransceiverSerialNumber => b"SN");
+impl_command_with_response!(GetTransceiverSerialNumber => 5, u32_from_ascii => u32);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetTransceiverStatus => b"ST");
+impl_command_with_response!(GetTransceiverStatus => 3, |bytes: &[u8]| {
+    Ok(TransceiverStatus {
+        self_test_errors: bytes[0],
+        serial_numer_assigned: bool_from_ascii_1_0(bytes[1])?,
+        atu_module_found: bool_from_ascii_1_0(bytes[2])?,
+    })
+} => TransceiverStatus);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(EmulateButtonTap => b"SW" with Some |cmd: &EmulateButtonTap| {
+    vec![b'0' + cmd.button, b'T']
+}, if |cmd: &EmulateButtonTap| validate_integer_in_range("button", "u8", cmd.button, 1, 6));
+
+impl_command!(EmulateButtonHold => b"SW" with Some |cmd: &EmulateButtonHold| {
+    vec![b'0' + cmd.button, b'H']
+}, if |cmd: &EmulateButtonHold| validate_integer_in_range("button", "u8", cmd.button, 1, 6));
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetTransmitLowerLimit => b"TXL" for as byte band);
+impl_command_with_response!(GetTransmitLowerLimit => try_from 5 Frequency);
+
+impl_command!(GetTransmitUpperLimit => b"TXH" for as byte band);
+impl_command_with_response!(GetTransmitUpperLimit => try_from 5 Frequency);
+
+// ------------------------------------------------------------------------------------------------
+// Private Functions
+// ------------------------------------------------------------------------------------------------
+
+/// Validate that a mode digit is one of the documented `MD` values (`0`, `1`, `2`, or `4`); the
+/// KH1 does not support the full K3/K4 mode set.
+pub(crate) fn validate_kh1_operating_mode_digit(mode: u8) -> Result<(), RigError> {
+    if matches!(mode, 0 | 1 | 2 | 4) {
+        Ok(())
+    } else {
+        error!("mode value {mode} is not a documented KH1 MD mode digit");
+        Err(RigError::InvalidArgumentValue {
+            argument_name: "mode",
+            type_name: "u8",
+            value: mode.to_string(),
         })
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// HK — Emulate Hardware Key Press (SET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Emulate a hardware key press on the KH1 (SET only).
-///
-/// RSP format: `HKnn;` — `nn` = key code (01–12; see B2 reference for key assignments).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct EmulateKeyPress {
-    pub key_code: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for EmulateKeyPress {
-    fn command_id(&self) -> &[u8] {
-        b"HK"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:02}", self.key_code.clamp(1, 12)).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// I — Transceiver Information (GET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query comprehensive transceiver status (KH1, GET only).
-///
-/// RSP format: `Innnnnnnnmmmsbbwwwtt;` — packed status fields covering
-/// frequency (8 digits, 10 Hz), mode, S-meter, band, filter BW, and TX state.
-/// Returns raw bytes for caller to decode against B2 reference.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetTransceiverInfo;
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetTransceiverInfo, b"I");
-
-impl CommandWithResponse for GetTransceiverInfo {
-    type Response = Vec<u8>;
-    fn expected_response_length(&self) -> usize {
-        20
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
-        let d = validate_response(bytes, b"I", 20)?;
-        Ok(d.to_vec())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// LD — LED Brightness (SET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Set LED brightness (KH1, SET only).
-///
-/// RSP format: `LDn;` — `n` = 0 (off), 1 (dim), 2 (medium), 3 (bright).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetLedBrightness {
-    pub level: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for SetLedBrightness {
-    fn command_id(&self) -> &[u8] {
-        b"LD"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'0' + self.level.min(3)])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// LG — Play CW Message (SET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Send a stored CW message from the internal message store (KH1, SET only).
-///
-/// RSP format: `LGn;` — `n` = message number 1–5; `n` = 0 stops current message.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SendCwMessage {
-    pub message: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for SendCwMessage {
-    fn command_id(&self) -> &[u8] {
-        b"LG"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'0' + self.message.min(5)])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// MD — Operating Mode (SET only; restricted set)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Set operating mode on the KH1 (SET only).
-///
-/// RSP format: `MDn;` — `n` = 0 (LSB), 1 (USB), 2 (CW), 4 (DATA).
-/// **Note:** The KH1 supports only modes 0, 1, 2, and 4.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetOperatingMode {
-    pub mode: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for SetOperatingMode {
-    fn command_id(&self) -> &[u8] {
-        b"MD"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'0' + self.mode])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// MN — Select Menu Item (SET only; 3-char ID)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Navigate to a menu item by 3-character ID (KH1, SET only).
-///
-/// RSP format: `MNabc;` — `abc` = 3-character ASCII menu item identifier
-/// (e.g., `MNK S;` for keyer speed). See B2 reference for the full menu ID list.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SelectMenuItem {
-    /// 3-character menu item ID (ASCII, space-padded if shorter).
-    pub item_id: [u8; 3],
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for SelectMenuItem {
-    fn command_id(&self) -> &[u8] {
-        b"MN"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(self.item_id.to_vec())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// MP — Menu Parameter (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the current menu parameter value (KH1).
-///
-/// RSP format: `MPnnn;` — `nnn` = 000–255 (value for the currently selected menu item).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetMenuParameter;
-
-///
-/// Set the current menu parameter value (KH1).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetMenuParameter {
-    pub value: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetMenuParameter, b"MP");
-
-impl CommandWithResponse for GetMenuParameter {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        3
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"MP", 3)?;
-        parse_decimal_u8(d)
-    }
-}
-
-impl Command for SetMenuParameter {
-    fn command_id(&self) -> &[u8] {
-        b"MP"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.value).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// RV — Firmware Revision (GET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query firmware revision string (KH1, GET only).
-///
-/// RSP format: `RVvvvv;` — `vvvv` = firmware version string (e.g., `1.08`).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetFirmwareRevision;
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetFirmwareRevision, b"RV");
-
-impl CommandWithResponse for GetFirmwareRevision {
-    type Response = Vec<u8>;
-    fn expected_response_length(&self) -> usize {
-        4
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
-        let d = validate_response(bytes, b"RV", 4)?;
-        Ok(d.to_vec())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// SN — Serial Number (GET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the transceiver serial number (KH1, GET only).
-///
-/// RSP format: `SNnnnnn;` — `nnnnn` = 5-digit serial number.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetSerialNumber;
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetSerialNumber, b"SN");
-
-impl CommandWithResponse for GetSerialNumber {
-    type Response = u32;
-    fn expected_response_length(&self) -> usize {
-        5
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u32, RigError> {
-        let d = validate_response(bytes, b"SN", 5)?;
-        let mut n = 0u32;
-        for &b in d {
-            if !(b'0'..=b'9').contains(&b) {
-                return Err(RigError::InvalidResponseData { data: d.to_vec() });
-            }
-            n = n * 10 + u32::from(b - b'0');
-        }
-        Ok(n)
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// ST — Status Summary (GET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query combined KH1 status (GET only).
-///
-/// RSP format: `STnsa;` — `n` = status byte, `s` = S-meter (0–9), `a` = antenna (0–2).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetStatus;
-
-///
-/// KH1 status summary returned by `GetStatus`.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Status {
-    /// Raw status byte (bit-field; see B2 reference for flag layout).
-    pub status: u8,
-    /// S-meter reading (0–9).
-    pub s_meter: u8,
-    /// Active antenna (0=whip, 1=BNC, 2=AXE).
-    pub antenna: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetStatus, b"ST");
-
-impl CommandWithResponse for GetStatus {
-    type Response = Status;
-    fn expected_response_length(&self) -> usize {
-        3
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<Status, RigError> {
-        let d = validate_response(bytes, b"ST", 3)?;
-        Ok(Status {
-            status: d[0],
-            s_meter: d[1] - b'0',
-            antenna: d[2] - b'0',
-        })
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// SW — Button Press/Hold (SET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Emulate a button tap on the KH1 (SET only).
-///
-/// RSP format: `SWnT;` — `n` = button number 1–6; `T` = tap.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct EmulateButtonTap {
-    pub button: u8,
-}
-
-///
-/// Emulate a button hold on the KH1 (SET only).
-///
-/// RSP format: `SWnH;` — `n` = button number 1–6; `H` = hold.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct EmulateButtonHold {
-    pub button: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for EmulateButtonTap {
-    fn command_id(&self) -> &[u8] {
-        b"SW"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'0' + self.button.clamp(1, 6), b'T'])
-    }
-}
-
-impl Command for EmulateButtonHold {
-    fn command_id(&self) -> &[u8] {
-        b"SW"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'0' + self.button.clamp(1, 6), b'H'])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// TXL / TXH — TX Frequency Limits (GET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the lower TX frequency limit for the current band (KH1, GET only).
-///
-/// RSP format: `TXLnnnnnn;` — `nnnnnn` = lower limit in kHz.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetTxLowLimit;
-
-///
-/// Query the upper TX frequency limit for the current band (KH1, GET only).
-///
-/// RSP format: `TXHnnnnnn;` — `nnnnnn` = upper limit in kHz.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetTxHighLimit;
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetTxLowLimit, b"TXL");
-
-impl CommandWithResponse for GetTxLowLimit {
-    type Response = u32;
-    fn expected_response_length(&self) -> usize {
-        6
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u32, RigError> {
-        let d = validate_response(bytes, b"TXL", 6)?;
-        let mut n = 0u32;
-        for &b in d {
-            if !(b'0'..=b'9').contains(&b) {
-                return Err(RigError::InvalidResponseData { data: d.to_vec() });
-            }
-            n = n * 10 + u32::from(b - b'0');
-        }
-        Ok(n)
-    }
-}
-
-impl_command!(GetTxHighLimit, b"TXH");
-
-impl CommandWithResponse for GetTxHighLimit {
-    type Response = u32;
-    fn expected_response_length(&self) -> usize {
-        6
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u32, RigError> {
-        let d = validate_response(bytes, b"TXH", 6)?;
-        let mut n = 0u32;
-        for &b in d {
-            if !(b'0'..=b'9').contains(&b) {
-                return Err(RigError::InvalidResponseData { data: d.to_vec() });
-            }
-            n = n * 10 + u32::from(b - b'0');
-        }
-        Ok(n)
     }
 }

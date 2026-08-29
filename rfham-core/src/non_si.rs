@@ -177,14 +177,14 @@ impl FromStr for ImperialFoot {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Some(captures) = FEET_INCHES_REGEX.captures(s) {
-            if let Some(_) = captures.name("rational") {
+            if captures.name("rational").is_some() {
                 let feet: f64 = captures.name("feet").unwrap().as_str().parse()?;
                 let inches: f64 = if let Some(inches) = captures.name("inches") {
                     inches.as_str().parse()?
                 } else {
                     f64::ZERO
                 };
-                let fractional: f64 = if let Some(_) = captures.name("fractional") {
+                let fractional: f64 = if captures.name("fractional").is_some() {
                     let numerator: f64 = captures.name("numerator").unwrap().as_str().parse()?;
                     let denominator: f64 =
                         captures.name("denominator").unwrap().as_str().parse()?;
@@ -193,13 +193,13 @@ impl FromStr for ImperialFoot {
                     f64::ZERO
                 };
                 Ok(Self(feet + ((inches + fractional) * INCHES_PER_FOOT)))
-            } else if let Some(_) = captures.name("rational_inches") {
+            } else if captures.name("rational_inches").is_some() {
                 let inches: f64 = if let Some(inches) = captures.name("r_inches") {
                     inches.as_str().parse()?
                 } else {
                     f64::ZERO
                 };
-                let fractional: f64 = if let Some(_) = captures.name("r_fractional") {
+                let fractional: f64 = if captures.name("r_fractional").is_some() {
                     let numerator: f64 = captures.name("r_numerator").unwrap().as_str().parse()?;
                     let denominator: f64 =
                         captures.name("r_denominator").unwrap().as_str().parse()?;
@@ -208,7 +208,7 @@ impl FromStr for ImperialFoot {
                     f64::ZERO
                 };
                 Ok(Self((inches + fractional) * INCHES_PER_FOOT))
-            } else if let Some(_) = captures.name("decimal") {
+            } else if captures.name("decimal").is_some() {
                 Ok(Self(captures.name("d_feet").unwrap().as_str().parse()?))
             } else {
                 Err(CoreError::InvalidValueFromStr(

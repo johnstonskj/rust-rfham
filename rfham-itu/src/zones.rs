@@ -153,7 +153,7 @@ impl FromStr for Zone {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         s.parse::<u8>()
             .map_err(|_| CoreError::InvalidValueFromStr(s.to_string(), "Zone"))
-            .and_then(|value| Self::try_from(value))
+            .and_then(Self::try_from)
     }
 }
 
@@ -309,9 +309,9 @@ impl FromIterator<ZoneAssertion> for ZoneDisjunction {
     }
 }
 
-impl Into<Vec<ZoneAssertion>> for ZoneDisjunction {
-    fn into(self) -> Vec<ZoneAssertion> {
-        self.0
+impl From<ZoneDisjunction> for Vec<ZoneAssertion> {
+    fn from(value: ZoneDisjunction) -> Self {
+        value.0
     }
 }
 

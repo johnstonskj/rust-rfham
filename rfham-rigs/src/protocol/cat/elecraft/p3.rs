@@ -1,1334 +1,1984 @@
 //!
-//! Serial commands for the Elecraft P3 panadapter.
+//! CAT commands for the Elecraft P3 panadapter.
 //!
-//! Commands follow the **A7** programmer's reference
-//! (Elecraft P3 Programmer's Reference, rev. A7, Apr 2016).
+//! All P3 commands and responses use a leading `#` prefix, for example `#AVG3;`. The GET form of
+//! a command is the bare command letters with no data, e.g. `#AVG;`.
 //!
-//! All P3 commands and responses use a leading `#` prefix, for example `#AVG3;`.
-//! The special `=` command (product ID query) has no prefix and no semicolon terminator.
-//! The GET form of a command is the bare command letters with no data: `#AVG;`.
+//! Two commands break this convention and are hand-implemented rather than using the usual
+//! command macros: [`GetProductId`] (`=`) uses no `#` prefix and no `;` terminator on either the
+//! query or the response, and [`BitmapUpload`] (`#BMP`) omits the command-id echo and terminator
+//! on its response only.
+//!
+//! Commands follow the specification in reference **1** unless otherwise noted.
+//!
+//! # References
+//!
+//! 1. [Elecraft P3 Programmer's Reference, rev. A7](https://ftp.elecraft.com/P3/Manuals%20Downloads/P3_Pgmrs_Ref_Rev_A7.pdf), Apr 2016.
 //!
 
 use crate::{
-    error::RigError,
-    protocol::cat::{Command, CommandWithResponse, common::validate_response},
+    error::{RigError, invalid_response_command_id, invalid_response_length},
+    protocol::{
+        Frequency,
+        cat::{
+            Command, CommandWithResponse,
+            common::{
+                ASCII_DIGIT_ZERO, ASCII_SIGN_NEGATIVE, ASCII_SIGN_POSITIVE, sign_from_ascii_loose,
+                string_from_ascii, u8_from_ascii, u16_from_ascii, u32_from_ascii,
+                validate_response,
+            },
+        },
+    },
+    transport::BaudRate,
 };
+use strum::EnumIs;
 
 // ------------------------------------------------------------------------------------------------
-// = — Product Identification (GET only)
+// Public Types
 // ------------------------------------------------------------------------------------------------
 
-///
-/// Query the P3 product identification string.
-///
-/// # Reference (P3 rev. A7, §=)
-///
-/// **GET** format: `=` (no semicolon, no `#` prefix).
-/// **RSP** format: `ELECRAFT P3` (plain ASCII, no terminator).
-///
-/// This command does not follow the normal `#CMD;` convention.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetProductId;
-
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetProductId, ProductId
 // ------------------------------------------------------------------------------------------------
 
+define_command!("Query the P3 product identification.
+
+# Command format
+
+> `=`
+
+Unlike every other P3 command, there is no `#` prefix and no `;` terminator.
+
+# Response format
+
+> `P3` or `p3`
+
+`P3` if the main firmware is executing, `p3` if the boot loader is ready to receive new
+firmware. As with the query, the response has no `#` prefix and no `;` terminator." =>
+    GetProductId
+);
+
+/// Parsed P3 product-identification response, as returned by [`GetProductId`].
+#[derive(Clone, Debug, PartialEq, Eq, EnumIs)]
+pub enum ProductId {
+    /// The main firmware is executing (`P3`).
+    MainFirmwareExecuting,
+    /// The boot loader is ready to receive new firmware (`p3`).
+    BootLoaderReady,
+}
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetDisplayAveraging, SetDisplayAveraging
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the spectrum display averaging time.
+
+# Command format
+
+> `#AVG;`
+
+# Response format
+
+> `#AVGnn;`
+
+Where *nn* is `00` (averaging off) or the averaging time constant, between `02` and `20`
+(averaging on)." =>
+    GetDisplayAveraging
+);
+
+define_command!("Set the spectrum display averaging time.
+
+# Command format
+
+> `#AVGnn;`
+
+Where *nn* is `00` (averaging off) or the averaging time constant, between `02` and `20`
+(averaging on)." =>
+    SetDisplayAveraging {
+        level: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: BitmapUpload, BitmapData
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Trigger a bitmap screenshot transfer from the P3 display.
+
+# Command format
+
+> `#BMP;`
+
+# Response format
+
+> `[bmp]cc`
+
+Where `[bmp]` is 131,638 bytes of binary image data in standard .BMP file format and `cc` is a
+two-byte checksum, the modulo-65,536 sum of all 131,638 image bytes, sent least-significant byte
+first.
+
+Unlike other P3 responses, this response does not echo the command id and has no terminating
+`;`." =>
+    BitmapUpload
+);
+
+define_command_struct!(
+    "Parsed bitmap-screenshot response." =>
+    BitmapData no_copy {
+        "The raw .BMP image data, 131,638 bytes." =>
+        image_data: Vec<u8>,
+        "The modulo-65,536 checksum over `image_data`, as sent least-significant byte first." =>
+        checksum: u16
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetBaudRate, SetBaudRate
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the baud rate of the P3's PC-facing RS232 port.
+
+# Command format
+
+> `#BR;`
+
+# Response format
+
+> `#BRn;`
+
+Where *n* is one of:
+
+* `0`; 4800 baud.
+* `1`; 9600 baud.
+* `2`; 19200 baud.
+* `3`; 38400 baud." =>
+    GetBaudRate
+);
+
+define_command!("Set the baud rate of the P3's PC-facing RS232 port.
+
+# Command format
+
+> `#BRn;`
+
+Where *n* is one of:
+
+* `0`; 4800 baud.
+* `1`; 9600 baud.
+* `2`; 19200 baud.
+* `3`; 38400 baud.
+
+The P3 Utility program automatically sets the P3 to 38400 baud for firmware downloads, then
+restores the baud rate to the user's prior selection.
+
+**Note**: The RS232 port that connects to the K3 always runs at 38400 baud regardless of this
+setting; this command affects only the P3's PC-facing port, not the K3." =>
+    SetBaudRate {
+        baud_rate: BaudRate
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetCenterFrequency, SetCenterFrequency, CenterFrequency
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the panadapter center frequency.
+
+# Command format
+
+> `#CTF;`
+
+# Response format
+
+> `#CTFsxxxxxxxxxxx;`
+
+Where *s* is `+`, `-`, or a space (meaning `+`), and *xxxxxxxxxxx* is the center frequency in
+Hz." =>
+    GetCenterFrequency
+);
+
+define_command!("Set the panadapter center frequency.
+
+# Command format
+
+> `#CTFsxxxxxxxxxxx;`
+
+Where *s* is `+` or `-`, and *xxxxxxxxxxx* is the center frequency in Hz.
+
+**Example**: `#CTF+00014060000;` sets the center frequency to 14060 kHz.
+
+**Note**: If the specified frequency is in a different band than the K3 is tuned to, the action
+is undefined. A value of zero sets the center frequency to the main VFO frequency of the
+transceiver. For transceivers other than the K3, the center frequency is interpreted relative to
+the frequency the transceiver is tuned to and may be positive or negative." =>
+    SetCenterFrequency {
+        center: CenterFrequency
+    }
+);
+
+define_command_struct!(
+    "A parsed signed frequency value, as used by `#CTF`, `#MFA` and `#MFB`." =>
+    CenterFrequency {
+        "`true` if the value is negative." =>
+        is_negative: bool,
+        "The magnitude of the frequency, in Hz." =>
+        frequency: Frequency
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetDisplayMode, SetDisplayMode, DisplayMode
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the P3 display mode.
+
+# Command format
+
+> `#DSM;`
+
+# Response format
+
+> `#DSMn;`
+
+Where *n* is one of:
+
+* `0`; spectrum only.
+* `1`; spectrum + waterfall.
+* `2`; spectrum + power meters.
+* `3`; spectrum + waterfall + power meters." =>
+    GetDisplayMode
+);
+
+define_command!("Set the P3 display mode.
+
+# Command format
+
+> `#DSMn;`
+
+Where *n* is one of:
+
+* `0`; spectrum only.
+* `1`; spectrum + waterfall.
+* `2`; spectrum + power meters.
+* `3`; spectrum + waterfall + power meters." =>
+    SetDisplayMode {
+        mode: DisplayMode
+    }
+);
+
+define_command_enum!(
+    "P3 display mode." => DisplayMode {
+        "Spectrum display only." => SpectrumOnly = b'0',
+        "Spectrum display plus waterfall." => SpectrumAndWaterfall = b'1',
+        "Spectrum display plus power meters." => SpectrumAndPowerMeters = b'2',
+        "Spectrum display, waterfall, and power meters." => SpectrumAndWaterfallAndPowerMeters = b'3'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetFunctionKeyLabel, FunctionKeyLabel
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query a function key's label.
+
+# Command format
+
+> `#FNLn;`
+
+Where *n* is the function key number, `1` to `8`.
+
+# Response format
+
+> `#FNLnccccccccc;`
+
+Where *n* is the function key number and *ccccccccc* are the 9 ASCII characters of the label for
+`FN`*n*." =>
+    GetFunctionKeyLabel {
+        function_key: u8
+    }
+);
+
+define_command_struct!(
+    "A parsed function-key label response." =>
+    FunctionKeyLabel no_copy {
+        "The function key number, `1` to `8`." =>
+        function_key: u8,
+        "The 9-character label text." =>
+        label: String
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetFontSize, SetFontSize, FontSize
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the display font size.
+
+# Command format
+
+> `#FON;`
+
+# Response format
+
+> `#FONn;`
+
+Where *n* is one of:
+
+* `0`; 5 x 7 pixels.
+* `1`; 7 x 11 pixels.
+* `2`; 9 x 14 pixels." =>
+    GetFontSize
+);
+
+define_command!("Set the display font size.
+
+# Command format
+
+> `#FONn;`
+
+Where *n* is one of:
+
+* `0`; 5 x 7 pixels.
+* `1`; 7 x 11 pixels.
+* `2`; 9 x 14 pixels." =>
+    SetFontSize {
+        size: FontSize
+    }
+);
+
+define_command_enum!(
+    "P3 main-display font size." => FontSize {
+        "5 x 7 pixels." => Small = b'0',
+        "7 x 11 pixels." => Medium = b'1',
+        "9 x 14 pixels." => Large = b'2'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: SetFunctionKeyExecute
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Execute a function key.
+
+# Command format
+
+> `#FNXn;`
+
+Where *n* is the function key number, `1` to `8`, for keys `FN1`-`FN8`. Executes the function
+assigned to the key, if any." =>
+    SetFunctionKeyExecute {
+        function_key: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetFixedTuneAutoAdjustMode, SetFixedTuneAutoAdjustMode, FixedTuneAutoAdjustMode
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the fixed-tune auto-adjust mode.
+
+# Command format
+
+> `#FXA;`
+
+# Response format
+
+> `#FXAn;`
+
+Where *n* is one of:
+
+* `0`; full screen.
+* `1`; half screen.
+* `2`; slide.
+* `3`; static.
+
+This specifies how far the P3 center frequency moves when the K3 VFO A is tuned off screen in
+fixed-tune mode." =>
+    GetFixedTuneAutoAdjustMode
+);
+
+define_command!("Set the fixed-tune auto-adjust mode.
+
+# Command format
+
+> `#FXAn;`
+
+Where *n* is one of:
+
+* `0`; full screen.
+* `1`; half screen.
+* `2`; slide.
+* `3`; static.
+
+This specifies how far the P3 center frequency moves when the K3 VFO A is tuned off screen in
+fixed-tune mode." =>
+    SetFixedTuneAutoAdjustMode {
+        mode: FixedTuneAutoAdjustMode
+    }
+);
+
+define_command_enum!(
+    "Fixed-tune auto-adjust behavior." => FixedTuneAutoAdjustMode {
+        "Full screen." => FullScreen = b'0',
+        "Half screen." => HalfScreen = b'1',
+        "Slide." => Slide = b'2',
+        "Static." => Static = b'3'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetFixedTuneOrTrackingMode, SetFixedTuneOrTrackingMode, FixedTuneOrTrackingMode
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the fixed-tune or tracking select mode.
+
+# Command format
+
+> `#FXT;`
+
+# Response format
+
+> `#FXTn;`
+
+Where *n* is one of:
+
+* `0`; tracking mode.
+* `1`; fixed-tune mode." =>
+    GetFixedTuneOrTrackingMode
+);
+
+define_command!("Set the fixed-tune or tracking select mode.
+
+# Command format
+
+> `#FXTn;`
+
+Where *n* is one of:
+
+* `0`; tracking mode.
+* `1`; fixed-tune mode." =>
+    SetFixedTuneOrTrackingMode {
+        mode: FixedTuneOrTrackingMode
+    }
+);
+
+define_command_enum!(
+    "Fixed-tune or tracking mode." => FixedTuneOrTrackingMode {
+        "Tracking mode." => Tracking = b'0',
+        "Fixed-tune mode." => FixedTune = b'1'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetFnLabelDisplay, SetFnLabelDisplay
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query whether FN key labels are shown on the display.
+
+# Command format
+
+> `#LBL;`
+
+# Response format
+
+> `#LBLn;`
+
+Where `n` is the boolean state `0` (FN key labels off) or `1` (FN key labels on)." =>
+    GetFnLabelDisplay
+);
+
+define_command!("Set whether FN key labels are shown on the display.
+
+# Command format
+
+> `#LBLn;`
+
+Where `n` is the boolean state `0` (FN key labels off) or `1` (FN key labels on)." =>
+    SetFnLabelDisplay {
+        labels_on: bool
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetMarkerAFrequency, SetMarkerAFrequency, MarkerFrequency
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the marker A frequency.
+
+# Command format
+
+> `#MFA;`
+
+# Response format
+
+> `#MFAsxxxxxxxxxxx;`
+
+Where *s* is `+`, `-`, or a space (meaning `+`), and *xxxxxxxxxxx* is the marker frequency in
+Hz." =>
+    GetMarkerAFrequency
+);
+
+define_command!("Set the marker A frequency.
+
+# Command format
+
+> `#MFAsxxxxxxxxxxx;`
+
+Where *s* is `+` or `-`, and *xxxxxxxxxxx* is the marker frequency in Hz.
+
+**Example**: `#MFA+00014060000;` sets the marker A frequency to 14060 kHz.
+
+**Note**: If the specified frequency is in a different band than the K3 is tuned to, the action
+is undefined. A value of zero sets the marker to the main VFO frequency of the transceiver. For
+transceivers other than the K3, the marker frequency is interpreted relative to the frequency
+the transceiver is tuned to and may be positive or negative." =>
+    SetMarkerAFrequency {
+        marker: MarkerFrequency
+    }
+);
+
+define_command_struct!(
+    "A parsed signed marker-frequency value, as used by `#MFA` and `#MFB`." =>
+    MarkerFrequency {
+        "`true` if the value is negative." =>
+        is_negative: bool,
+        "The magnitude of the frequency, in Hz." =>
+        frequency: Frequency
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetMarkerBFrequency, SetMarkerBFrequency
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the marker B frequency.
+
+# Command format
+
+> `#MFB;`
+
+# Response format
+
+> `#MFBsxxxxxxxxxxx;`
+
+Where *s* is `+`, `-`, or a space (meaning `+`), and *xxxxxxxxxxx* is the marker frequency in
+Hz." =>
+    GetMarkerBFrequency
+);
+
+define_command!("Set the marker B frequency.
+
+# Command format
+
+> `#MFBsxxxxxxxxxxx;`
+
+Where *s* is `+` or `-`, and *xxxxxxxxxxx* is the marker frequency in Hz.
+
+**Example**: `#MFB+00014060000;` sets the marker B frequency to 14060 kHz.
+
+**Note**: If the specified frequency is in a different band than the K3 is tuned to, the action
+is undefined. A value of zero sets the marker to the main VFO frequency of the transceiver. For
+transceivers other than the K3, the marker frequency is interpreted relative to the frequency
+the transceiver is tuned to and may be positive or negative." =>
+    SetMarkerBFrequency {
+        marker: MarkerFrequency
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetMarkerAState, SetMarkerAState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query whether marker A is on/off.
+
+# Command format
+
+> `#MKA;`
+
+# Response format
+
+> `#MKAn;`
+
+Where `n` is the boolean state `0` (marker off) or `1` (marker on)." =>
+    GetMarkerAState
+);
+
+define_command!("Set marker A on/off.
+
+# Command format
+
+> `#MKAn;`
+
+Where `n` is the boolean state `0` (marker off) or `1` (marker on).
+
+**Note**: The last marker to be turned on automatically becomes the active marker, meaning it
+can be adjusted with the knob and is the one that responds to the QSY command. If the marker was
+off-screen before executing a marker-on command, it will default to the center frequency." =>
+    SetMarkerAState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetMarkerBState, SetMarkerBState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query whether marker B is on/off.
+
+# Command format
+
+> `#MKB;`
+
+# Response format
+
+> `#MKBn;`
+
+Where `n` is the boolean state `0` (marker off) or `1` (marker on)." =>
+    GetMarkerBState
+);
+
+define_command!("Set marker B on/off.
+
+# Command format
+
+> `#MKBn;`
+
+Where `n` is the boolean state `0` (marker off) or `1` (marker on).
+
+**Note**: The last marker to be turned on automatically becomes the active marker, meaning it
+can be adjusted with the knob and is the one that responds to the QSY command. If the marker was
+off-screen before executing a marker-on command, it will default to the center frequency." =>
+    SetMarkerBState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetNoiseBlankerState, SetNoiseBlankerState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the noise-blanker on/off status.
+
+# Command format
+
+> `#NB;`
+
+# Response format
+
+> `#NBn;`
+
+Where `n` is the boolean state `0` (noise blanker off) or `1` (noise blanker on)." =>
+    GetNoiseBlankerState
+);
+
+define_command!("Set the noise-blanker on/off status.
+
+# Command format
+
+> `#NBn;`
+
+Where `n` is the boolean state `0` (noise blanker off) or `1` (noise blanker on)." =>
+    SetNoiseBlankerState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetNoiseBlankerLevel, SetNoiseBlankerLevel
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the noise-blanker level.
+
+# Command format
+
+> `#NBL;`
+
+# Response format
+
+> `#NBLnn;`
+
+Where *nn* is the aggressiveness of the noise-blanker algorithm, between `01` (least aggressive)
+and `15` (most aggressive)." =>
+    GetNoiseBlankerLevel
+);
+
+define_command!("Set the noise-blanker level.
+
+# Command format
+
+> `#NBLnn;`
+
+Where *nn* is the aggressiveness of the noise-blanker algorithm, between `01` (least aggressive)
+and `15` (most aggressive)." =>
+    SetNoiseBlankerLevel {
+        level: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetPeakModeState, SetPeakModeState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the peak mode.
+
+# Command format
+
+> `#PKM;`
+
+# Response format
+
+> `#PKMn;`
+
+Where `n` is the boolean state `0` (peak mode off) or `1` (peak mode on)." =>
+    GetPeakModeState
+);
+
+define_command!("Set the peak mode.
+
+# Command format
+
+> `#PKMn;`
+
+Where `n` is the boolean state `0` (peak mode off) or `1` (peak mode on)." =>
+    SetPeakModeState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetPowerStatus, SetPowerStatus
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the power status.
+
+# Command format
+
+> `#PS;`
+
+# Response format
+
+> `#PSn;`
+
+Where `n` = `1` indicates the P3 is on." =>
+    GetPowerStatus
+);
+
+define_command!("Set the power status.
+
+# Command format
+
+> `#PSn;`
+
+Where `n` = `1` indicates the P3 is on.
+
+**Note**: `#PS0` turns the P3 off, but this removes power so `#PS1` cannot be used to turn it
+back on. If the power-on jumper on the rear-panel I/O board is in the 'always on' position, then
+the `#PS0` command has no effect." =>
+    SetPowerStatus { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: SetPassThroughModeState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Enter serial pass-through mode.
+
+# Command format
+
+> `#PT;`
+
+This command takes no argument. Once received, panadapter operation ceases and all data
+received on either RS232 port is passed through immediately to the other RS232 port without
+delay or modification.
+
+**Note**: This command is used by P3 Utility when downloading new firmware to the K3
+transceiver. Pass-through mode ends automatically 8 seconds after the last RS232 activity." =>
+    SetPassThroughModeState
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: SetQsyToMarker, QsyAction
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Command the transceiver to QSY to the active marker frequency.
+
+# Command format
+
+> `#QSYn;`
+
+Where *n* is one of:
+
+* `1`; QSY.
+* `0`; undo QSY.
+
+'QSY' means the currently-active marker frequency is transferred to the associated VFO on the
+K3.
+
+**Note**: MKR A controls VFO A and MKR B controls VFO B. 'Undo QSY' means to return the VFO to
+the frequency it was on before the last QSY, a one-level undo command." =>
+    SetQsyToMarker {
+        action: QsyAction
+    }
+);
+
+define_command_enum!(
+    "QSY / undo-QSY action." => QsyAction {
+        "Transfer the active marker frequency to its associated VFO." => Qsy = b'1',
+        "Undo the last QSY, restoring the VFO's previous frequency." => UndoQsy = b'0'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetRelativeCenterFrequency, SetRelativeCenterFrequency, RelativeCenterFrequencyOffset
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the reference frequency calibration offset.
+
+# Command format
+
+> `#RCF;`
+
+# Response format
+
+> `#RCFsnnnnnn;`
+
+Where *s* is `+` or `-` and *nnnnnn* is the difference, in Hz, between the current center
+frequency and the VFO A frequency." =>
+    GetRelativeCenterFrequency
+);
+
+define_command!("Set the reference frequency calibration offset.
+
+# Command format
+
+> `#RCFsnnnnnn;`
+
+Where *s* is `+` or `-` and *nnnnnn* is the offset in Hz which, when added to the VFO A
+frequency, becomes the new center frequency.
+
+**Note**: This command is used to position the VFO A cursor on the screen. For example, if the
+current span is set to 50 kHz, `#RCF+025000;` will move the VFO A cursor to the left edge of the
+screen (the center frequency moves up 25 kHz, which shifts the VFO A cursor to the left)." =>
+    SetRelativeCenterFrequency {
+        offset: RelativeCenterFrequencyOffset
+    }
+);
+
+define_command_struct!(
+    "A parsed signed relative center-frequency offset, as used by `#RCF`." =>
+    RelativeCenterFrequencyOffset {
+        "`true` if the value is negative." =>
+        is_negative: bool,
+        "The magnitude of the offset, in Hz." =>
+        offset_hz: u32
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetReferenceLevel, SetReferenceLevel
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the spectrum display reference level.
+
+# Command format
+
+> `#REF;`
+
+# Response format
+
+> `#REFsnnn;`
+
+Where *s* is `+`, `-`, or a space (meaning `+`), and *nnn* is the reference level in dBm,
+between `-170` and `+010`." =>
+    GetReferenceLevel
+);
+
+define_command!("Set the spectrum display reference level.
+
+# Command format
+
+> `#REFsnnn;`
+
+Where *s* is `+` or `-`, and *nnn* is the reference level in dBm, between `-170` and `+010`.
+
+**Example**: `#REF-120;` sets the reference level (at the bottom of the P3 spectrum screen) to
+-120 dBm." =>
+    SetReferenceLevel {
+        dbm: i16
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: Reset
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Force a power-on reset.
+
+# Command format
+
+> `#RST;`
+
+There is no response to this command." =>
+    Reset
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetFpgaImageFirmwareRevision, FpgaImageFirmwareRevision, FirmwareRevision
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the SVGA board's FPGA image revision.
+
+# Command format
+
+> `#RVF;`
+
+# Response format
+
+> `#RVFnnNN.NN;`
+
+Where *nn* is the FPGA image number, `00` to `05`, and *NN.NN* is the image revision, e.g.
+`01.23`.
+
+**Note**: Returns `99.99` if no FPGA image is installed." =>
+    GetFpgaImageFirmwareRevision
+);
+
+define_command_struct!(
+    "A parsed FPGA image firmware-revision response." =>
+    FpgaImageFirmwareRevision {
+        "The FPGA image number, `0` to `5`." =>
+        image_number: u8,
+        "The image revision, or `None` if no FPGA image is installed." =>
+        revision: Option<FirmwareRevision>
+    }
+);
+
+define_command_struct!(
+    "A parsed `major.minor` firmware revision, e.g. `01.23`." =>
+    FirmwareRevision {
+        major: u8,
+        minor: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetMainFirmware
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the main firmware revision.
+
+# Command format
+
+> `#RVM;`
+
+# Response format
+
+> `#RVMNN.NN;`
+
+Where *NN.NN* is the firmware revision, e.g. `01.23`." =>
+    GetMainFirmware
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetSvgaFirmwareRevision, SvgaFirmwareRevision
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the SVGA board firmware revision.
+
+# Command format
+
+> `#RVS;`
+
+# Response format
+
+> `#RVSNN.NN;`
+
+Where *NN.NN* is the firmware revision, e.g. `01.23`.
+
+**Note**: Returns `99.99` if no SVGA firmware is installed, and `00.00` if only the SVGA boot
+loader is installed." =>
+    GetSvgaFirmwareRevision
+);
+
+/// SVGA daughter-board firmware revision state, as returned by [`GetSvgaFirmwareRevision`].
+///
+/// The `Installed` variant carries a [`FirmwareRevision`] payload, which `define_command_enum!`
+/// cannot express (it only supports plain C-like enums with byte-literal discriminants), so this
+/// type is hand-written instead.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumIs)]
+pub enum SvgaFirmwareRevision {
+    /// No SVGA firmware is installed (`99.99`).
+    NotInstalled,
+    /// Only the SVGA boot loader is installed (`00.00`).
+    BootLoaderOnly,
+    /// SVGA firmware is installed, with this revision.
+    Installed(FirmwareRevision),
+}
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetScale, SetScale
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the current display scale.
+
+# Command format
+
+> `#SCL;`
+
+# Response format
+
+> `#SCLnnn;`
+
+Where *nnn* is the scale, the difference in dB between the top and bottom of the spectrum
+screen, between `010` and `080` dB." =>
+    GetScale
+);
+
+define_command!("Set the current display scale.
+
+# Command format
+
+> `#SCLnnn;`
+
+Where *nnn* is the scale, the difference in dB between the top and bottom of the spectrum
+screen, between `010` and `080` dB.
+
+**Example**: `#SCL080;` sets the scale to 80 dB." =>
+    SetScale {
+        db: u16
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetSpanMode, SetSpanMode, SpanMode
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the span mode.
+
+# Command format
+
+> `#SPM;`
+
+# Response format
+
+> `#SPMn;`
+
+Where *n* is one of:
+
+* `0`; continuous span mode.
+* `1`; stepped span mode.
+
+In stepped span mode, the span steps between 2, 5, 10, 20, 50, 100 and 200 kHz." =>
+    GetSpanMode
+);
+
+define_command!("Set the span mode.
+
+# Command format
+
+> `#SPMn;`
+
+Where *n* is one of:
+
+* `0`; continuous span mode.
+* `1`; stepped span mode.
+
+In stepped span mode, the span steps between 2, 5, 10, 20, 50, 100 and 200 kHz." =>
+    SetSpanMode {
+        mode: SpanMode
+    }
+);
+
+define_command_enum!(
+    "Panadapter span-stepping mode." => SpanMode {
+        "Continuous span mode." => Continuous = b'0',
+        "Stepped span mode (2, 5, 10, 20, 50, 100, 200 kHz)." => Stepped = b'1'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetSpan, SetSpan
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the panadapter span.
+
+# Command format
+
+> `#SPN;`
+
+# Response format
+
+> `#SPNxxxxxx;`
+
+Where *xxxxxx* is the span, in 100 Hz units, between `000020` and `002000`.
+
+**Example**: `#SPN000500;` is a span of 50 kHz." =>
+    GetSpan
+);
+
+define_command!("Set the panadapter span.
+
+# Command format
+
+> `#SPNxxxxxx;`
+
+Where *xxxxxx* is the span, in 100 Hz units, between `000020` and `002000`.
+
+**Example**: `#SPN000500;` sets the span to 50 kHz." =>
+    SetSpan {
+        span_hundred_hz: u32
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetSvgaDecodedDataDisplayState, SetSvgaDecodedDataDisplayState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the SVGA decoded-data display state.
+
+# Command format
+
+> `#SVDT;`
+
+# Response format
+
+> `#SVDTn;`
+
+Where `n` is the boolean state `0` (data display off) or `1` (data display on)." =>
+    GetSvgaDecodedDataDisplayState
+);
+
+define_command!("Set the SVGA decoded-data display state.
+
+# Command format
+
+> `#SVDTn;`
+
+Where `n` is the boolean state `0` (data display off) or `1` (data display on)." =>
+    SetSvgaDecodedDataDisplayState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetSvgaDisplayState, SetSvgaDisplayState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the SVGA display state.
+
+# Command format
+
+> `#SVEN;`
+
+# Response format
+
+> `#SVENn;`
+
+Where `n` is the boolean state `0` (SVGA display off) or `1` (SVGA display on)." =>
+    GetSvgaDisplayState
+);
+
+define_command!("Set the SVGA display state.
+
+# Command format
+
+> `#SVENn;`
+
+Where `n` is the boolean state `0` (SVGA display off) or `1` (SVGA display on)." =>
+    SetSvgaDisplayState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetSvgaSpectrumFillState, SetSvgaSpectrumFillState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the SVGA spectrum-fill state.
+
+# Command format
+
+> `#SVFL;`
+
+# Response format
+
+> `#SVFLn;`
+
+Where `n` is the boolean state `0` (fill off) or `1` (fill on). When on, the area below the
+spectrum trace on the external SVGA display is filled in for easier visibility." =>
+    GetSvgaSpectrumFillState
+);
+
+define_command!("Set the SVGA spectrum-fill state.
+
+# Command format
+
+> `#SVFLn;`
+
+Where `n` is the boolean state `0` (fill off) or `1` (fill on). When on, the area below the
+spectrum trace on the external SVGA display is filled in for easier visibility." =>
+    SetSvgaSpectrumFillState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetSvgaFontSize, SetSvgaFontSize, SvgaFontSize
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the SVGA font selection.
+
+# Command format
+
+> `#SVFN;`
+
+# Response format
+
+> `#SVFNn;`
+
+Where *n* is the font number, `0` to `3`. The larger the number, the larger the font." =>
+    GetSvgaFontSize
+);
+
+define_command!("Set the SVGA font selection.
+
+# Command format
+
+> `#SVFNn;`
+
+Where *n* is the font number, `0` to `3`. The larger the number, the larger the font." =>
+    SetSvgaFontSize {
+        size: SvgaFontSize
+    }
+);
+
+define_command_enum!(
+    "SVGA display font size." => SvgaFontSize {
+        Small = b'0',
+        Medium = b'1',
+        Large = b'2',
+        Larger = b'3'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetSvgaDisplayResolution, SetSvgaDisplayResolution, SvgaDisplayResolution
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the SVGA display resolution.
+
+# Command format
+
+> `#SVRS;`
+
+# Response format
+
+> `#SVRSn;`
+
+Where *n* is the external display resolution, `0` to `4`. See the manual for the SVGA option for
+more details." =>
+    GetSvgaDisplayResolution
+);
+
+define_command!("Set the SVGA display resolution.
+
+# Command format
+
+> `#SVRSn;`
+
+Where *n* is the external display resolution, `0` to `4`. See the manual for the SVGA option for
+more details." =>
+    SetSvgaDisplayResolution {
+        resolution: SvgaDisplayResolution
+    }
+);
+
+define_command_enum!(
+    "SVGA external display resolution." => SvgaDisplayResolution {
+        "XGA: 1024x768." => Xga = b'0',
+        "SXGA: 1280x1024." => Sxga = b'1',
+        "WXGA+: 1440x900." => WxgaPlus = b'2',
+        "(F)HD: 1920x1080." => FHd = b'3',
+        "(F)HD: 1920x1080, alternate clock rate." => FHdAlt = b'4'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetSvgaWaterfallBias, SetSvgaWaterfallBias
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the SVGA waterfall bias.
+
+# Command format
+
+> `#SVWB;`
+
+# Response format
+
+> `#SVWBnn;`
+
+Where *nn* is the bias, between `01` and `99`, corresponding to 0.1 to 9.9 in the P3's 'SVGA
+bias' menu entry. The higher the number, the greater the color contrast in the external display
+waterfall; a value of `10` (1.0) looks similar to the P3's own screen on a typical monitor." =>
+    GetSvgaWaterfallBias
+);
+
+define_command!("Set the SVGA waterfall bias.
+
+# Command format
+
+> `#SVWBnn;`
+
+Where *nn* is the bias, between `01` and `99`, corresponding to 0.1 to 9.9 in the P3's 'SVGA
+bias' menu entry. The higher the number, the greater the color contrast in the external display
+waterfall; a value of `10` (1.0) looks similar to the P3's own screen on a typical monitor." =>
+    SetSvgaWaterfallBias {
+        bias: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetVfoBCursorState, SetVfoBCursorState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the VFO B cursor on/off state.
+
+# Command format
+
+> `#VFB;`
+
+# Response format
+
+> `#VFBn;`
+
+Where `n` is the boolean state `0` (VFO B cursor off) or `1` (VFO B cursor on)." =>
+    GetVfoBCursorState
+);
+
+define_command!("Set the VFO B cursor on/off state.
+
+# Command format
+
+> `#VFBn;`
+
+Where `n` is the boolean state `0` (VFO B cursor off) or `1` (VFO B cursor on)." =>
+    SetVfoBCursorState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetWaterfallAveragingState, SetWaterfallAveragingState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the waterfall averaging on/off state.
+
+# Command format
+
+> `#WFA;`
+
+# Response format
+
+> `#WFAn;`
+
+Where `n` is the boolean state `0` (waterfall averaging off) or `1` (waterfall averaging on)." =>
+    GetWaterfallAveragingState
+);
+
+define_command!("Set the waterfall averaging on/off state.
+
+# Command format
+
+> `#WFAn;`
+
+Where `n` is the boolean state `0` (waterfall averaging off) or `1` (waterfall averaging on)." =>
+    SetWaterfallAveragingState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetWaterfallColor, SetWaterfallColor, WaterfallColor
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the waterfall color.
+
+# Command format
+
+> `#WFC;`
+
+# Response format
+
+> `#WFCn;`
+
+Where *n* is one of:
+
+* `0`; gray scale waterfall.
+* `1`; colored waterfall." =>
+    GetWaterfallColor
+);
+
+define_command!("Set the waterfall color.
+
+# Command format
+
+> `#WFCn;`
+
+Where *n* is one of:
+
+* `0`; gray scale waterfall.
+* `1`; colored waterfall." =>
+    SetWaterfallColor {
+        color: WaterfallColor
+    }
+);
+
+define_command_enum!(
+    "Waterfall color mode." => WaterfallColor {
+        "Display in gray-scale only." => GrayScale = b'0',
+        "Display in color." => Colored = b'1'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetWaterfallMarkersState, SetWaterfallMarkersState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the waterfall markers on/off state.
+
+# Command format
+
+> `#WFM;`
+
+# Response format
+
+> `#WFMn;`
+
+Where `n` is the boolean state `0` (waterfall markers off) or `1` (waterfall markers on)." =>
+    GetWaterfallMarkersState
+);
+
+define_command!("Set the waterfall markers on/off state.
+
+# Command format
+
+> `#WFMn;`
+
+Where `n` is the boolean state `0` (waterfall markers off) or `1` (waterfall markers on)." =>
+    SetWaterfallMarkersState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetTransceiverConnected, SetTransceiverConnected
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Query the selected transceiver.
+
+# Command format
+
+> `#XCV;`
+
+# Response format
+
+> `#XCVnn;`
+
+Where *nn* is `00` (K3), `01` (user-defined transceiver), `02` (455 kHz IF), etc. up to the last
+'transceiver' in the 'Xcvr Sel' menu selection." =>
+    GetTransceiverConnected
+);
+
+define_command!("Set the selected transceiver.
+
+# Command format
+
+> `#XCVnn;`
+
+Where *nn* is `00` (K3), `01` (user-defined transceiver), `02` (455 kHz IF), etc. up to the last
+'transceiver' in the 'Xcvr Sel' menu selection." =>
+    SetTransceiverConnected {
+        transceiver: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Private Functions
+// ------------------------------------------------------------------------------------------------
+
+/// Format a signed [`Frequency`] as a P3 `s` + 11-digit ASCII value, as used by `#CTF`, `#MFA`
+/// and `#MFB`.
+fn format_signed_frequency(is_negative: bool, frequency: Frequency) -> Vec<u8> {
+    let mut bytes = vec![if is_negative {
+        ASCII_SIGN_NEGATIVE
+    } else {
+        ASCII_SIGN_POSITIVE
+    }];
+    bytes.extend(Vec::<u8>::from(frequency));
+    bytes
+}
+
+// ------------------------------------------------------------------------------------------------
+// Implementations
+// ------------------------------------------------------------------------------------------------
+
+// `GetProductId` uses non-standard framing (no `#` prefix, no `;` terminator on either the query
+// or the response), so `Command` is hand-rolled instead of using `impl_command!`.
 impl Command for GetProductId {
-    fn command_id(&self) -> &[u8] { b"=" }
+    const MESSAGE_TERMINATOR: u8 = b';';
+
+    fn command_id(&self) -> &[u8] {
+        b"="
+    }
+
+    fn message_preamble(&self) -> Option<&[u8]> {
+        None
+    }
+
+    fn to_message(&self) -> Result<Vec<u8>, RigError> {
+        Ok(self.command_id().to_vec())
+    }
 }
+
 impl CommandWithResponse for GetProductId {
-    type Response = Vec<u8>;
-    fn expected_response_length(&self) -> usize { 11 }
-    fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
-        Ok(bytes.to_vec())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #AVG — Display Averaging (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the display averaging level.
-///
-/// # Reference (P3 rev. A7, §#AVG)
-///
-/// **GET** format: `#AVG;`
-/// **SET/RSP** format: `#AVGn;` — `n` = 0–9 (0 = off, higher = more averaging).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetDisplayAveraging;
-
-/// Set the display averaging level (0=off, 9=maximum).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetDisplayAveraging {
-    pub level: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetDisplayAveraging {
-    fn command_id(&self) -> &[u8] { b"#AVG" }
-}
-impl CommandWithResponse for GetDisplayAveraging {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"#AVG", 1)?;
-        Ok(d[0] - b'0')
-    }
-}
-impl Command for SetDisplayAveraging {
-    fn command_id(&self) -> &[u8] { b"#AVG" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> { Some(vec![b'0' + self.level.min(9)]) }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #BMP — Bitmap Capture (SET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Trigger a bitmap screenshot transfer from the P3 display.
-///
-/// # Reference (P3 rev. A7, §#BMP)
-///
-/// **SET** format: `#BMP;` — the P3 responds with raw bitmap data.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct CaptureBitmap;
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for CaptureBitmap {
-    fn command_id(&self) -> &[u8] { b"#BMP" }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #BR — Baud Rate (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the P3 serial port baud rate.
-///
-/// # Reference (P3 rev. A7, §#BR)
-///
-/// **GET** format: `#BR;`
-/// **SET/RSP** format: `#BRn;` — `n` = 0 (4800), 1 (9600), 2 (19200), 3 (38400).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetBaudRate;
-
-/// Set the serial port baud rate (0=4800, 1=9600, 2=19200, 3=38400).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetBaudRate {
-    pub rate: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetBaudRate {
-    fn command_id(&self) -> &[u8] { b"#BR" }
-}
-impl CommandWithResponse for GetBaudRate {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"#BR", 1)?;
-        Ok(d[0] - b'0')
-    }
-}
-impl Command for SetBaudRate {
-    fn command_id(&self) -> &[u8] { b"#BR" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> { Some(vec![b'0' + self.rate.min(3)]) }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #CTF — Center Frequency Track (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query whether the panadapter tracks the transceiver center frequency.
-///
-/// # Reference (P3 rev. A7, §#CTF)
-///
-/// **GET** format: `#CTF;`
-/// **SET/RSP** format: `#CTFn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetCenterFreqTrack;
-
-/// Enable or disable center frequency tracking.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetCenterFreqTrack {
-    pub enabled: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetCenterFreqTrack {
-    fn command_id(&self) -> &[u8] { b"#CTF" }
-}
-impl CommandWithResponse for GetCenterFreqTrack {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#CTF", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetCenterFreqTrack {
-    fn command_id(&self) -> &[u8] { b"#CTF" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #DSM — Display Mode (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the display mode.
-///
-/// # Reference (P3 rev. A7, §#DSM)
-///
-/// **GET** format: `#DSM;`
-/// **SET/RSP** format: `#DSMn;` — `n` = 0 (spectrum only), 1 (spectrum + waterfall),
-/// 2 (waterfall only), 3 (scope).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetDisplayMode;
-
-/// Set the display mode (0=spectrum, 1=spectrum+waterfall, 2=waterfall, 3=scope).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetDisplayMode {
-    pub mode: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetDisplayMode {
-    fn command_id(&self) -> &[u8] { b"#DSM" }
-}
-impl CommandWithResponse for GetDisplayMode {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"#DSM", 1)?;
-        Ok(d[0] - b'0')
-    }
-}
-impl Command for SetDisplayMode {
-    fn command_id(&self) -> &[u8] { b"#DSM" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> { Some(vec![b'0' + self.mode.min(3)]) }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #FNL / #FNX — Frequency Span Limits (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the lower frequency span limit in Hz.
-///
-/// # Reference (P3 rev. A7, §#FNL)
-///
-/// **GET** format: `#FNL;`
-/// **SET/RSP** format: `#FNLnnnnnnnn;` — 8-digit Hz.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetSpanLowerLimit;
-
-/// Set the lower frequency span limit in Hz.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetSpanLowerLimit {
-    pub hz: u32,
-}
-
-///
-/// Query the upper frequency span limit in Hz.
-///
-/// # Reference (P3 rev. A7, §#FNX)
-///
-/// **GET** format: `#FNX;`
-/// **SET/RSP** format: `#FNXnnnnnnnn;` — 8-digit Hz.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetSpanUpperLimit;
-
-/// Set the upper frequency span limit in Hz.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetSpanUpperLimit {
-    pub hz: u32,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetSpanLowerLimit {
-    fn command_id(&self) -> &[u8] { b"#FNL" }
-}
-impl CommandWithResponse for GetSpanLowerLimit {
-    type Response = u32;
-    fn expected_response_length(&self) -> usize { 8 }
-    fn parse(&self, bytes: &[u8]) -> Result<u32, RigError> {
-        let d = validate_response(bytes, b"#FNL", 8)?;
-        parse_u32(d)
-    }
-}
-impl Command for SetSpanLowerLimit {
-    fn command_id(&self) -> &[u8] { b"#FNL" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:08}", self.hz).into_bytes())
-    }
-}
-
-impl Command for GetSpanUpperLimit {
-    fn command_id(&self) -> &[u8] { b"#FNX" }
-}
-impl CommandWithResponse for GetSpanUpperLimit {
-    type Response = u32;
-    fn expected_response_length(&self) -> usize { 8 }
-    fn parse(&self, bytes: &[u8]) -> Result<u32, RigError> {
-        let d = validate_response(bytes, b"#FNX", 8)?;
-        parse_u32(d)
-    }
-}
-impl Command for SetSpanUpperLimit {
-    fn command_id(&self) -> &[u8] { b"#FNX" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:08}", self.hz).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #FON — Font Size (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the display font size.
-///
-/// # Reference (P3 rev. A7, §#FON)
-///
-/// **GET** format: `#FON;`
-/// **SET/RSP** format: `#FONn;` — `n` = 0 (small), 1 (large).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetFontSize;
-
-/// Set the display font size (false=small, true=large).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetFontSize {
-    pub large: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetFontSize {
-    fn command_id(&self) -> &[u8] { b"#FON" }
-}
-impl CommandWithResponse for GetFontSize {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#FON", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetFontSize {
-    fn command_id(&self) -> &[u8] { b"#FON" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.large { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #FXA / #FXT — Fixed Span Frequencies (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the fixed-span center frequency A in Hz.
-///
-/// # Reference (P3 rev. A7, §#FXA)
-///
-/// **GET** format: `#FXA;`
-/// **SET/RSP** format: `#FXAnnnnnnnn;` — 8-digit Hz.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetFixedSpanFreqA;
-
-/// Set fixed-span center frequency A in Hz.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetFixedSpanFreqA {
-    pub hz: u32,
-}
-
-///
-/// Query the fixed-span center frequency B in Hz.
-///
-/// # Reference (P3 rev. A7, §#FXT)
-///
-/// **GET** format: `#FXT;`
-/// **SET/RSP** format: `#FXTnnnnnnnn;` — 8-digit Hz.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetFixedSpanFreqB;
-
-/// Set fixed-span center frequency B in Hz.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetFixedSpanFreqB {
-    pub hz: u32,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetFixedSpanFreqA {
-    fn command_id(&self) -> &[u8] { b"#FXA" }
-}
-impl CommandWithResponse for GetFixedSpanFreqA {
-    type Response = u32;
-    fn expected_response_length(&self) -> usize { 8 }
-    fn parse(&self, bytes: &[u8]) -> Result<u32, RigError> {
-        let d = validate_response(bytes, b"#FXA", 8)?;
-        parse_u32(d)
-    }
-}
-impl Command for SetFixedSpanFreqA {
-    fn command_id(&self) -> &[u8] { b"#FXA" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:08}", self.hz).into_bytes())
-    }
-}
-
-impl Command for GetFixedSpanFreqB {
-    fn command_id(&self) -> &[u8] { b"#FXT" }
-}
-impl CommandWithResponse for GetFixedSpanFreqB {
-    type Response = u32;
-    fn expected_response_length(&self) -> usize { 8 }
-    fn parse(&self, bytes: &[u8]) -> Result<u32, RigError> {
-        let d = validate_response(bytes, b"#FXT", 8)?;
-        parse_u32(d)
-    }
-}
-impl Command for SetFixedSpanFreqB {
-    fn command_id(&self) -> &[u8] { b"#FXT" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:08}", self.hz).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #LBL — Band-Label Display (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query whether band labels are shown on the display.
-///
-/// # Reference (P3 rev. A7, §#LBL)
-///
-/// **GET** format: `#LBL;`
-/// **SET/RSP** format: `#LBLn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetBandLabelDisplay;
-
-/// Show or hide band labels.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetBandLabelDisplay {
-    pub visible: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetBandLabelDisplay {
-    fn command_id(&self) -> &[u8] { b"#LBL" }
-}
-impl CommandWithResponse for GetBandLabelDisplay {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#LBL", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetBandLabelDisplay {
-    fn command_id(&self) -> &[u8] { b"#LBL" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.visible { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #MFA / #MFB — Marker Frequencies (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the marker A frequency in Hz.
-///
-/// # Reference (P3 rev. A7, §#MFA)
-///
-/// **GET** format: `#MFA;`
-/// **SET/RSP** format: `#MFAnnnnnnnn;` — 8-digit Hz.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetMarkerFreqA;
-
-/// Set marker A frequency in Hz.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetMarkerFreqA {
-    pub hz: u32,
-}
-
-///
-/// Query the marker B frequency in Hz.
-///
-/// # Reference (P3 rev. A7, §#MFB)
-///
-/// **GET** format: `#MFB;`
-/// **SET/RSP** format: `#MFBnnnnnnnn;` — 8-digit Hz.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetMarkerFreqB;
-
-/// Set marker B frequency in Hz.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetMarkerFreqB {
-    pub hz: u32,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetMarkerFreqA {
-    fn command_id(&self) -> &[u8] { b"#MFA" }
-}
-impl CommandWithResponse for GetMarkerFreqA {
-    type Response = u32;
-    fn expected_response_length(&self) -> usize { 8 }
-    fn parse(&self, bytes: &[u8]) -> Result<u32, RigError> {
-        let d = validate_response(bytes, b"#MFA", 8)?;
-        parse_u32(d)
-    }
-}
-impl Command for SetMarkerFreqA {
-    fn command_id(&self) -> &[u8] { b"#MFA" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:08}", self.hz).into_bytes())
-    }
-}
-
-impl Command for GetMarkerFreqB {
-    fn command_id(&self) -> &[u8] { b"#MFB" }
-}
-impl CommandWithResponse for GetMarkerFreqB {
-    type Response = u32;
-    fn expected_response_length(&self) -> usize { 8 }
-    fn parse(&self, bytes: &[u8]) -> Result<u32, RigError> {
-        let d = validate_response(bytes, b"#MFB", 8)?;
-        parse_u32(d)
-    }
-}
-impl Command for SetMarkerFreqB {
-    fn command_id(&self) -> &[u8] { b"#MFB" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:08}", self.hz).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #MKA / #MKB — Marker Active (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query whether marker A is active.
-///
-/// # Reference (P3 rev. A7, §#MKA)
-///
-/// **GET** format: `#MKA;`
-/// **SET/RSP** format: `#MKAn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetMarkerAActive;
-
-/// Enable or disable marker A.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetMarkerAActive {
-    pub active: bool,
-}
-
-///
-/// Query whether marker B is active.
-///
-/// # Reference (P3 rev. A7, §#MKB)
-///
-/// **GET** format: `#MKB;`
-/// **SET/RSP** format: `#MKBn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetMarkerBActive;
-
-/// Enable or disable marker B.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetMarkerBActive {
-    pub active: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetMarkerAActive {
-    fn command_id(&self) -> &[u8] { b"#MKA" }
-}
-impl CommandWithResponse for GetMarkerAActive {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#MKA", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetMarkerAActive {
-    fn command_id(&self) -> &[u8] { b"#MKA" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.active { b'1' } else { b'0' }])
-    }
-}
-
-impl Command for GetMarkerBActive {
-    fn command_id(&self) -> &[u8] { b"#MKB" }
-}
-impl CommandWithResponse for GetMarkerBActive {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#MKB", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetMarkerBActive {
-    fn command_id(&self) -> &[u8] { b"#MKB" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.active { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #NB — Noise Blanker Level (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the display noise-blanker level.
-///
-/// # Reference (P3 rev. A7, §#NB)
-///
-/// **GET** format: `#NB;`
-/// **SET/RSP** format: `#NBn;` — `n` = 0 (off), 1–9 (blanker strength).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetNoiseBlankerLevel;
-
-/// Set the display noise-blanker level (0=off, 9=maximum).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetNoiseBlankerLevel {
-    pub level: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetNoiseBlankerLevel {
-    fn command_id(&self) -> &[u8] { b"#NB" }
-}
-impl CommandWithResponse for GetNoiseBlankerLevel {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"#NB", 1)?;
-        Ok(d[0] - b'0')
-    }
-}
-impl Command for SetNoiseBlankerLevel {
-    fn command_id(&self) -> &[u8] { b"#NB" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> { Some(vec![b'0' + self.level.min(9)]) }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #NBL — Noise-Blanker Low-Pass (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the noise-blanker low-pass filter state.
-///
-/// # Reference (P3 rev. A7, §#NBL)
-///
-/// **GET** format: `#NBL;`
-/// **SET/RSP** format: `#NBLn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetNoiseBlankerLowPass;
-
-/// Enable or disable the noise-blanker low-pass filter.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetNoiseBlankerLowPass {
-    pub enabled: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetNoiseBlankerLowPass {
-    fn command_id(&self) -> &[u8] { b"#NBL" }
-}
-impl CommandWithResponse for GetNoiseBlankerLowPass {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#NBL", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetNoiseBlankerLowPass {
-    fn command_id(&self) -> &[u8] { b"#NBL" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #PKM — Peak-Hold Mode (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the spectrum peak-hold mode.
-///
-/// # Reference (P3 rev. A7, §#PKM)
-///
-/// **GET** format: `#PKM;`
-/// **SET/RSP** format: `#PKMn;` — `n` = 0 (off), 1 (peak hold), 2 (peak + decay).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetPeakHoldMode;
-
-/// Set the peak-hold mode (0=off, 1=hold, 2=hold+decay).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetPeakHoldMode {
-    pub mode: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetPeakHoldMode {
-    fn command_id(&self) -> &[u8] { b"#PKM" }
-}
-impl CommandWithResponse for GetPeakHoldMode {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"#PKM", 1)?;
-        Ok(d[0] - b'0')
-    }
-}
-impl Command for SetPeakHoldMode {
-    fn command_id(&self) -> &[u8] { b"#PKM" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> { Some(vec![b'0' + self.mode.min(2)]) }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #PS — Power Save (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the display power-save mode.
-///
-/// # Reference (P3 rev. A7, §#PS)
-///
-/// **GET** format: `#PS;`
-/// **SET/RSP** format: `#PSn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetPowerSave;
-
-/// Enable or disable display power-save.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetPowerSave {
-    pub enabled: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetPowerSave {
-    fn command_id(&self) -> &[u8] { b"#PS" }
-}
-impl CommandWithResponse for GetPowerSave {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#PS", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetPowerSave {
-    fn command_id(&self) -> &[u8] { b"#PS" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #PT — Pass-Through Mode (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query whether the P3 is in serial pass-through mode.
-///
-/// # Reference (P3 rev. A7, §#PT)
-///
-/// **GET** format: `#PT;`
-/// **SET/RSP** format: `#PTn;` — `n` = 0 (off), 1 (on, routes PC serial to transceiver).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetPassThroughMode;
-
-/// Enable or disable serial pass-through mode.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetPassThroughMode {
-    pub enabled: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetPassThroughMode {
-    fn command_id(&self) -> &[u8] { b"#PT" }
-}
-impl CommandWithResponse for GetPassThroughMode {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#PT", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetPassThroughMode {
-    fn command_id(&self) -> &[u8] { b"#PT" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #QSY — Tune Transceiver to Marker (SET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Command the transceiver to QSY to the active marker frequency.
-///
-/// # Reference (P3 rev. A7, §#QSY)
-///
-/// **SET** format: `#QSY;` — no response.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct QsyToMarker;
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for QsyToMarker {
-    fn command_id(&self) -> &[u8] { b"#QSY" }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #RCF — Reference Frequency Calibration Offset (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the reference frequency calibration offset.
-///
-/// # Reference (P3 rev. A7, §#RCF)
-///
-/// **GET** format: `#RCF;`
-/// **SET/RSP** format: `#RCFsnnnn;` — `s` = `+`/`-`, `nnnn` = 0–9999 Hz.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetRefCalibOffset;
-
-/// Set the reference frequency calibration offset in Hz (signed).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetRefCalibOffset {
-    pub offset_hz: i16,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetRefCalibOffset {
-    fn command_id(&self) -> &[u8] { b"#RCF" }
-}
-impl CommandWithResponse for GetRefCalibOffset {
-    type Response = i16;
-    fn expected_response_length(&self) -> usize { 5 }
-    fn parse(&self, bytes: &[u8]) -> Result<i16, RigError> {
-        let d = validate_response(bytes, b"#RCF", 5)?;
-        parse_signed_i16(d)
-    }
-}
-impl Command for SetRefCalibOffset {
-    fn command_id(&self) -> &[u8] { b"#RCF" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        let sign = if self.offset_hz >= 0 { b'+' } else { b'-' };
-        Some(format!("{}{:04}", sign as char, self.offset_hz.unsigned_abs()).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #REF — Reference Level (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the spectrum display reference level in dBm.
-///
-/// # Reference (P3 rev. A7, §#REF)
-///
-/// **GET** format: `#REF;`
-/// **SET/RSP** format: `#REFsnn;` — `s` = sign, `nn` = 0–99 dBm.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetReferenceLevel;
-
-/// Set the spectrum reference level in dBm (signed).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetReferenceLevel {
-    pub dbm: i8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetReferenceLevel {
-    fn command_id(&self) -> &[u8] { b"#REF" }
-}
-impl CommandWithResponse for GetReferenceLevel {
-    type Response = i8;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<i8, RigError> {
-        let d = validate_response(bytes, b"#REF", 3)?;
-        parse_signed_dbm(bytes, d)
-    }
-}
-impl Command for SetReferenceLevel {
-    fn command_id(&self) -> &[u8] { b"#REF" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> { Some(format_signed_dbm(self.dbm)) }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #RST — Reset (SET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Reset the P3 to factory defaults.
-///
-/// # Reference (P3 rev. A7, §#RST)
-///
-/// **SET** format: `#RST;` — no response.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ResetToDefaults;
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for ResetToDefaults {
-    fn command_id(&self) -> &[u8] { b"#RST" }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #RVM — Firmware Version (GET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the P3 firmware version.
-///
-/// # Reference (P3 rev. A7, §#RVM)
-///
-/// **GET** format: `#RVM;`
-/// **RSP** format: `#RVMnn.nn;` — e.g. `#RVM01.25;`.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetFirmwareVersion;
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetFirmwareVersion {
-    fn command_id(&self) -> &[u8] { b"#RVM" }
-}
-impl CommandWithResponse for GetFirmwareVersion {
-    type Response = Vec<u8>;
-    fn expected_response_length(&self) -> usize { 5 }
-    fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
-        let d = validate_response(bytes, b"#RVM", 5)?;
-        Ok(d.to_vec())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #RVS — Sub-Receiver Version (GET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the sub-receiver module version string.
-///
-/// # Reference (P3 rev. A7, §#RVS)
-///
-/// **GET** format: `#RVS;`
-/// **RSP** format: `#RVSss;` — 2-character module ID.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetSubRxVersion;
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetSubRxVersion {
-    fn command_id(&self) -> &[u8] { b"#RVS" }
-}
-impl CommandWithResponse for GetSubRxVersion {
-    type Response = [u8; 2];
-    fn expected_response_length(&self) -> usize { 2 }
-    fn parse(&self, bytes: &[u8]) -> Result<[u8; 2], RigError> {
-        let d = validate_response(bytes, b"#RVS", 2)?;
-        Ok([d[0], d[1]])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #SCL — Display Span (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the current display span in Hz.
-///
-/// # Reference (P3 rev. A7, §#SCL)
-///
-/// **GET** format: `#SCL;`
-/// **SET/RSP** format: `#SCLnnnnnn;` — span in Hz (6 digits, e.g. `040000` = 40 kHz).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetDisplaySpan;
-
-/// Set the display span in Hz.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetDisplaySpan {
-    pub hz: u32,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetDisplaySpan {
-    fn command_id(&self) -> &[u8] { b"#SCL" }
-}
-impl CommandWithResponse for GetDisplaySpan {
-    type Response = u32;
-    fn expected_response_length(&self) -> usize { 6 }
-    fn parse(&self, bytes: &[u8]) -> Result<u32, RigError> {
-        let d = validate_response(bytes, b"#SCL", 6)?;
-        parse_u32(d)
-    }
-}
-impl Command for SetDisplaySpan {
-    fn command_id(&self) -> &[u8] { b"#SCL" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:06}", self.hz).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #SPM / #SPN — Spectrum Display Levels (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the lower spectrum display level in dBm.
-///
-/// # Reference (P3 rev. A7, §#SPM)
-///
-/// **GET** format: `#SPM;`
-/// **SET/RSP** format: `#SPMsnn;` — signed dBm.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetSpectrumLowerLevel;
-
-/// Set the lower spectrum display level in dBm.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetSpectrumLowerLevel {
-    pub dbm: i8,
-}
-
-///
-/// Query the upper spectrum display level in dBm.
-///
-/// # Reference (P3 rev. A7, §#SPN)
-///
-/// **GET** format: `#SPN;`
-/// **SET/RSP** format: `#SPNsnn;` — signed dBm.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetSpectrumUpperLevel;
-
-/// Set the upper spectrum display level in dBm.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetSpectrumUpperLevel {
-    pub dbm: i8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetSpectrumLowerLevel {
-    fn command_id(&self) -> &[u8] { b"#SPM" }
-}
-impl CommandWithResponse for GetSpectrumLowerLevel {
-    type Response = i8;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<i8, RigError> {
-        let d = validate_response(bytes, b"#SPM", 3)?;
-        parse_signed_dbm(bytes, d)
-    }
-}
-impl Command for SetSpectrumLowerLevel {
-    fn command_id(&self) -> &[u8] { b"#SPM" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> { Some(format_signed_dbm(self.dbm)) }
-}
-
-impl Command for GetSpectrumUpperLevel {
-    fn command_id(&self) -> &[u8] { b"#SPN" }
-}
-impl CommandWithResponse for GetSpectrumUpperLevel {
-    type Response = i8;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<i8, RigError> {
-        let d = validate_response(bytes, b"#SPN", 3)?;
-        parse_signed_dbm(bytes, d)
-    }
-}
-impl Command for SetSpectrumUpperLevel {
-    fn command_id(&self) -> &[u8] { b"#SPN" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> { Some(format_signed_dbm(self.dbm)) }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #VFB — VFO B Marker Display (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query whether VFO B is shown as a marker on the display.
-///
-/// # Reference (P3 rev. A7, §#VFB)
-///
-/// **GET** format: `#VFB;`
-/// **SET/RSP** format: `#VFBn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetVfoBDisplay;
-
-/// Show or hide the VFO B marker.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetVfoBDisplay {
-    pub visible: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetVfoBDisplay {
-    fn command_id(&self) -> &[u8] { b"#VFB" }
-}
-impl CommandWithResponse for GetVfoBDisplay {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#VFB", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetVfoBDisplay {
-    fn command_id(&self) -> &[u8] { b"#VFB" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.visible { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #WFA / #WFC — Waterfall Level Limits (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the waterfall minimum level in dBm.
-///
-/// # Reference (P3 rev. A7, §#WFA)
-///
-/// **GET** format: `#WFA;`
-/// **SET/RSP** format: `#WFAsnn;` — signed dBm.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetWaterfallMin;
-
-/// Set the waterfall minimum level in dBm.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetWaterfallMin {
-    pub dbm: i8,
-}
-
-///
-/// Query the waterfall maximum level in dBm.
-///
-/// # Reference (P3 rev. A7, §#WFC)
-///
-/// **GET** format: `#WFC;`
-/// **SET/RSP** format: `#WFCsnn;` — signed dBm.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetWaterfallMax;
-
-/// Set the waterfall maximum level in dBm.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetWaterfallMax {
-    pub dbm: i8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetWaterfallMin {
-    fn command_id(&self) -> &[u8] { b"#WFA" }
-}
-impl CommandWithResponse for GetWaterfallMin {
-    type Response = i8;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<i8, RigError> {
-        let d = validate_response(bytes, b"#WFA", 3)?;
-        parse_signed_dbm(bytes, d)
-    }
-}
-impl Command for SetWaterfallMin {
-    fn command_id(&self) -> &[u8] { b"#WFA" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> { Some(format_signed_dbm(self.dbm)) }
-}
-
-impl Command for GetWaterfallMax {
-    fn command_id(&self) -> &[u8] { b"#WFC" }
-}
-impl CommandWithResponse for GetWaterfallMax {
-    type Response = i8;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<i8, RigError> {
-        let d = validate_response(bytes, b"#WFC", 3)?;
-        parse_signed_dbm(bytes, d)
-    }
-}
-impl Command for SetWaterfallMax {
-    fn command_id(&self) -> &[u8] { b"#WFC" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> { Some(format_signed_dbm(self.dbm)) }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #WFM — Waterfall Mode (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the waterfall display mode.
-///
-/// # Reference (P3 rev. A7, §#WFM)
-///
-/// **GET** format: `#WFM;`
-/// **SET/RSP** format: `#WFMn;` — `n` = 0 (gradient), 1 (line), 2 (highlight).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetWaterfallMode;
-
-/// Set the waterfall display mode (0=gradient, 1=line, 2=highlight).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetWaterfallMode {
-    pub mode: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetWaterfallMode {
-    fn command_id(&self) -> &[u8] { b"#WFM" }
-}
-impl CommandWithResponse for GetWaterfallMode {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"#WFM", 1)?;
-        Ok(d[0] - b'0')
-    }
-}
-impl Command for SetWaterfallMode {
-    fn command_id(&self) -> &[u8] { b"#WFM" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> { Some(vec![b'0' + self.mode.min(2)]) }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #XCV — Transceiver Connected (GET only)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query whether a transceiver is connected to the P3.
-///
-/// # Reference (P3 rev. A7, §#XCV)
-///
-/// **GET** format: `#XCV;`
-/// **RSP** format: `#XCVn;` — `n` = 0 (no transceiver), 1 (connected).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetTransceiverConnected;
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetTransceiverConnected {
-    fn command_id(&self) -> &[u8] { b"#XCV" }
-}
-impl CommandWithResponse for GetTransceiverConnected {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#XCV", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// Private parse and format helpers
-// ------------------------------------------------------------------------------------------------
-
-fn parse_u32(bytes: &[u8]) -> Result<u32, RigError> {
-    let mut n = 0u32;
-    for &b in bytes {
-        if !(b'0'..=b'9').contains(&b) {
-            return Err(RigError::InvalidResponseData { data: bytes.to_vec() });
+    type Response = ProductId;
+
+    fn parse(&self, bytes: &[u8]) -> Result<ProductId, RigError> {
+        if bytes == b"P3" {
+            Ok(ProductId::MainFirmwareExecuting)
+        } else if bytes == b"p3" {
+            Ok(ProductId::BootLoaderReady)
+        } else {
+            Err(invalid_response_command_id(b"[Pp]3"))
         }
-        n = n * 10 + u32::from(b - b'0');
     }
-    Ok(n)
 }
 
-fn parse_u16(bytes: &[u8]) -> Result<u16, RigError> {
-    let mut n = 0u32;
-    for &b in bytes {
-        if !(b'0'..=b'9').contains(&b) {
-            return Err(RigError::InvalidResponseData { data: bytes.to_vec() });
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetDisplayAveraging => b"#AVG");
+impl_command_with_response!(GetDisplayAveraging => 2, u8_from_ascii => u8);
+
+impl_command!(SetDisplayAveraging => b"#AVG" format level uint 2);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(BitmapUpload => b"#BMP");
+
+// The `#BMP` response omits the command-id echo and trailing `;` terminator that
+// `validate_response` (and therefore `impl_command_with_response!`) assumes, so response parsing
+// is hand-rolled instead.
+impl CommandWithResponse for BitmapUpload {
+    type Response = BitmapData;
+
+    fn expected_response_length(&self) -> usize {
+        131_640
+    }
+
+    fn parse(&self, bytes: &[u8]) -> Result<Self::Response, RigError> {
+        if bytes.len() != self.expected_response_length() {
+            Err(invalid_response_length(
+                self.expected_response_length(),
+                bytes.len(),
+            ))
+        } else {
+            Ok(BitmapData {
+                image_data: bytes[..131_638].to_vec(),
+                checksum: u16::from_le_bytes(bytes[131_638..].try_into().unwrap()),
+            })
         }
-        n = n * 10 + u32::from(b - b'0');
     }
-    Ok(n as u16)
 }
 
-fn parse_signed_i16(bytes: &[u8]) -> Result<i16, RigError> {
-    if bytes.is_empty() {
-        return Err(RigError::InvalidResponseData { data: bytes.to_vec() });
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetBaudRate => b"#BR");
+impl_command_with_response!(GetBaudRate => 1, |bytes: &[u8]| {
+    match bytes[0] {
+        b'0' => Ok(BaudRate::Bd4800),
+        b'1' => Ok(BaudRate::Bd9600),
+        b'2' => Ok(BaudRate::Bd19200),
+        b'3' => Ok(BaudRate::Bd38400),
+        _ => Err(invalid_response_command_id(b"[0-3]"))
     }
-    let (sign, digits) = match bytes[0] {
-        b'+' => (1i32, &bytes[1..]),
-        b'-' => (-1i32, &bytes[1..]),
-        _ => (1i32, bytes),
-    };
-    let mag = parse_u16(digits)? as i32;
-    i16::try_from(sign * mag).map_err(|_| RigError::InvalidResponseData { data: bytes.to_vec() })
-}
+} => BaudRate);
 
-fn parse_signed_dbm(raw: &[u8], d: &[u8]) -> Result<i8, RigError> {
-    let sign: i16 = if d[0] == b'-' { -1 } else { 1 };
-    let mag = parse_u16(&d[1..3])? as i16;
-    i8::try_from(sign * mag).map_err(|_| RigError::InvalidResponseData { data: raw.to_vec() })
-}
+impl_command!(SetBaudRate => b"#BR" with |s: &SetBaudRate| {
+    match s.baud_rate {
+        BaudRate::Bd4800 => Ok(Some(vec![b'0'])),
+        BaudRate::Bd9600 => Ok(Some(vec![b'1'])),
+        BaudRate::Bd19200 => Ok(Some(vec![b'2'])),
+        BaudRate::Bd38400 => Ok(Some(vec![b'3'])),
+        _ => Err(RigError::InvalidArgumentValue {
+            argument_name: "baud_rate",
+            type_name: "BaudRate",
+            value: format!("{:?}", s.baud_rate)
+        })
+    }
+});
 
-fn format_signed_dbm(dbm: i8) -> Vec<u8> {
-    let sign = if dbm >= 0 { b'+' } else { b'-' };
-    format!("{}{:02}", sign as char, dbm.unsigned_abs()).into_bytes()
-}
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetCenterFrequency => b"#CTF");
+impl_command_with_response!(GetCenterFrequency => 12, |bytes: &[u8]| {
+    Ok(CenterFrequency {
+        is_negative: sign_from_ascii_loose(bytes[0])? < 0,
+        frequency: Frequency::try_from(&bytes[1..])?
+    })
+} => CenterFrequency);
+
+impl_command!(SetCenterFrequency => b"#CTF" with Some |s: &SetCenterFrequency| {
+    format_signed_frequency(s.center.is_negative, s.center.frequency)
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetDisplayMode => b"#DSM");
+impl_command_with_response!(GetDisplayMode => try_from enum DisplayMode);
+
+impl_command!(SetDisplayMode => b"#DSM" for as byte mode);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetFunctionKeyLabel => b"#FNL" with |s: &GetFunctionKeyLabel| {
+    if (1..=8).contains(&s.function_key) {
+        Ok(Some(vec![s.function_key + ASCII_DIGIT_ZERO]))
+    } else {
+        Err(RigError::InvalidArgumentValue {
+            argument_name: "function_key",
+            type_name: "u8",
+            value: s.function_key.to_string()
+        })
+    }
+});
+impl_command_with_response!(GetFunctionKeyLabel => 10, |bytes: &[u8]| {
+    Ok(FunctionKeyLabel {
+        function_key: u8_from_ascii(&bytes[0..1])?,
+        label: string_from_ascii(&bytes[1..])?,
+    })
+} => FunctionKeyLabel);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetFontSize => b"#FON");
+impl_command_with_response!(GetFontSize => try_from enum FontSize);
+
+impl_command!(SetFontSize => b"#FON" for as byte size);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(SetFunctionKeyExecute => b"#FNX" with |s: &SetFunctionKeyExecute| {
+    if (1..=8).contains(&s.function_key) {
+        Ok(Some(vec![s.function_key + ASCII_DIGIT_ZERO]))
+    } else {
+        Err(RigError::InvalidArgumentValue {
+            argument_name: "function_key",
+            type_name: "u8",
+            value: s.function_key.to_string()
+        })
+    }
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetFixedTuneAutoAdjustMode => b"#FXA");
+impl_command_with_response!(GetFixedTuneAutoAdjustMode => try_from enum FixedTuneAutoAdjustMode);
+
+impl_command!(SetFixedTuneAutoAdjustMode => b"#FXA" for as byte mode);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetFixedTuneOrTrackingMode => b"#FXT");
+impl_command_with_response!(GetFixedTuneOrTrackingMode => try_from enum FixedTuneOrTrackingMode);
+
+impl_command!(SetFixedTuneOrTrackingMode => b"#FXT" for as byte mode);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetFnLabelDisplay => b"#LBL");
+impl_command_with_response!(GetFnLabelDisplay => boolean);
+
+impl_command!(SetFnLabelDisplay => b"#LBL" for boolean labels_on);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetMarkerAFrequency => b"#MFA");
+impl_command_with_response!(GetMarkerAFrequency => 12, |bytes: &[u8]| {
+    Ok(MarkerFrequency {
+        is_negative: sign_from_ascii_loose(bytes[0])? < 0,
+        frequency: Frequency::try_from(&bytes[1..])?
+    })
+} => MarkerFrequency);
+
+impl_command!(SetMarkerAFrequency => b"#MFA" with Some |s: &SetMarkerAFrequency| {
+    format_signed_frequency(s.marker.is_negative, s.marker.frequency)
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetMarkerBFrequency => b"#MFB");
+impl_command_with_response!(GetMarkerBFrequency => 12, |bytes: &[u8]| {
+    Ok(MarkerFrequency {
+        is_negative: sign_from_ascii_loose(bytes[0])? < 0,
+        frequency: Frequency::try_from(&bytes[1..])?
+    })
+} => MarkerFrequency);
+
+impl_command!(SetMarkerBFrequency => b"#MFB" with Some |s: &SetMarkerBFrequency| {
+    format_signed_frequency(s.marker.is_negative, s.marker.frequency)
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetMarkerAState => b"#MKA");
+impl_command_with_response!(GetMarkerAState => boolean);
+
+impl_command!(SetMarkerAState => b"#MKA" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetMarkerBState => b"#MKB");
+impl_command_with_response!(GetMarkerBState => boolean);
+
+impl_command!(SetMarkerBState => b"#MKB" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetNoiseBlankerState => b"#NB");
+impl_command_with_response!(GetNoiseBlankerState => boolean);
+
+impl_command!(SetNoiseBlankerState => b"#NB" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetNoiseBlankerLevel => b"#NBL");
+impl_command_with_response!(GetNoiseBlankerLevel => 2, u8_from_ascii => u8);
+
+impl_command!(
+    SetNoiseBlankerLevel => b"#NBL"
+    format level uint 2,
+    if |s: &SetNoiseBlankerLevel| {
+        if (1..=15).contains(&s.level) {
+            Ok(())
+        } else {
+            Err(RigError::InvalidArgumentValue {
+                argument_name: "level",
+                type_name: "u8",
+                value: s.level.to_string(),
+            })
+        }
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetPeakModeState => b"#PKM");
+impl_command_with_response!(GetPeakModeState => boolean);
+
+impl_command!(SetPeakModeState => b"#PKM" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetPowerStatus => b"#PS");
+impl_command_with_response!(GetPowerStatus => boolean);
+
+impl_command!(SetPowerStatus => b"#PS" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(SetPassThroughModeState => b"#PT");
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(SetQsyToMarker => b"#QSY" for as byte action);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetRelativeCenterFrequency => b"#RCF");
+impl_command_with_response!(GetRelativeCenterFrequency => 7, |bytes: &[u8]| {
+    Ok(RelativeCenterFrequencyOffset {
+        is_negative: sign_from_ascii_loose(bytes[0])? < 0,
+        offset_hz: u32_from_ascii(&bytes[1..])?,
+    })
+} => RelativeCenterFrequencyOffset);
+
+impl_command!(SetRelativeCenterFrequency => b"#RCF" with Some |s: &SetRelativeCenterFrequency| {
+    let mut v = vec![if s.offset.is_negative { ASCII_SIGN_NEGATIVE } else { ASCII_SIGN_POSITIVE }];
+    v.extend(format!("{:06}", s.offset.offset_hz).into_bytes());
+    v
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetReferenceLevel => b"#REF");
+impl_command_with_response!(GetReferenceLevel => 4, |bytes: &[u8]| {
+    let sign = sign_from_ascii_loose(bytes[0])? as i16;
+    let magnitude = u16_from_ascii(&bytes[1..4])? as i16;
+    Ok(sign * magnitude)
+} => i16);
+
+impl_command!(SetReferenceLevel => b"#REF" with Some |s: &SetReferenceLevel| {
+    let mut v = vec![if s.dbm.is_negative() { ASCII_SIGN_NEGATIVE } else { ASCII_SIGN_POSITIVE }];
+    v.extend(format!("{:03}", s.dbm.unsigned_abs()).into_bytes());
+    v
+}, if |s: &SetReferenceLevel| {
+    if (-170..=10).contains(&s.dbm) {
+        Ok(())
+    } else {
+        Err(RigError::InvalidArgumentValue {
+            argument_name: "dbm",
+            type_name: "i16",
+            value: s.dbm.to_string(),
+        })
+    }
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(Reset => b"#RST");
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetFpgaImageFirmwareRevision => b"#RVF");
+impl_command_with_response!(GetFpgaImageFirmwareRevision => 7, |bytes: &[u8]| {
+    if bytes[4] == b'.' {
+        Ok(FpgaImageFirmwareRevision {
+            image_number: u8_from_ascii(&bytes[0..=1])?,
+            revision: if &bytes[2..] == b"99.99" {
+                None
+            } else {
+                Some(FirmwareRevision {
+                    major: u8_from_ascii(&bytes[2..=3])?,
+                    minor: u8_from_ascii(&bytes[5..=6])?,
+                })
+            }
+        })
+    } else {
+        Err(RigError::InvalidResponseData {
+            data: bytes.to_vec(),
+        })
+    }
+} => FpgaImageFirmwareRevision);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetMainFirmware => b"#RVM");
+impl_command_with_response!(GetMainFirmware => 5, |bytes: &[u8]| {
+    if bytes[2] == b'.' {
+        Ok(FirmwareRevision {
+            major: u8_from_ascii(&bytes[0..=1])?,
+            minor: u8_from_ascii(&bytes[3..=4])?,
+        })
+    } else {
+        Err(RigError::InvalidResponseData {
+            data: bytes.to_vec(),
+        })
+    }
+} => FirmwareRevision);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetSvgaFirmwareRevision => b"#RVS");
+impl_command_with_response!(GetSvgaFirmwareRevision => 5, |bytes: &[u8]| {
+    if bytes[2] == b'.' {
+        if &bytes[2..] == b"99.99" {
+            Ok(SvgaFirmwareRevision::NotInstalled)
+        } else if &bytes[2..] == b"00.00" {
+            Ok(SvgaFirmwareRevision::BootLoaderOnly)
+        } else {
+            Ok(SvgaFirmwareRevision::Installed(
+                FirmwareRevision {
+                    major: u8_from_ascii(&bytes[0..=1])?,
+                    minor: u8_from_ascii(&bytes[3..=4])?,
+                }
+            ))
+        }
+    } else {
+        Err(RigError::InvalidResponseData {
+            data: bytes.to_vec(),
+        })
+    }
+} => SvgaFirmwareRevision);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetScale => b"#SCL");
+impl_command_with_response!(GetScale => 3, u16_from_ascii => u16);
+
+impl_command!(SetScale => b"#SCL" with Some |s: &SetScale| {
+    format!("{:03}", s.db).into_bytes()
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetSpanMode => b"#SPM");
+impl_command_with_response!(GetSpanMode => try_from enum SpanMode);
+
+impl_command!(SetSpanMode => b"#SPM" for as byte mode);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetSpan => b"#SPN");
+impl_command_with_response!(GetSpan => 6, u32_from_ascii => u32);
+
+impl_command!(SetSpan => b"#SPN" with Some |s: &SetSpan| {
+    format!("{:06}", s.span_hundred_hz).into_bytes()
+});
+impl_command_with_response!(SetSpan => 6, u32_from_ascii => u32);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetSvgaDecodedDataDisplayState => b"#SVDT");
+impl_command_with_response!(GetSvgaDecodedDataDisplayState => boolean);
+
+impl_command!(SetSvgaDecodedDataDisplayState => b"#SVDT" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetSvgaDisplayState => b"#SVEN");
+impl_command_with_response!(GetSvgaDisplayState => boolean);
+
+impl_command!(SetSvgaDisplayState => b"#SVEN" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetSvgaSpectrumFillState => b"#SVFL");
+impl_command_with_response!(GetSvgaSpectrumFillState => boolean);
+
+impl_command!(SetSvgaSpectrumFillState => b"#SVFL" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetSvgaFontSize => b"#SVFN");
+impl_command_with_response!(GetSvgaFontSize => try_from enum SvgaFontSize);
+
+impl_command!(SetSvgaFontSize => b"#SVFN" for as byte size);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetSvgaDisplayResolution => b"#SVRS");
+impl_command_with_response!(GetSvgaDisplayResolution => try_from enum SvgaDisplayResolution);
+
+impl_command!(SetSvgaDisplayResolution => b"#SVRS" for as byte resolution);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetSvgaWaterfallBias => b"#SVWB");
+impl_command_with_response!(GetSvgaWaterfallBias => 2, u8_from_ascii => u8);
+
+impl_command!(SetSvgaWaterfallBias => b"#SVWB" format bias uint 2);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoBCursorState => b"#VFB");
+impl_command_with_response!(GetVfoBCursorState => boolean);
+
+impl_command!(SetVfoBCursorState => b"#VFB" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetWaterfallAveragingState => b"#WFA");
+impl_command_with_response!(GetWaterfallAveragingState => boolean);
+
+impl_command!(SetWaterfallAveragingState => b"#WFA" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetWaterfallColor => b"#WFC");
+impl_command_with_response!(GetWaterfallColor => try_from enum WaterfallColor);
+
+impl_command!(SetWaterfallColor => b"#WFC" for as byte color);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetWaterfallMarkersState => b"#WFM");
+impl_command_with_response!(GetWaterfallMarkersState => boolean);
+
+impl_command!(SetWaterfallMarkersState => b"#WFM" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetTransceiverConnected => b"#XCV");
+impl_command_with_response!(GetTransceiverConnected => 2, u8_from_ascii => u8);
+
+impl_command!(SetTransceiverConnected => b"#XCV" format transceiver uint 2);

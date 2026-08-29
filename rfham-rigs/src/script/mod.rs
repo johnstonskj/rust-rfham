@@ -1,4 +1,4 @@
-use crate::{Frequency, Level};
+use crate::{Level, protocol::Frequency};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, time::Duration};
 use strum::{AsRefStr, EnumIs, EnumTryAs};
@@ -112,7 +112,7 @@ impl Display for Value {
         match self {
             Self::Char(v) => format!("#\\{v}").fmt(f),
             Self::Index(v) => v.fmt(f),
-            Self::Frequency(v) => format!("(hertz {})", v.0).fmt(f),
+            Self::Frequency(v) => format!("(hertz {})", v.value()).fmt(f),
             Self::Level(v) => format!("(level {v})").fmt(f),
             Self::Duration(v) => write!(f, "(seconds {})", v.as_secs_f64()),
             Self::Symbol(namespace, name) => if f.alternate() {

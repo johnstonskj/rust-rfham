@@ -134,16 +134,14 @@ impl PathTarget for Station {
                     }
                 }
                 name if name == CFG_FIELD_LOCATION => {
-                    if tail.is_some() {
-                        self.location.value(tail.as_ref().unwrap())
-                    } else if tail.is_none() {
+                    if let Some(tail_value) = &tail {
+                        self.location.value(tail_value)
+                    } else {
                         Err(ConfigError::PathTooShort(
                             head.to_string(),
                             CFG_FIELD_STATION,
                             Self::value_names().collect(),
                         ))
-                    } else {
-                        Ok(Value::None)
                     }
                 }
                 _ => Err(ConfigError::InvalidPathComponent(

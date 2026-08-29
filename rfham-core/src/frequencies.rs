@@ -263,6 +263,10 @@ impl Frequency {
         Self(BaseFrequency::new::<frequency_unit::hertz>(value))
     }
 
+    pub fn as_hertz(&self) -> f64 {
+        self.0.get::<frequency_unit::hertz>()
+    }
+
     ///
     /// The interval of time between events is called the period $T = \frac{1}{f}$. It is the reciprocal of
     /// the frequency and is returned as a number of seconds.

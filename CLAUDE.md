@@ -3,10 +3,6 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with
 code in this repository.
 
-Additional, more specific or scoped, instructions:
-
-* @docs/agents/protocol-modules.md
-
 ## Project Overview
 
 **rust-rfham** is a Cargo workspace of ham radio libraries and tools for Rust.

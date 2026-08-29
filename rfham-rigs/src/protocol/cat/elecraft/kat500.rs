@@ -1,1717 +1,1651 @@
 //!
-//! Serial commands for the Elecraft KAT500 automatic antenna tuner.
+//! CAT commands for the Elecraft KAT500 automatic antenna tuner.
 //!
-//! Commands follow the **02.12** programmer's reference
-//! (Elecraft KAT500 Programmer's Reference, rev. 02.12).
+//! Unlike the transceiver, amplifier, and panadapter command sets in sibling modules, KAT500
+//! command identifiers carry **no wire prefix** — they are sent exactly as shown (e.g. `AN`, `BN`,
+//! `VSWR`), with the single exception of [`GetBaudRate`]/[`SetBaudRate`] which use the `#BR`
+//! identifier (leading `#`).
 //!
-//! Unlike the amplifier and panadapter modules there is **no wire prefix** — command IDs are
-//! sent exactly as shown (e.g. `AN`, `BN`, `VSWR`).
+//! Commands follow the specification in reference **1** unless otherwise noted.
+//!
+//! # References
+//!
+//! 1. [Elecraft KAT500 Automatic Antenna Tuner Command Reference](https://ftp.elecraft.com/KAT500/Manuals%20Downloads/KAT500%20Automatic%20Antenna%20Tuner%20Serial%20Command%20Reference.pdf), Sep 2023.
 //!
 
 use crate::{
-    error::RigError,
-    protocol::cat::{Command, CommandWithResponse, common::validate_response},
+    error::{RigError, enum_parse, invalid_argument_value},
+    protocol::{
+        Frequency,
+        cat::{
+            Command,
+            common::{
+                bytes_to_vec, string_from_ascii, u8_from_ascii, u16_from_ascii, u32_from_ascii,
+                validate_response,
+            },
+        },
+    },
+    transport::BaudRate,
 };
 
 // ------------------------------------------------------------------------------------------------
-// AB — Auto Bypass (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the auto-bypass setting.
-///
-/// # Reference (KAT500 rev. 02.12, §AB)
-///
-/// **GET** format: `AB;`
-/// **SET/RSP** format: `ABn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetAutoBypass;
-
-/// Enable or disable auto-bypass.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetAutoBypass {
-    pub enabled: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetAutoBypass {
-    fn command_id(&self) -> &[u8] { b"AB" }
-}
-impl CommandWithResponse for GetAutoBypass {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"AB", 1)?;
-        Ok(d[0] == b'1')
+// Public Types
+// ------------------------------------------------------------------------------------------------
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetAutoBypassState, SetAutoBypassState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get whether automatic bypass is enabled.
+
+When automatic bypass is on, the tuner monitors SWR and switches itself out of circuit whenever
+the untuned SWR is already acceptable.
+
+# Command format
+
+> `AB;`
+
+# Response format
+
+> `AB{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetAutoBypassState
+);
+
+define_command!("Set whether automatic bypass is enabled.
+
+# Command format
+
+> `AB{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetAutoBypassState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetAutoEnableState, SetAutoEnableState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get whether the ATU is enabled, i.e. whether automatic tuning is allowed.
+
+# Command format
+
+> `AE;`
+
+# Response format
+
+> `AE{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetAutoEnableState
+);
+
+define_command!("Set whether the ATU is enabled, i.e. whether automatic tuning is allowed.
+
+# Command format
+
+> `AE{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetAutoEnableState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetAtuFaultState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get whether the ATU currently has a fault condition.
+
+# Command format
+
+> `AFT;`
+
+# Response format
+
+> `AFT{n};`
+
+Where `n` is the boolean state `0` (no fault) or `1` (fault present)." =>
+    GetAtuFaultState
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetAtuKeepInPlaceState, SetAtuKeepInPlaceState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the ATU keep-in-place state.
+
+When keep-in-place is on, the tuner retains its last L/C setting rather than re-tuning on band or
+frequency changes.
+
+# Command format
+
+> `AKIP;`
+
+# Response format
+
+> `AKIP{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetAtuKeepInPlaceState
+);
+
+define_command!("Set the ATU keep-in-place state.
+
+# Command format
+
+> `AKIP{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetAtuKeepInPlaceState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetAmplifierInterface, SetAmplifierInterface
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the amplifier interface relay state.
+
+# Command format
+
+> `AMPI;`
+
+# Response format
+
+> `AMPI{n};`
+
+Where `n` is the boolean state `0` (open) or `1` (closed)." =>
+    GetAmplifierInterface
+);
+
+define_command!("Set the amplifier interface relay state.
+
+# Command format
+
+> `AMPI{n};`
+
+Where `n` is the boolean state `0` (open) or `1` (closed)." =>
+    SetAmplifierInterface {
+        closed: bool
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetAntenna, SetAntenna
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the currently selected antenna port.
+
+# Command format
+
+> `AN;`
+
+# Response format
+
+> `AN{n};`
+
+Where *n* is the antenna port number, between `1` and `6`." =>
+    GetAntenna
+);
+
+define_command!("Set the currently selected antenna port.
+
+# Command format
+
+> `AN{n};`
+
+Where *n* is the antenna port number, between `1` and `6`." =>
+    SetAntenna {
+        antenna: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetAtuPreset, SetAtuPreset
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the current ATU preset slot number.
+
+# Command format
+
+> `AP;`
+
+# Response format
+
+> `AP{nnn};`
+
+Where *nnn* is the 3-digit preset slot number." =>
+    GetAtuPreset
+);
+
+define_command!("Set the current ATU preset slot number.
+
+# Command format
+
+> `AP{nnn};`
+
+Where *nnn* is the 3-digit preset slot number." =>
+    SetAtuPreset {
+        preset: u16
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetAttenuatorState, SetAttenuatorState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get whether the built-in attenuator is enabled.
+
+# Command format
+
+> `ATTN;`
+
+# Response format
+
+> `ATTN{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetAttenuatorState
+);
+
+define_command!("Set whether the built-in attenuator is enabled.
+
+# Command format
+
+> `ATTN{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetAttenuatorState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetBand, SetBand
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the current band number.
+
+# Command format
+
+> `BN;`
+
+# Response format
+
+> `BN{nn};`
+
+Where *nn* is the 2-digit band number, between `00` and `13`." =>
+    GetBand
+);
+
+define_command!("Set the current band number.
+
+# Command format
+
+> `BN{nn};`
+
+Where *nn* is the 2-digit band number, between `00` and `13`." =>
+    SetBand {
+        band: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetBaudRate, SetBaudRate
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the serial port baud rate.
+
+Unlike every other command in this module, the baud-rate command identifier carries a leading
+`#`, i.e. `#BR` rather than `BR`.
+
+# Command format
+
+> `#BR;`
+
+# Response format
+
+> `#BR{n};`
+
+Where *n* is one of:
+
+* `0`; 4800 baud.
+* `1`; 9600 baud.
+* `2`; 19200 baud.
+* `3`; 38400 baud." =>
+    GetBaudRate
+);
+
+define_command!("Set the serial port baud rate.
+
+Unlike every other command in this module, the baud-rate command identifier carries a leading
+`#`, i.e. `#BR` rather than `BR`. Only 4800, 9600, 19200 and 38400 baud are supported by this
+command; any other `BaudRate` value is rejected when the command is sent.
+
+# Command format
+
+> `#BR{n};`
+
+Where *n* is one of:
+
+* `0`; 4800 baud.
+* `1`; 9600 baud.
+* `2`; 19200 baud.
+* `3`; 38400 baud." =>
+    SetBaudRate {
+        baud_rate: BaudRate
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: Bypass
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Force the ATU into bypass mode immediately.
+
+This command takes effect immediately and has no query form.
+
+# Command format
+
+> `BYP;`" =>
+    Bypass
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetCapacitorValue, SetCapacitorValue
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the tuning capacitor value.
+
+# Command format
+
+> `C;`
+
+# Response format
+
+> `C{nnn};`
+
+Where *nnn* is the 3-digit capacitor value, between `000` and `255`." =>
+    GetCapacitorValue
+);
+
+define_command!("Set the tuning capacitor value.
+
+# Command format
+
+> `C{nnn};`
+
+Where *nnn* is the 3-digit capacitor value, between `000` and `255`." =>
+    SetCapacitorValue {
+        value: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetCapacitorTopology, SetCapacitorTopology
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the tuning capacitor topology (hi-Z or lo-Z).
+
+# Command format
+
+> `CT;`
+
+# Response format
+
+> `CT{n};`
+
+Where `n` is `0` (lo-Z, capacitor on the output side) or `1` (hi-Z, capacitor on the input side)." =>
+    GetCapacitorTopology
+);
+
+define_command!("Set the tuning capacitor topology (hi-Z or lo-Z).
+
+# Command format
+
+> `CT{n};`
+
+Where `n` is `0` (lo-Z, capacitor on the output side) or `1` (hi-Z, capacitor on the input side)." =>
+    SetCapacitorTopology {
+        hi_z: bool
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetDemoModeState, SetDemoModeState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the demo-mode state.
+
+# Command format
+
+> `DM;`
+
+# Response format
+
+> `DM{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetDemoModeState
+);
+
+define_command!("Set the demo-mode state.
+
+# Command format
+
+> `DM{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetDemoModeState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: EepromInit
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Re-initialize EEPROM storage to factory defaults.
+
+This is destructive: it erases all stored antenna and band presets. There is no query form.
+
+# Command format
+
+> `EEINIT;`" =>
+    EepromInit
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetErrorMessage
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the last error message string.
+
+# Command format
+
+> `EM;`
+
+# Response format
+
+> `EM{text};`
+
+The response is a variable-length ASCII text string, returned as raw bytes." =>
+    GetErrorMessage
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetFrequency, SetFrequency
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the operating frequency, in Hz.
+
+# Command format
+
+> `F;`
+
+# Response format
+
+> `F{nnnnnnnn};`
+
+Where *nnnnnnnn* is the frequency, in Hz, as an 8-digit zero-padded decimal value." =>
+    GetFrequency
+);
+
+define_command!("Set the operating frequency, in Hz.
+
+# Command format
+
+> `F{nnnnnnnn};`
+
+Where *nnnnnnnn* is the frequency, in Hz, as an 8-digit zero-padded decimal value." =>
+    SetFrequency {
+        freq_hz: Frequency
     }
-}
-impl Command for SetAutoBypass {
-    fn command_id(&self) -> &[u8] { b"AB" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetForwardPowerA, GetForwardPowerB
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the forward power reading on meter channel A.
+
+# Command format
+
+> `FA;`
+
+# Response format
+
+> `FA{nnn};`
+
+Where *nnn* is the forward power, in deci-watts (tenths of a watt)." =>
+    GetForwardPowerA
+);
+
+define_command!("Get the forward power reading on meter channel B.
+
+# Command format
+
+> `FB;`
+
+# Response format
+
+> `FB{nnn};`
+
+Where *nnn* is the forward power, in deci-watts (tenths of a watt)." =>
+    GetForwardPowerB
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetFanThreshold, SetFanThreshold
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the fan-on power threshold.
+
+# Command format
+
+> `FC;`
+
+# Response format
+
+> `FC{nnn};`
+
+Where *nnn* is the 3-digit threshold, in watts, above which the cooling fan turns on." =>
+    GetFanThreshold
+);
+
+define_command!("Set the fan-on power threshold.
+
+# Command format
+
+> `FC{nnn};`
+
+Where *nnn* is the 3-digit threshold, in watts, above which the cooling fan turns on." =>
+    SetFanThreshold {
+        threshold_w: u16
     }
-}
-
-// ------------------------------------------------------------------------------------------------
-// AE — Auto Enable (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query whether the ATU is enabled (auto-tuning allowed).
-///
-/// # Reference (KAT500 rev. 02.12, §AE)
-///
-/// **GET** format: `AE;`
-/// **SET/RSP** format: `AEn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetAutoEnable;
-
-/// Enable or disable the ATU.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetAutoEnable {
-    pub enabled: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetAutoEnable {
-    fn command_id(&self) -> &[u8] { b"AE" }
-}
-impl CommandWithResponse for GetAutoEnable {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"AE", 1)?;
-        Ok(d[0] == b'1')
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetFaultDelayTime, SetFaultDelayTime
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the fault delay time.
+
+# Command format
+
+> `FDT;`
+
+# Response format
+
+> `FDT{nnn};`
+
+Where *nnn* is the 3-digit fault delay time, in milliseconds." =>
+    GetFaultDelayTime
+);
+
+define_command!("Set the fault delay time.
+
+# Command format
+
+> `FDT{nnn};`
+
+Where *nnn* is the 3-digit fault delay time, in milliseconds." =>
+    SetFaultDelayTime {
+        delay_ms: u16
     }
-}
-impl Command for SetAutoEnable {
-    fn command_id(&self) -> &[u8] { b"AE" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetFaultStatus
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the current fault status code.
+
+# Command format
+
+> `FLT;`
+
+# Response format
+
+> `FLT{nn};`
+
+Where *nn* is the 2-digit fault status code; `00` indicates no fault." =>
+    GetFaultStatus
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: ClearCurrentFault
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Clear the current fault condition.
+
+There is no query form.
+
+# Command format
+
+> `FLTC;`" =>
+    ClearCurrentFault
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetTuneSatisfiedSwr, SetTuneSatisfiedSwr
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the SWR threshold below which a tune cycle is considered successful.
+
+# Command format
+
+> `FTNS;`
+
+# Response format
+
+> `FTNS{nnn};`
+
+Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
+    GetTuneSatisfiedSwr
+);
+
+define_command!("Set the SWR threshold below which a tune cycle is considered successful.
+
+# Command format
+
+> `FTNS{nnn};`
+
+Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
+    SetTuneSatisfiedSwr {
+        swr_d: u16
     }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// AFT — ATU Fault (GET)
+// Public Types: GetFaultThresholdLow, SetFaultThresholdLow
 // ------------------------------------------------------------------------------------------------
 
-///
-/// Query whether the ATU has a fault condition.
-///
-/// # Reference (KAT500 rev. 02.12, §AFT)
-///
-/// **GET** format: `AFT;`
-/// **RSP** format: `AFTn;` — `n` = 0 (no fault), 1 (fault present).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetAtuFault;
+define_command!("Get the lower fault SWR threshold.
 
-// ------------------------------------------------------------------------------------------------
+# Command format
 
-impl Command for GetAtuFault {
-    fn command_id(&self) -> &[u8] { b"AFT" }
-}
-impl CommandWithResponse for GetAtuFault {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"AFT", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// AKIP — ATU Keep In Place (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the ATU keep-in-place setting.
-///
-/// # Reference (KAT500 rev. 02.12, §AKIP)
-///
-/// **GET** format: `AKIP;`
-/// **SET/RSP** format: `AKIPn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetAtuKeepInPlace;
-
-/// Enable or disable ATU keep-in-place mode.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetAtuKeepInPlace {
-    pub enabled: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetAtuKeepInPlace {
-    fn command_id(&self) -> &[u8] { b"AKIP" }
-}
-impl CommandWithResponse for GetAtuKeepInPlace {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"AKIP", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetAtuKeepInPlace {
-    fn command_id(&self) -> &[u8] { b"AKIP" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// AMPI — Amplifier Interface (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the amplifier interface relay state.
-///
-/// # Reference (KAT500 rev. 02.12, §AMPI)
-///
-/// **GET** format: `AMPI;`
-/// **SET/RSP** format: `AMPIn;` — `n` = 0 (open), 1 (closed).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetAmplifierInterface;
-
-/// Set the amplifier interface relay state.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetAmplifierInterface {
-    pub closed: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetAmplifierInterface {
-    fn command_id(&self) -> &[u8] { b"AMPI" }
-}
-impl CommandWithResponse for GetAmplifierInterface {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"AMPI", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetAmplifierInterface {
-    fn command_id(&self) -> &[u8] { b"AMPI" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.closed { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// AN — Antenna (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the currently selected antenna port.
-///
-/// # Reference (KAT500 rev. 02.12, §AN)
-///
-/// **GET** format: `AN;`
-/// **SET/RSP** format: `ANn;` — `n` = 1–6.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetAntenna;
-
-/// Select the antenna port (1–6).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetAntenna {
-    pub antenna: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetAntenna {
-    fn command_id(&self) -> &[u8] { b"AN" }
-}
-impl CommandWithResponse for GetAntenna {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"AN", 1)?;
-        parse_u8(d)
-    }
-}
-impl Command for SetAntenna {
-    fn command_id(&self) -> &[u8] { b"AN" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{}", self.antenna).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// AP — ATU Preset (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the current ATU preset slot.
-///
-/// # Reference (KAT500 rev. 02.12, §AP)
-///
-/// **GET** format: `AP;`
-/// **SET/RSP** format: `APnnn;` — 3-digit preset slot number.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetAtuPreset;
-
-/// Recall the specified ATU preset slot.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetAtuPreset {
-    pub preset: u16,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetAtuPreset {
-    fn command_id(&self) -> &[u8] { b"AP" }
-}
-impl CommandWithResponse for GetAtuPreset {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"AP", 3)?;
-        parse_u16(d)
-    }
-}
-impl Command for SetAtuPreset {
-    fn command_id(&self) -> &[u8] { b"AP" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.preset).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// ATTN — Attenuator (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query whether the built-in attenuator is enabled.
-///
-/// # Reference (KAT500 rev. 02.12, §ATTN)
-///
-/// **GET** format: `ATTN;`
-/// **SET/RSP** format: `ATTNn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetAttenuator;
-
-/// Enable or disable the attenuator.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetAttenuator {
-    pub enabled: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetAttenuator {
-    fn command_id(&self) -> &[u8] { b"ATTN" }
-}
-impl CommandWithResponse for GetAttenuator {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"ATTN", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetAttenuator {
-    fn command_id(&self) -> &[u8] { b"ATTN" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// BN — Band Number (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query or set the current band number.
-///
-/// # Reference (KAT500 rev. 02.12, §BN)
-///
-/// **GET** format: `BN;`
-/// **SET/RSP** format: `BNnn;` — 2-digit band number (00–13).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetBand;
-
-/// Set the current band.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetBand {
-    pub band: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetBand {
-    fn command_id(&self) -> &[u8] { b"BN" }
-}
-impl CommandWithResponse for GetBand {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 2 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"BN", 2)?;
-        parse_u8(d)
-    }
-}
-impl Command for SetBand {
-    fn command_id(&self) -> &[u8] { b"BN" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:02}", self.band).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// BR — Baud Rate (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the serial port baud rate.
-///
-/// # Reference (KAT500 rev. 02.12, §BR)
-///
-/// **GET** format: `BR;`
-/// **SET/RSP** format: `BRn;` — `n` = 0 (4800), 1 (9600), 2 (19200), 3 (38400).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetBaudRate;
-
-/// Set the serial port baud rate.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetBaudRate {
-    pub rate_index: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetBaudRate {
-    fn command_id(&self) -> &[u8] { b"BR" }
-}
-impl CommandWithResponse for GetBaudRate {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"BR", 1)?;
-        parse_u8(d)
-    }
-}
-impl Command for SetBaudRate {
-    fn command_id(&self) -> &[u8] { b"BR" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{}", self.rate_index).into_bytes())
+> `FT0;`
+
+# Response format
+
+> `FT0{nnn};`
+
+Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
+    GetFaultThresholdLow
+);
+
+define_command!("Set the lower fault SWR threshold.
+
+# Command format
+
+> `FT0{nnn};`
+
+Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
+    SetFaultThresholdLow {
+        swr_d: u16
     }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// BYP — Bypass (SET only — no query)
+// Public Types: GetFaultThresholdHigh, SetFaultThresholdHigh
 // ------------------------------------------------------------------------------------------------
+
+define_command!("Get the upper fault SWR threshold.
+
+# Command format
+
+> `FT1;`
+
+# Response format
+
+> `FT1{nnn};`
+
+Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
+    GetFaultThresholdHigh
+);
+
+define_command!("Set the upper fault SWR threshold.
+
+# Command format
 
-/// Force the ATU into bypass mode immediately.
-///
-/// # Reference (KAT500 rev. 02.12, §BYP)
-///
-/// **SET** format: `BYP;` — no argument; result is immediate.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Bypass;
+> `FT1{nnn};`
 
+Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
+    SetFaultThresholdHigh {
+        swr_d: u16
+    }
+);
+
 // ------------------------------------------------------------------------------------------------
+// Public Types: GetFixedLcState, SetFixedLcState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get whether fixed L/C mode is enabled.
+
+When fixed L/C mode is on, the tuner holds a fixed inductor/capacitor setting rather than
+re-tuning.
+
+# Command format
+
+> `FX;`
+
+# Response format
 
-impl Command for Bypass {
-    fn command_id(&self) -> &[u8] { b"BYP" }
-}
+> `FX{n};`
 
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetFixedLcState
+);
+
+define_command!("Set whether fixed L/C mode is enabled.
+
+# Command format
+
+> `FX{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetFixedLcState { state }
+);
+
 // ------------------------------------------------------------------------------------------------
-// C — Capacitor (GET/SET)
+// Public Types: GetFixedBypassState, SetFixedBypassState
 // ------------------------------------------------------------------------------------------------
+
+define_command!("Get whether fixed bypass mode is active.
+
+# Command format
+
+> `FY;`
 
-///
-/// Query or set the tuning capacitor value.
-///
-/// # Reference (KAT500 rev. 02.12, §C)
-///
-/// **GET** format: `C;`
-/// **SET/RSP** format: `Cnnn;` — 3-digit capacitor value (0–255).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetCapacitor;
+# Response format
 
-/// Set the tuning capacitor value directly.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetCapacitor {
-    pub value: u8,
-}
+> `FY{n};`
 
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetFixedBypassState
+);
+
+define_command!("Set whether fixed bypass mode is active.
+
+# Command format
+
+> `FY{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetFixedBypassState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetInductance, SetInductance
 // ------------------------------------------------------------------------------------------------
 
-impl Command for GetCapacitor {
-    fn command_id(&self) -> &[u8] { b"C" }
-}
-impl CommandWithResponse for GetCapacitor {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"C", 3)?;
-        parse_u8(d)
-    }
-}
-impl Command for SetCapacitor {
-    fn command_id(&self) -> &[u8] { b"C" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.value).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// CT — Capacitor Topology (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query or set the capacitor topology (hi-Z or lo-Z).
-///
-/// # Reference (KAT500 rev. 02.12, §CT)
-///
-/// **GET** format: `CT;`
-/// **SET/RSP** format: `CTn;` — `n` = 0 (lo-Z / cap on output), 1 (hi-Z / cap on input).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetCapacitorTopology;
-
-/// Set the capacitor topology.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetCapacitorTopology {
-    pub hi_z: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetCapacitorTopology {
-    fn command_id(&self) -> &[u8] { b"CT" }
-}
-impl CommandWithResponse for GetCapacitorTopology {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"CT", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetCapacitorTopology {
-    fn command_id(&self) -> &[u8] { b"CT" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.hi_z { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// DM — Demo Mode (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query demo-mode state.
-///
-/// # Reference (KAT500 rev. 02.12, §DM)
-///
-/// **GET** format: `DM;`
-/// **SET/RSP** format: `DMn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetDemoMode;
-
-/// Enable or disable demo mode.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetDemoMode {
-    pub enabled: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetDemoMode {
-    fn command_id(&self) -> &[u8] { b"DM" }
-}
-impl CommandWithResponse for GetDemoMode {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"DM", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetDemoMode {
-    fn command_id(&self) -> &[u8] { b"DM" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
+define_command!("Get the tuning inductance tap.
+
+# Command format
+
+> `I;`
+
+# Response format
+
+> `I{nnn};`
+
+Where *nnn* is the 3-digit inductor tap value, between `000` and `063`." =>
+    GetInductance
+);
+
+define_command!("Set the tuning inductance tap.
+
+# Command format
+
+> `I{nnn};`
+
+Where *nnn* is the 3-digit inductor tap value, between `000` and `063`." =>
+    SetInductance {
+        tap: u8
     }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// EEINIT — EEPROM Init (SET only)
+// Public Types: GetInhibitFan, SetInhibitFan
 // ------------------------------------------------------------------------------------------------
 
-/// Re-initialise EEPROM to factory defaults.
-///
-/// # Reference (KAT500 rev. 02.12, §EEINIT)
-///
-/// **SET** format: `EEINIT;` — no argument; destructive — erases all stored presets.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct EepromInit;
+define_command!("Get whether the cooling fan is inhibited.
 
-// ------------------------------------------------------------------------------------------------
+# Command format
+
+> `IF;`
+
+# Response format
+
+> `IF{n};`
 
-impl Command for EepromInit {
-    fn command_id(&self) -> &[u8] { b"EEINIT" }
-}
+Where `n` is `0` (fan enabled) or `1` (fan inhibited)." =>
+    GetInhibitFan
+);
 
+define_command!("Set whether the cooling fan is inhibited.
+
+# Command format
+
+> `IF{n};`
+
+Where `n` is `0` (fan enabled) or `1` (fan inhibited)." =>
+    SetInhibitFan {
+        inhibit: bool
+    }
+);
+
 // ------------------------------------------------------------------------------------------------
-// EM — Error Message (GET)
+// Public Types: GetInductorSwitch, SetInductorSwitch
 // ------------------------------------------------------------------------------------------------
 
-///
-/// Query the last error message string.
-///
-/// # Reference (KAT500 rev. 02.12, §EM)
-///
-/// **GET** format: `EM;`
-/// **RSP** format: `EM<text>;` — variable-length ASCII text.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetErrorMessage;
+define_command!("Get the inductor switch bitmask.
 
-// ------------------------------------------------------------------------------------------------
+# Command format
 
-impl Command for GetErrorMessage {
-    fn command_id(&self) -> &[u8] { b"EM" }
-}
-impl CommandWithResponse for GetErrorMessage {
-    type Response = Vec<u8>;
-    fn expected_response_length(&self) -> usize { 0 }
-    fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
-        let d = validate_response(bytes, b"EM", 0)?;
-        Ok(d.to_vec())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// F — Frequency (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query or set the operating frequency in Hz.
-///
-/// # Reference (KAT500 rev. 02.12, §F)
-///
-/// **GET** format: `F;`
-/// **SET/RSP** format: `F00000000;` — 8-digit Hz, zero-padded.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetFrequency;
-
-/// Set the operating frequency in Hz.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetFrequency {
-    pub freq_hz: u32,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetFrequency {
-    fn command_id(&self) -> &[u8] { b"F" }
-}
-impl CommandWithResponse for GetFrequency {
-    type Response = u32;
-    fn expected_response_length(&self) -> usize { 8 }
-    fn parse(&self, bytes: &[u8]) -> Result<u32, RigError> {
-        let d = validate_response(bytes, b"F", 8)?;
-        parse_u32(d)
-    }
-}
-impl Command for SetFrequency {
-    fn command_id(&self) -> &[u8] { b"F" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:08}", self.freq_hz).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// FA / FB — Forward Power Meter A/B (GET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the forward power reading on meter channel A (deci-watts).
-///
-/// # Reference (KAT500 rev. 02.12, §FA)
-///
-/// **GET** format: `FA;`
-/// **RSP** format: `FAnnn;`
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetForwardPowerA;
-
-///
-/// Query the forward power reading on meter channel B (deci-watts).
-///
-/// # Reference (KAT500 rev. 02.12, §FB)
-///
-/// **GET** format: `FB;`
-/// **RSP** format: `FBnnn;`
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetForwardPowerB;
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetForwardPowerA {
-    fn command_id(&self) -> &[u8] { b"FA" }
-}
-impl CommandWithResponse for GetForwardPowerA {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"FA", 3)?;
-        parse_u16(d)
-    }
-}
-
-impl Command for GetForwardPowerB {
-    fn command_id(&self) -> &[u8] { b"FB" }
-}
-impl CommandWithResponse for GetForwardPowerB {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"FB", 3)?;
-        parse_u16(d)
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// FC — Fan Control threshold (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the fan-on power threshold (watts).
-///
-/// # Reference (KAT500 rev. 02.12, §FC)
-///
-/// **GET** format: `FC;`
-/// **SET/RSP** format: `FCnnn;` — 3-digit threshold in watts.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetFanThreshold;
-
-/// Set the fan-on power threshold in watts.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetFanThreshold {
-    pub threshold_w: u16,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetFanThreshold {
-    fn command_id(&self) -> &[u8] { b"FC" }
-}
-impl CommandWithResponse for GetFanThreshold {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"FC", 3)?;
-        parse_u16(d)
-    }
-}
-impl Command for SetFanThreshold {
-    fn command_id(&self) -> &[u8] { b"FC" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.threshold_w).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// FDT — Fault Delay Time (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the fault delay time (ms).
-///
-/// # Reference (KAT500 rev. 02.12, §FDT)
-///
-/// **GET** format: `FDT;`
-/// **SET/RSP** format: `FDTnnn;`
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetFaultDelayTime;
-
-/// Set the fault delay time in milliseconds.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetFaultDelayTime {
-    pub delay_ms: u16,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetFaultDelayTime {
-    fn command_id(&self) -> &[u8] { b"FDT" }
-}
-impl CommandWithResponse for GetFaultDelayTime {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"FDT", 3)?;
-        parse_u16(d)
-    }
-}
-impl Command for SetFaultDelayTime {
-    fn command_id(&self) -> &[u8] { b"FDT" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.delay_ms).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// FLT / FLTC — Fault Status / Clear Fault (GET / SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the fault status code.
-///
-/// # Reference (KAT500 rev. 02.12, §FLT)
-///
-/// **GET** format: `FLT;`
-/// **RSP** format: `FLTnn;` — 2-digit code (00 = no fault).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetFaultStatus;
-
-/// Clear the current fault.
-///
-/// # Reference (KAT500 rev. 02.12, §FLTC)
-///
-/// **SET** format: `FLTC;` — no argument.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ClearFault;
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetFaultStatus {
-    fn command_id(&self) -> &[u8] { b"FLT" }
-}
-impl CommandWithResponse for GetFaultStatus {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 2 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"FLT", 2)?;
-        parse_u8(d)
-    }
-}
-impl Command for ClearFault {
-    fn command_id(&self) -> &[u8] { b"FLTC" }
-}
-
-// ------------------------------------------------------------------------------------------------
-// FTNS — Tune SWR Threshold (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the SWR threshold used to consider a tune successful.
-///
-/// # Reference (KAT500 rev. 02.12, §FTNS)
-///
-/// **GET** format: `FTNS;`
-/// **SET/RSP** format: `FTNSnnn;` — SWR × 10 (e.g. `150` = 1.5:1).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetTuneSatisfiedSwr;
-
-/// Set the tune-satisfied SWR threshold (SWR × 10).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetTuneSatisfiedSwr {
-    pub swr_d: u16,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetTuneSatisfiedSwr {
-    fn command_id(&self) -> &[u8] { b"FTNS" }
-}
-impl CommandWithResponse for GetTuneSatisfiedSwr {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"FTNS", 3)?;
-        parse_u16(d)
-    }
-}
-impl Command for SetTuneSatisfiedSwr {
-    fn command_id(&self) -> &[u8] { b"FTNS" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.swr_d).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// FT0 / FT1 — Fault Threshold Low / High (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the lower fault SWR threshold (SWR × 10).
-///
-/// # Reference (KAT500 rev. 02.12, §FT0)
-///
-/// **GET** format: `FT0;`
-/// **SET/RSP** format: `FT0nnn;`
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetFaultThresholdLow;
-
-/// Set the lower fault SWR threshold (SWR × 10).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetFaultThresholdLow {
-    pub swr_d: u16,
-}
-
-///
-/// Query the upper fault SWR threshold (SWR × 10).
-///
-/// # Reference (KAT500 rev. 02.12, §FT1)
-///
-/// **GET** format: `FT1;`
-/// **SET/RSP** format: `FT1nnn;`
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetFaultThresholdHigh;
-
-/// Set the upper fault SWR threshold (SWR × 10).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetFaultThresholdHigh {
-    pub swr_d: u16,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetFaultThresholdLow {
-    fn command_id(&self) -> &[u8] { b"FT0" }
-}
-impl CommandWithResponse for GetFaultThresholdLow {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"FT0", 3)?;
-        parse_u16(d)
-    }
-}
-impl Command for SetFaultThresholdLow {
-    fn command_id(&self) -> &[u8] { b"FT0" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.swr_d).into_bytes())
-    }
-}
-
-impl Command for GetFaultThresholdHigh {
-    fn command_id(&self) -> &[u8] { b"FT1" }
-}
-impl CommandWithResponse for GetFaultThresholdHigh {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"FT1", 3)?;
-        parse_u16(d)
-    }
-}
-impl Command for SetFaultThresholdHigh {
-    fn command_id(&self) -> &[u8] { b"FT1" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.swr_d).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// FX — Fixed L/C (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query whether fixed L/C mode is active.
-///
-/// # Reference (KAT500 rev. 02.12, §FX)
-///
-/// **GET** format: `FX;`
-/// **SET/RSP** format: `FXn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetFixedLc;
-
-/// Enable or disable fixed L/C mode.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetFixedLc {
-    pub enabled: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetFixedLc {
-    fn command_id(&self) -> &[u8] { b"FX" }
-}
-impl CommandWithResponse for GetFixedLc {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"FX", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetFixedLc {
-    fn command_id(&self) -> &[u8] { b"FX" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// FY — Fixed Bypass (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query whether fixed bypass mode is active.
-///
-/// # Reference (KAT500 rev. 02.12, §FY)
-///
-/// **GET** format: `FY;`
-/// **SET/RSP** format: `FYn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetFixedBypass;
-
-/// Enable or disable fixed bypass mode.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetFixedBypass {
-    pub enabled: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetFixedBypass {
-    fn command_id(&self) -> &[u8] { b"FY" }
-}
-impl CommandWithResponse for GetFixedBypass {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"FY", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetFixedBypass {
-    fn command_id(&self) -> &[u8] { b"FY" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// I — Inductance (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query or set the tuning inductance tap (0–63).
-///
-/// # Reference (KAT500 rev. 02.12, §I)
-///
-/// **GET** format: `I;`
-/// **SET/RSP** format: `Innn;` — 3-digit inductor tap value.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetInductance;
-
-/// Set the tuning inductance tap directly.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetInductance {
-    pub tap: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetInductance {
-    fn command_id(&self) -> &[u8] { b"I" }
-}
-impl CommandWithResponse for GetInductance {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"I", 3)?;
-        parse_u8(d)
-    }
-}
-impl Command for SetInductance {
-    fn command_id(&self) -> &[u8] { b"I" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.tap).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// IF — Inhibit Fan (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query whether the fan is inhibited.
-///
-/// # Reference (KAT500 rev. 02.12, §IF)
-///
-/// **GET** format: `IF;`
-/// **SET/RSP** format: `IFn;` — `n` = 0 (fan enabled), 1 (fan inhibited).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetInhibitFan;
-
-/// Inhibit or enable the cooling fan.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetInhibitFan {
-    pub inhibit: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetInhibitFan {
-    fn command_id(&self) -> &[u8] { b"IF" }
-}
-impl CommandWithResponse for GetInhibitFan {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"IF", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetInhibitFan {
-    fn command_id(&self) -> &[u8] { b"IF" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.inhibit { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// L — Inductance Switch (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the inductor switch bitmask.
-///
-/// # Reference (KAT500 rev. 02.12, §L)
-///
-/// **GET** format: `L;`
-/// **SET/RSP** format: `Lnnn;`
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetInductorSwitch;
-
-/// Set the inductor switch bitmask directly.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetInductorSwitch {
-    pub mask: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetInductorSwitch {
-    fn command_id(&self) -> &[u8] { b"L" }
-}
-impl CommandWithResponse for GetInductorSwitch {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"L", 3)?;
-        parse_u8(d)
-    }
-}
-impl Command for SetInductorSwitch {
-    fn command_id(&self) -> &[u8] { b"L" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.mask).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// MD — Mode (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the current operating mode.
-///
-/// # Reference (KAT500 rev. 02.12, §MD)
-///
-/// **GET** format: `MD;`
-/// **SET/RSP** format: `MDn;` — `n` = 0 (auto), 1 (semi-auto), 2 (manual).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetOperatingMode;
-
-/// Set the operating mode.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetOperatingMode {
-    pub mode: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetOperatingMode {
-    fn command_id(&self) -> &[u8] { b"MD" }
-}
-impl CommandWithResponse for GetOperatingMode {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"MD", 1)?;
-        parse_u8(d)
-    }
-}
-impl Command for SetOperatingMode {
-    fn command_id(&self) -> &[u8] { b"MD" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{}", self.mode).into_bytes())
+> `L;`
+
+# Response format
+
+> `L{nnn};`
+
+Where *nnn* is the 3-digit inductor switch bitmask." =>
+    GetInductorSwitch
+);
+
+define_command!("Set the inductor switch bitmask directly.
+
+# Command format
+
+> `L{nnn};`
+
+Where *nnn* is the 3-digit inductor switch bitmask." =>
+    SetInductorSwitch {
+        mask: u8
     }
-}
-
-// ------------------------------------------------------------------------------------------------
-// MT — Meter Type (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the meter display type.
-///
-/// # Reference (KAT500 rev. 02.12, §MT)
-///
-/// **GET** format: `MT;`
-/// **SET/RSP** format: `MTn;` — `n` = 0 (SWR), 1 (power), 2 (reflected).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetMeterType;
-
-/// Set the meter display type.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetMeterType {
-    pub meter: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetMeterType {
-    fn command_id(&self) -> &[u8] { b"MT" }
-}
-impl CommandWithResponse for GetMeterType {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"MT", 1)?;
-        parse_u8(d)
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetOperatingMode, SetOperatingMode, OperatingMode
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the current ATU operating mode.
+
+# Command format
+
+> `MD;`
+
+# Response format
+
+> `MD{n};`
+
+Where *n* is one of:
+
+* `0`; automatic tuning.
+* `1`; semi-automatic tuning.
+* `2`; manual tuning." =>
+    GetOperatingMode
+);
+
+define_command!("Set the current ATU operating mode.
+
+# Command format
+
+> `MD{n};`
+
+Where *n* is one of:
+
+* `0`; automatic tuning.
+* `1`; semi-automatic tuning.
+* `2`; manual tuning." =>
+    SetOperatingMode {
+        mode: OperatingMode
     }
-}
-impl Command for SetMeterType {
-    fn command_id(&self) -> &[u8] { b"MT" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{}", self.meter).into_bytes())
+);
+
+define_command_enum!(
+    "The ATU operating mode." => OperatingMode {
+        "Automatic tuning; the ATU tunes without operator intervention." => Auto = b'0',
+        "Semi-automatic tuning; the ATU tunes only when explicitly triggered." => SemiAuto = b'1',
+        "Manual tuning; L/C values are set directly by the operator." => Manual = b'2'
     }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// PS — Power Status (GET)
+// Public Types: GetMeterType, SetMeterType, MeterType
 // ------------------------------------------------------------------------------------------------
 
-///
-/// Query the power-on status.
-///
-/// # Reference (KAT500 rev. 02.12, §PS)
-///
-/// **GET** format: `PS;`
-/// **RSP** format: `PSn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetPowerStatus;
+define_command!("Get the front-panel meter display type.
 
-// ------------------------------------------------------------------------------------------------
+# Command format
+
+> `MT;`
+
+# Response format
+
+> `MT{n};`
+
+Where *n* is one of:
+
+* `0`; SWR.
+* `1`; power.
+* `2`; reflected power." =>
+    GetMeterType
+);
+
+define_command!("Set the front-panel meter display type.
+
+# Command format
 
-impl Command for GetPowerStatus {
-    fn command_id(&self) -> &[u8] { b"PS" }
-}
-impl CommandWithResponse for GetPowerStatus {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"PS", 1)?;
-        Ok(d[0] == b'1')
+> `MT{n};`
+
+Where *n* is one of:
+
+* `0`; SWR.
+* `1`; power.
+* `2`; reflected power." =>
+    SetMeterType {
+        meter: MeterType
+    }
+);
+
+define_command_enum!(
+    "The front-panel meter display type." => MeterType {
+        "Display SWR." => Swr = b'0',
+        "Display forward power." => Power = b'1',
+        "Display reflected power." => Reflected = b'2'
     }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// PSI — Power Sensor Input (GET)
+// Public Types: GetPowerStatus
 // ------------------------------------------------------------------------------------------------
 
-///
-/// Query the forward power from the internal sensor (deci-watts).
-///
-/// # Reference (KAT500 rev. 02.12, §PSI)
-///
-/// **GET** format: `PSI;`
-/// **RSP** format: `PSInnn;`
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetPowerSensorInput;
+define_command!("Get the power-on status.
 
-// ------------------------------------------------------------------------------------------------
+# Command format
 
-impl Command for GetPowerSensorInput {
-    fn command_id(&self) -> &[u8] { b"PSI" }
-}
-impl CommandWithResponse for GetPowerSensorInput {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"PSI", 3)?;
-        parse_u16(d)
-    }
-}
+> `PS;`
+
+# Response format
+
+> `PS{n};`
 
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetPowerStatus
+);
+
 // ------------------------------------------------------------------------------------------------
-// RSTx — Reset (SET only)
+// Public Types: GetPowerSensorInput
 // ------------------------------------------------------------------------------------------------
+
+define_command!("Get the forward power reading from the internal sensor.
+
+# Command format
+
+> `PSI;`
 
-/// Perform a soft reset of the KAT500.
-///
-/// # Reference (KAT500 rev. 02.12, §RSTx)
-///
-/// **SET** format: `RSTX;` — triggers firmware restart.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ResetDevice;
+# Response format
 
+> `PSI{nnn};`
+
+Where *nnn* is the forward power, in deci-watts (tenths of a watt)." =>
+    GetPowerSensorInput
+);
+
 // ------------------------------------------------------------------------------------------------
+// Public Types: ResetDevice
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Perform a soft reset of the KAT500, triggering a firmware restart.
 
-impl Command for ResetDevice {
-    fn command_id(&self) -> &[u8] { b"RSTX" }
-}
+There is no query form.
 
+# Command format
+
+> `RSTX;`" =>
+    ResetDevice
+);
+
 // ------------------------------------------------------------------------------------------------
-// RV — Firmware Version (GET)
+// Public Types: GetFirmwareVersion
 // ------------------------------------------------------------------------------------------------
+
+define_command!("Get the firmware version string.
+
+# Command format
 
-///
-/// Query the firmware version string.
-///
-/// # Reference (KAT500 rev. 02.12, §RV)
-///
-/// **GET** format: `RV;`
-/// **RSP** format: `RV<version>;` — e.g. `RV02.12;`.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetFirmwareVersion;
+> `RV;`
 
+# Response format
+
+> `RV{text};`
+
+The response is a variable-length ASCII text string, returned as raw bytes, e.g. `RV02.12;`." =>
+    GetFirmwareVersion
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetAntennaSide, SetAntennaSide, AntennaSide
 // ------------------------------------------------------------------------------------------------
 
-impl Command for GetFirmwareVersion {
-    fn command_id(&self) -> &[u8] { b"RV" }
-}
-impl CommandWithResponse for GetFirmwareVersion {
-    type Response = Vec<u8>;
-    fn expected_response_length(&self) -> usize { 0 }
-    fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
-        let d = validate_response(bytes, b"RV", 0)?;
-        Ok(d.to_vec())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// SIDE — Antenna Side (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the antenna side selection.
-///
-/// # Reference (KAT500 rev. 02.12, §SIDE)
-///
-/// **GET** format: `SIDE;`
-/// **SET/RSP** format: `SIDEn;` — `n` = 0 (left), 1 (right).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetAntennaSide;
-
-/// Set the antenna side.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetAntennaSide {
-    pub right: bool,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetAntennaSide {
-    fn command_id(&self) -> &[u8] { b"SIDE" }
-}
-impl CommandWithResponse for GetAntennaSide {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"SIDE", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetAntennaSide {
-    fn command_id(&self) -> &[u8] { b"SIDE" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.right { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// SL — Speed Limit (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the tuning speed limit setting.
-///
-/// # Reference (KAT500 rev. 02.12, §SL)
-///
-/// **GET** format: `SL;`
-/// **SET/RSP** format: `SLn;` — `n` = 0 (fastest) … 9 (slowest).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetSpeedLimit;
-
-/// Set the tuning speed limit (0–9).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetSpeedLimit {
-    pub level: u8,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetSpeedLimit {
-    fn command_id(&self) -> &[u8] { b"SL" }
-}
-impl CommandWithResponse for GetSpeedLimit {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"SL", 1)?;
-        parse_u8(d)
+define_command!("Get the antenna side selection.
+
+# Command format
+
+> `SIDE;`
+
+# Response format
+
+> `SIDE{n};`
+
+Where *n* is one of:
+
+* `0`; left.
+* `1`; right." =>
+    GetAntennaSide
+);
+
+define_command!("Set the antenna side selection.
+
+# Command format
+
+> `SIDE{n};`
+
+Where *n* is one of:
+
+* `0`; left.
+* `1`; right." =>
+    SetAntennaSide {
+        side: AntennaSide
     }
-}
-impl Command for SetSpeedLimit {
-    fn command_id(&self) -> &[u8] { b"SL" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{}", self.level).into_bytes())
+);
+
+define_command_enum!(
+    "The antenna side selection." => AntennaSide {
+        "Left side." => Left = b'0',
+        "Right side." => Right = b'1'
     }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// SM — SWR Meter (GET)
+// Public Types: GetTuningSpeedLimit, SetTuningSpeedLimit
 // ------------------------------------------------------------------------------------------------
 
-///
-/// Query the current SWR reading (SWR × 10).
-///
-/// # Reference (KAT500 rev. 02.12, §SM)
-///
-/// **GET** format: `SM;`
-/// **RSP** format: `SMnnn;`
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetSwrMeter;
+define_command!("Get the tuning speed limit setting.
 
-// ------------------------------------------------------------------------------------------------
+# Command format
 
-impl Command for GetSwrMeter {
-    fn command_id(&self) -> &[u8] { b"SM" }
-}
-impl CommandWithResponse for GetSwrMeter {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"SM", 3)?;
-        parse_u16(d)
+> `SL;`
+
+# Response format
+
+> `SL{n};`
+
+Where *n* is the tuning speed limit, between `0` (fastest) and `9` (slowest)." =>
+    GetTuningSpeedLimit
+);
+
+define_command!("Set the tuning speed limit.
+
+# Command format
+
+> `SL{n};`
+
+Where *n* is the tuning speed limit, between `0` (fastest) and `9` (slowest)." =>
+    SetTuningSpeedLimit {
+        level: u8
     }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// SN — Serial Number (GET)
+// Public Types: GetSwrMeter
 // ------------------------------------------------------------------------------------------------
 
-///
-/// Query the unit serial number.
-///
-/// # Reference (KAT500 rev. 02.12, §SN)
-///
-/// **GET** format: `SN;`
-/// **RSP** format: `SN<number>;` — variable-length decimal string.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetSerialNumber;
+define_command!("Get the current SWR meter reading.
 
-// ------------------------------------------------------------------------------------------------
+# Command format
 
-impl Command for GetSerialNumber {
-    fn command_id(&self) -> &[u8] { b"SN" }
-}
-impl CommandWithResponse for GetSerialNumber {
-    type Response = Vec<u8>;
-    fn expected_response_length(&self) -> usize { 0 }
-    fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
-        let d = validate_response(bytes, b"SN", 0)?;
-        Ok(d.to_vec())
-    }
-}
+> `SM;`
+
+# Response format
+
+> `SM{nnn};`
+
+Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
+    GetSwrMeter
+);
 
 // ------------------------------------------------------------------------------------------------
-// ST — Start Tune (SET only)
+// Public Types: GetSerialNumber
 // ------------------------------------------------------------------------------------------------
+
+define_command!("Get the unit serial number.
+
+# Command format
+
+> `SN;`
+
+# Response format
 
-/// Initiate a tuning cycle.
-///
-/// # Reference (KAT500 rev. 02.12, §ST)
-///
-/// **SET** format: `ST;` — no argument.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct StartTune;
+> `SN{text};`
 
+The response is a variable-length decimal string, returned as raw bytes." =>
+    GetSerialNumber
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: StartTune
 // ------------------------------------------------------------------------------------------------
+
+define_command!("Initiate a tuning cycle.
+
+There is no query form; use [`GetTuneState`] to poll for completion.
 
-impl Command for StartTune {
-    fn command_id(&self) -> &[u8] { b"ST" }
-}
+# Command format
 
+> `ST;`" =>
+    StartTune
+);
+
 // ------------------------------------------------------------------------------------------------
-// T — Tune State (GET)
+// Public Types: GetTuneState
 // ------------------------------------------------------------------------------------------------
+
+define_command!("Get whether a tuning cycle is currently in progress.
+
+# Command format
+
+> `T;`
 
-///
-/// Query whether a tuning cycle is in progress.
-///
-/// # Reference (KAT500 rev. 02.12, §T)
-///
-/// **GET** format: `T;`
-/// **RSP** format: `Tn;` — `n` = 0 (idle), 1 (tuning).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetTuneState;
+# Response format
 
+> `T{n};`
+
+Where `n` is the boolean state `0` (idle) or `1` (tuning)." =>
+    GetTuneState
+);
+
 // ------------------------------------------------------------------------------------------------
+// Public Types: GetTunePower, SetTunePower
+// ------------------------------------------------------------------------------------------------
 
-impl Command for GetTuneState {
-    fn command_id(&self) -> &[u8] { b"T" }
-}
-impl CommandWithResponse for GetTuneState {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"T", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// TP — Tune Power (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the tune power level (watts).
-///
-/// # Reference (KAT500 rev. 02.12, §TP)
-///
-/// **GET** format: `TP;`
-/// **SET/RSP** format: `TPnnn;`
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetTunePower;
-
-/// Set the tune power level in watts.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetTunePower {
-    pub power_w: u16,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetTunePower {
-    fn command_id(&self) -> &[u8] { b"TP" }
-}
-impl CommandWithResponse for GetTunePower {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"TP", 3)?;
-        parse_u16(d)
-    }
-}
-impl Command for SetTunePower {
-    fn command_id(&self) -> &[u8] { b"TP" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.power_w).into_bytes())
+define_command!("Get the RF power level used during a tune cycle.
+
+# Command format
+
+> `TP;`
+
+# Response format
+
+> `TP{nnn};`
+
+Where *nnn* is the tune power, in watts." =>
+    GetTunePower
+);
+
+define_command!("Set the RF power level used during a tune cycle.
+
+# Command format
+
+> `TP{nnn};`
+
+Where *nnn* is the tune power, in watts." =>
+    SetTunePower {
+        power_w: u16
     }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// VFWD — Forward Voltage (GET)
+// Public Types: GetForwardVoltage
 // ------------------------------------------------------------------------------------------------
+
+define_command!("Get the ADC forward voltage reading.
+
+# Command format
 
-///
-/// Query the ADC forward voltage reading (raw counts).
-///
-/// # Reference (KAT500 rev. 02.12, §VFWD)
-///
-/// **GET** format: `VFWD;`
-/// **RSP** format: `VFWDnnn;`
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetForwardVoltage;
+> `VFWD;`
 
+# Response format
+
+> `VFWD{nnn};`
+
+Where *nnn* is the raw ADC forward voltage reading, in counts." =>
+    GetForwardVoltage
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetReflectedVoltage
 // ------------------------------------------------------------------------------------------------
 
-impl Command for GetForwardVoltage {
-    fn command_id(&self) -> &[u8] { b"VFWD" }
-}
-impl CommandWithResponse for GetForwardVoltage {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"VFWD", 3)?;
-        parse_u16(d)
-    }
-}
+define_command!("Get the ADC reflected voltage reading.
+
+# Command format
+
+> `VRFL;`
+
+# Response format
 
+> `VRFL{nnn};`
+
+Where *nnn* is the raw ADC reflected voltage reading, in counts." =>
+    GetReflectedVoltage
+);
+
 // ------------------------------------------------------------------------------------------------
-// VRFL — Reflected Voltage (GET)
+// Public Types: GetSwr
 // ------------------------------------------------------------------------------------------------
+
+define_command!("Get the computed standing wave ratio.
+
+# Command format
 
-///
-/// Query the ADC reflected voltage reading (raw counts).
-///
-/// # Reference (KAT500 rev. 02.12, §VRFL)
-///
-/// **GET** format: `VRFL;`
-/// **RSP** format: `VRFLnnn;`
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetReflectedVoltage;
+> `VSWR;`
 
+# Response format
+
+> `VSWR{nnn};`
+
+Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
+    GetSwr
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetSwrBypassThreshold, SetSwrBypassThreshold
 // ------------------------------------------------------------------------------------------------
+
+define_command!("Get the SWR threshold above which bypass is engaged.
+
+# Command format
+
+> `VSWRB;`
+
+# Response format
+
+> `VSWRB{nnn};`
+
+Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
+    GetSwrBypassThreshold
+);
+
+define_command!("Set the SWR threshold above which bypass is engaged.
+
+# Command format
 
-impl Command for GetReflectedVoltage {
-    fn command_id(&self) -> &[u8] { b"VRFL" }
-}
-impl CommandWithResponse for GetReflectedVoltage {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"VRFL", 3)?;
-        parse_u16(d)
+> `VSWRB{nnn};`
+
+Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
+    SetSwrBypassThreshold {
+        swr_d: u16
     }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// VSWR — SWR Reading (GET)
+// Implementations
 // ------------------------------------------------------------------------------------------------
+
+impl_command!(GetAutoBypassState => b"AB");
+impl_command_with_response!(GetAutoBypassState => boolean);
 
-///
-/// Query the computed SWR (SWR × 10).
-///
-/// # Reference (KAT500 rev. 02.12, §VSWR)
-///
-/// **GET** format: `VSWR;`
-/// **RSP** format: `VSWRnnn;`
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetSwr;
+impl_command!(SetAutoBypassState => b"AB" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl Command for GetSwr {
-    fn command_id(&self) -> &[u8] { b"VSWR" }
-}
-impl CommandWithResponse for GetSwr {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"VSWR", 3)?;
-        parse_u16(d)
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// VSWRB — SWR Bypass Threshold (GET/SET)
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the SWR threshold above which bypass is engaged (SWR × 10).
-///
-/// # Reference (KAT500 rev. 02.12, §VSWRB)
-///
-/// **GET** format: `VSWRB;`
-/// **SET/RSP** format: `VSWRBnnn;`
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetSwrBypassThreshold;
-
-/// Set the SWR bypass threshold (SWR × 10).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetSwrBypassThreshold {
-    pub swr_d: u16,
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Command for GetSwrBypassThreshold {
-    fn command_id(&self) -> &[u8] { b"VSWRB" }
-}
-impl CommandWithResponse for GetSwrBypassThreshold {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize { 3 }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"VSWRB", 3)?;
-        parse_u16(d)
-    }
-}
-impl Command for SetSwrBypassThreshold {
-    fn command_id(&self) -> &[u8] { b"VSWRB" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.swr_d).into_bytes())
-    }
-}
+impl_command!(GetAutoEnableState => b"AE");
+impl_command_with_response!(GetAutoEnableState => boolean);
+
+impl_command!(SetAutoEnableState => b"AE" for state);
+
+// ------------------------------------------------------------------------------------------------
 
+impl_command!(GetAtuFaultState => b"AFT");
+impl_command_with_response!(GetAtuFaultState => boolean);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetAtuKeepInPlaceState => b"AKIP");
+impl_command_with_response!(GetAtuKeepInPlaceState => boolean);
+
+impl_command!(SetAtuKeepInPlaceState => b"AKIP" for state);
+
 // ------------------------------------------------------------------------------------------------
-// Private parse helpers
+
+impl_command!(GetAmplifierInterface => b"AMPI");
+impl_command_with_response!(GetAmplifierInterface => boolean);
+
+impl_command!(SetAmplifierInterface => b"AMPI" for boolean closed);
+
 // ------------------------------------------------------------------------------------------------
+
+impl_command!(GetAntenna => b"AN");
+impl_command_with_response!(GetAntenna => 1, u8_from_ascii => u8);
 
-fn parse_u8(bytes: &[u8]) -> Result<u8, RigError> {
-    let mut n = 0u16;
-    for &b in bytes {
-        if !(b'0'..=b'9').contains(&b) {
-            return Err(RigError::InvalidResponseData { data: bytes.to_vec() });
+impl_command!(
+    SetAntenna => b"AN"
+    format antenna uint 1,
+    if |cmd: &SetAntenna| {
+        if (1..=6).contains(&cmd.antenna) {
+            Ok(())
+        } else {
+            Err(invalid_argument_value(
+                "antenna",
+                "u8",
+                cmd.antenna
+            ))
         }
-        n = n * 10 + u16::from(b - b'0');
     }
-    u8::try_from(n).map_err(|_| RigError::InvalidResponseData { data: bytes.to_vec() })
-}
+);
 
-fn parse_u16(bytes: &[u8]) -> Result<u16, RigError> {
-    let mut n = 0u32;
-    for &b in bytes {
-        if !(b'0'..=b'9').contains(&b) {
-            return Err(RigError::InvalidResponseData { data: bytes.to_vec() });
-        }
-        n = n * 10 + u32::from(b - b'0');
-    }
-    u16::try_from(n).map_err(|_| RigError::InvalidResponseData { data: bytes.to_vec() })
-}
+// ------------------------------------------------------------------------------------------------
 
-fn parse_u32(bytes: &[u8]) -> Result<u32, RigError> {
-    let mut n = 0u64;
-    for &b in bytes {
-        if !(b'0'..=b'9').contains(&b) {
-            return Err(RigError::InvalidResponseData { data: bytes.to_vec() });
+impl_command!(GetAtuPreset => b"AP");
+impl_command_with_response!(GetAtuPreset => 3, u16_from_ascii => u16);
+
+impl_command!(SetAtuPreset => b"AP" format preset uint 3);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetAttenuatorState => b"ATTN");
+impl_command_with_response!(GetAttenuatorState => boolean);
+
+impl_command!(SetAttenuatorState => b"ATTN" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetBand => b"BN");
+impl_command_with_response!(GetBand => 2, u8_from_ascii => u8);
+
+impl_command!(
+    SetBand => b"BN"
+    format band uint 2,
+    if |cmd: &SetBand| {
+        if cmd.band <= 13 {
+            Ok(())
+        } else {
+            Err(invalid_argument_value(
+                "band",
+                "u8",
+                cmd.band
+            ))
         }
-        n = n * 10 + u64::from(b - b'0');
     }
-    u32::try_from(n).map_err(|_| RigError::InvalidResponseData { data: bytes.to_vec() })
-}
+);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetBaudRate => b"#BR");
+impl_command_with_response!(GetBaudRate => 1, |bytes: &[u8]| {
+    match bytes[0] {
+        b'0' => Ok(BaudRate::Bd4800),
+        b'1' => Ok(BaudRate::Bd9600),
+        b'2' => Ok(BaudRate::Bd19200),
+        b'3' => Ok(BaudRate::Bd38400),
+        _ => Err(enum_parse(string_from_ascii(bytes)?, "BaudRate"))
+    }
+} => BaudRate);
+
+impl_command!(SetBaudRate => b"#BR" with |s: &SetBaudRate| {
+    match s.baud_rate {
+        BaudRate::Bd4800 => Ok(Some(vec![b'0'])),
+        BaudRate::Bd9600 => Ok(Some(vec![b'1'])),
+        BaudRate::Bd19200 => Ok(Some(vec![b'2'])),
+        BaudRate::Bd38400 => Ok(Some(vec![b'3'])),
+        _ => Err(invalid_argument_value(
+            "baud_rate",
+            "BaudRate",
+            s.baud_rate
+        ))
+    }
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(Bypass => b"BYP");
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetCapacitorValue => b"C");
+impl_command_with_response!(GetCapacitorValue => 3, u8_from_ascii => u8);
+
+impl_command!(SetCapacitorValue => b"C" format value uint 3);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetCapacitorTopology => b"CT");
+impl_command_with_response!(GetCapacitorTopology => boolean);
+
+impl_command!(SetCapacitorTopology => b"CT" for boolean hi_z);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetDemoModeState => b"DM");
+impl_command_with_response!(GetDemoModeState => boolean);
+
+impl_command!(SetDemoModeState => b"DM" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(EepromInit => b"EEINIT");
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetErrorMessage => b"EM");
+impl_command_with_response!(GetErrorMessage => 0, bytes_to_vec => Vec<u8>);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetFrequency => b"F");
+impl_command_with_response!(GetFrequency => 8, |bytes| {
+    Ok(Frequency::from(u64::from(u32_from_ascii(bytes)?)))
+} => Frequency);
+
+impl_command!(SetFrequency => b"F" with Some |cmd: &SetFrequency| {
+    format!("{:08}", cmd.freq_hz.value()).into_bytes()
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetForwardPowerA => b"FA");
+impl_command_with_response!(GetForwardPowerA => 3, u16_from_ascii => u16);
+
+impl_command!(GetForwardPowerB => b"FB");
+impl_command_with_response!(GetForwardPowerB => 3, u16_from_ascii => u16);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetFanThreshold => b"FC");
+impl_command_with_response!(GetFanThreshold => 3, u16_from_ascii => u16);
+
+impl_command!(SetFanThreshold => b"FC" format threshold_w uint 3);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetFaultDelayTime => b"FDT");
+impl_command_with_response!(GetFaultDelayTime => 3, u16_from_ascii => u16);
+
+impl_command!(SetFaultDelayTime => b"FDT" format delay_ms uint 3);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetFaultStatus => b"FLT");
+impl_command_with_response!(GetFaultStatus => 2, u8_from_ascii => u8);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(ClearCurrentFault => b"FLTC");
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetTuneSatisfiedSwr => b"FTNS");
+impl_command_with_response!(GetTuneSatisfiedSwr => 3, u16_from_ascii => u16);
+
+impl_command!(SetTuneSatisfiedSwr => b"FTNS" format swr_d uint 3);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetFaultThresholdLow => b"FT0");
+impl_command_with_response!(GetFaultThresholdLow => 3, u16_from_ascii => u16);
+
+impl_command!(SetFaultThresholdLow => b"FT0" format swr_d uint 3);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetFaultThresholdHigh => b"FT1");
+impl_command_with_response!(GetFaultThresholdHigh => 3, u16_from_ascii => u16);
+
+impl_command!(SetFaultThresholdHigh => b"FT1" format swr_d uint 3);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetFixedLcState => b"FX");
+impl_command_with_response!(GetFixedLcState => boolean);
+
+impl_command!(SetFixedLcState => b"FX" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetFixedBypassState => b"FY");
+impl_command_with_response!(GetFixedBypassState => boolean);
+
+impl_command!(SetFixedBypassState => b"FY" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetInductance => b"I");
+impl_command_with_response!(GetInductance => 3, u8_from_ascii => u8);
+
+impl_command!(
+    SetInductance => b"I"
+    format tap uint 3,
+    if |cmd: &SetInductance| {
+        if cmd.tap <= 63 {
+            Ok(())
+        } else {
+            Err(invalid_argument_value(
+                "tap",
+                "u8",
+                cmd.tap
+            ))
+        }
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetInhibitFan => b"IF");
+impl_command_with_response!(GetInhibitFan => boolean);
+
+impl_command!(SetInhibitFan => b"IF" for boolean inhibit);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetInductorSwitch => b"L");
+impl_command_with_response!(GetInductorSwitch => 3, u8_from_ascii => u8);
+
+impl_command!(SetInductorSwitch => b"L" format mask uint 3);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetOperatingMode => b"MD");
+impl_command_with_response!(GetOperatingMode => try_from enum OperatingMode);
+
+impl_command!(SetOperatingMode => b"MD" for as byte mode);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetMeterType => b"MT");
+impl_command_with_response!(GetMeterType => try_from enum MeterType);
+
+impl_command!(SetMeterType => b"MT" for as byte meter);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetPowerStatus => b"PS");
+impl_command_with_response!(GetPowerStatus => boolean);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetPowerSensorInput => b"PSI");
+impl_command_with_response!(GetPowerSensorInput => 3, u16_from_ascii => u16);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(ResetDevice => b"RSTX");
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetFirmwareVersion => b"RV");
+impl_command_with_response!(GetFirmwareVersion => 0, bytes_to_vec => Vec<u8>);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetAntennaSide => b"SIDE");
+impl_command_with_response!(GetAntennaSide => try_from enum AntennaSide);
+
+impl_command!(SetAntennaSide => b"SIDE" for as byte side);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetTuningSpeedLimit => b"SL");
+impl_command_with_response!(GetTuningSpeedLimit => 1, u8_from_ascii => u8);
+
+impl_command!(
+    SetTuningSpeedLimit => b"SL"
+    format level uint 1,
+    if |cmd: &SetTuningSpeedLimit| {
+        if cmd.level <= 9 {
+            Ok(())
+        } else {
+            Err(RigError::InvalidArgumentValue {
+                argument_name: "level",
+                type_name: "u8",
+                value: cmd.level.to_string(),
+            })
+        }
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetSwrMeter => b"SM");
+impl_command_with_response!(GetSwrMeter => 3, u16_from_ascii => u16);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetSerialNumber => b"SN");
+impl_command_with_response!(GetSerialNumber => 0, bytes_to_vec => Vec<u8>);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(StartTune => b"ST");
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetTuneState => b"T");
+impl_command_with_response!(GetTuneState => boolean);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetTunePower => b"TP");
+impl_command_with_response!(GetTunePower => 3, u16_from_ascii => u16);
+
+impl_command!(SetTunePower => b"TP" format power_w uint 3);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetForwardVoltage => b"VFWD");
+impl_command_with_response!(GetForwardVoltage => 3, u16_from_ascii => u16);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetReflectedVoltage => b"VRFL");
+impl_command_with_response!(GetReflectedVoltage => 3, u16_from_ascii => u16);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetSwr => b"VSWR");
+impl_command_with_response!(GetSwr => 3, u16_from_ascii => u16);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetSwrBypassThreshold => b"VSWRB");
+impl_command_with_response!(GetSwrBypassThreshold => 3, u16_from_ascii => u16);
+
+impl_command!(SetSwrBypassThreshold => b"VSWRB" format swr_d uint 3);

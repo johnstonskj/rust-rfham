@@ -6,3 +6,4 @@
 mdbook = "latest"
 rust = "latest"
 taplo = "latest"
+markdownlint-cli2 = "latest"

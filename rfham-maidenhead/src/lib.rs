@@ -614,7 +614,7 @@ impl GridPolygon for MaidenheadSquare {
             self.south_west,
             // south east
             Coordinate::new(
-                self.south_west.latitude().clone(),
+                self.south_west.latitude(),
                 Longitude::try_from(self.south_west.longitude().as_float() - self.loc.width())
                     .unwrap(),
             ),
@@ -622,7 +622,7 @@ impl GridPolygon for MaidenheadSquare {
             Coordinate::new(
                 Latitude::try_from(self.south_west.latitude().as_float() + self.loc.height())
                     .unwrap(),
-                self.south_west.longitude().clone(),
+                self.south_west.longitude(),
             ),
             // north east
             Coordinate::new(

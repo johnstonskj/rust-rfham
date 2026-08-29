@@ -22,7 +22,7 @@
 //!   Disable for `no_std` + `alloc` environments.
 //! - **no-color**: disables ANSI color codes in Markdown output, for better compatibility
 //!   with non-color-aware renderers.
-//! 
+//!
 
 use rfham_core::error::CoreError;
 use std::{fmt::Display, str::FromStr};

@@ -1,1624 +1,2639 @@
 //!
 //! CAT commands specific to or extended on the Elecraft K4 transceiver.
 //!
-//! Commands follow the **D12** programmer's reference
-//! (K4 Programmer's Reference, rev. D12, May 2026).
+//! Many K3/KX commands from [`super::k3_kx`] also work unchanged on the K4; this module documents
+//! only commands that are unique to the K4, or that differ significantly in format or range from
+//! their K3/KX counterparts.
 //!
-//! Many K3/KX commands from [`super::k3_kx`] also work on the K4. This module
-//! covers commands that are:
-//! - Unique to the K4 (not present on K3/KX), or
-//! - Significantly different in format or range on the K4.
+//! The K4 meta-command mode (K41) is set via [`super::meta::SetK4CommandMode`]; many commands below
+//! require K41 mode to be active.
 //!
-//! The K4 meta-command mode (K41) is set via [`super::meta::SetK4CommandMode`].
-//! Many commands below require K41 mode to be active.
+//! Where a command addresses a specific VFO, the wire protocol distinguishes VFO A and VFO B by
+//! appending a `$` to the command identifier (e.g. `FP` vs `FP$`) rather than by an argument byte.
+//! This module therefore models each VFO as a distinct command type (e.g. [`GetVfoAFilterPresetSlot`]
+//! and [`GetVfoBFilterPresetSlot`]) instead of a single type carrying a VFO field.
+//!
+//! Commands follow the specification in reference **1** unless otherwise noted.
+//!
+//! # References
+//!
+//! 1. [K4 Programmer's Reference, rev. D11](https://ftp.elecraft.com/K4/Manuals%20Downloads/K4%20Programmer's%20Reference,%20rev.%20D12.pdf), May 2026.
+//! 2. [K4 Programmer's Reference, rev. C7](https://lutz-electronics.ch/pdf/ELECRAFT/K4_Programmers_Reference_rev.C7.pdf), 2022.
 //!
 
-#![allow(unused_doc_comments)]
-
-use super::meta::{parse_decimal_u8, parse_decimal_u16, parse_signed_i16};
 use crate::{
     error::RigError,
-    protocol::cat::{Command, CommandWithResponse, Vfo, common::validate_response},
+    protocol::cat::{
+        Command, CommandWithResponse,
+        common::{
+            bytes_to_vec, format_int_ascii, sign_from_ascii_strict, u8_from_ascii, u16_from_ascii,
+            u32_from_ascii, validate_response,
+        },
+    },
 };
 
 // ------------------------------------------------------------------------------------------------
-// AB — VFO A↔B Copy / Swap (K4 only, SET only)
+// Public Types
 // ------------------------------------------------------------------------------------------------
 
-/// Copy VFO A frequency to VFO B (K4 only, SET only).
-///
-/// RSP format: `AB0;` — sets VFO B = VFO A (no response beyond ?/E).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct CopyVfoAToB;
-
-impl Command for CopyVfoAToB {
-    fn command_id(&self) -> &[u8] {
-        b"AB"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'0'])
-    }
-}
-
-/// Swap VFO A and VFO B frequencies (K4 only, SET only).
-///
-/// RSP format: `AB1;` — exchanges VFO A and VFO B.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SwapVfoAB;
-
-impl Command for SwapVfoAB {
-    fn command_id(&self) -> &[u8] {
-        b"AB"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'1'])
-    }
-}
-
 // ------------------------------------------------------------------------------------------------
-// AT — ATU Mode (K4 extended)
+// Public Types: CopyVfoAToB, SwapVfoAB
 // ------------------------------------------------------------------------------------------------
 
-/// Query ATU mode.
-///
-/// RSP format: `ATn;` — `n` = 0 (ATU bypass), 1 (ATU in-line / auto), 2 (ATU tuning).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetAtuMode;
+define_command!("Copy VFO A's frequency to VFO B (`AB0`).
 
-impl_command!(GetAtuMode, b"AT");
+# Command format
 
-impl CommandWithResponse for GetAtuMode {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        1
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"AT", 1)?;
-        Ok(d[0] - b'0')
-    }
-}
+> `AB0;`
 
-/// Set ATU mode (0=bypass, 1=auto, 2=start tuning).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetAtuMode {
-    mode: u8,
-}
+The trailing `0` distinguishes this action from [`SwapVfoAandVfoB`], which shares the same `AB` command
+identifier." =>
+    CopyVfoAtoVfoB
+);
 
-impl Command for SetAtuMode {
-    fn command_id(&self) -> &[u8] {
-        b"AT"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'0' + self.mode.min(2)])
-    }
-}
+define_command!("Swap the frequencies of VFO A and VFO B (`AB1`).
+
+# Command format
+
+> `AB1;`
+
+The trailing `1` distinguishes this action from [`CopyVfoAtoVfoB`], which shares the same `AB` command
+identifier." =>
+    SwapVfoAandVfoB
+);
 
 // ------------------------------------------------------------------------------------------------
-// BI — Band Independence (K4 only)
+// Public Types: GetAtuMode, SetAtuMode
 // ------------------------------------------------------------------------------------------------
 
-/// Query band independence state (K4 only).
-///
-/// RSP format: `BIn;` — `n` = `0` (off; VFO A and B share band) or
-/// `1` (on; each VFO can be on a different band independently).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetBandIndependence;
+define_command!("Get the ATU (antenna tuner) mode (`AT`).
 
-impl_command!(GetBandIndependence, b"BI");
+# Command format
 
-impl CommandWithResponse for GetBandIndependence {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize {
-        1
+> `AT;`
+
+# Response format
+
+> `AT{n};`
+
+Where *n* is one of [`AtuMode`]." =>
+    GetAtuMode
+);
+
+define_command!("Set the ATU (antenna tuner) mode (`AT`).
+
+# Command format
+
+> `AT{n};`
+
+Where *n* is one of[`AtuMode`]." =>
+    SetAtuMode {
+        mode: AtuMode
     }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"BI", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
+);
 
-/// Set band independence on/off (K4 only).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetBandIndependence {
-    on: bool,
-}
-
-impl Command for SetBandIndependence {
-    fn command_id(&self) -> &[u8] {
-        b"BI"
+define_command_enum!(
+    "Represents the ATU mode for [`GetAtuMode`] and [`SetAtuMode`]."=>
+    AtuMode {
+        "ATU bypassed" => Bypassed = b'0',
+        "ATU in-line (auto-tunes on transmit)" => Inline = b'1',
+        "ATU tuning in progress" => Tuning = b'2'
     }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.on { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// CW — CW Sidetone Pitch (GET/SET on K4; GET only on K3/KX)
-// ------------------------------------------------------------------------------------------------
-
-/// Set CW sidetone pitch in Hz (K4 supports both GET and SET; K3/KX is GET only).
-///
-/// RSP format: `CWnnn;` — `nnn` = 300–800 Hz.
-/// On K4 this also controls the received CW pitch offset for zero-beat tuning.
-command! { SetCwSidetonePitch => hz: u16 }
-
-impl Command for SetCwSidetonePitch {
-    fn command_id(&self) -> &[u8] {
-        b"CW"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.hz.clamp(300, 800)).into_bytes())
-    }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// DA — Digital Audio Control (K4 only)
+// Public Types: GetBandIndependence, SetBandIndependence
 // ------------------------------------------------------------------------------------------------
 
-/// Query digital audio routing (K4 only).
-///
-/// RSP format: `DAn;` — `n` = 0 (analog audio routing), 1 (digital audio to USB),
-/// 2 (digital audio from USB), 3 (full digital audio I/O via USB).
-command!(GetDigitalAudio);
+define_command!("Get the band independence state (`BI`).
 
-impl_command!(GetDigitalAudio, b"DA");
+# Command format
 
-impl CommandWithResponse for GetDigitalAudio {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        1
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"DA", 1)?;
-        Ok(d[0] - b'0')
-    }
-}
+> `BI;`
 
-/// Set digital audio routing (K4 only).
-command! { SetDigitalAudio => mode: u8 }
+# Response format
 
-impl Command for SetDigitalAudio {
-    fn command_id(&self) -> &[u8] {
-        b"DA"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'0' + self.mode.min(3)])
-    }
-}
+> `BI{n};`
+
+Where `n` is the boolean state `0` (off; VFO A and B share a band) or `1` (on; each VFO can be on a
+different band independently)." =>
+    GetBandIndependenceState
+);
+
+define_command!("Set the band independence state (`BI`).
+
+# Command format
+
+> `BI{n};`
+
+Where `n` is the boolean state `0` (off; VFO A and B share a band) or `1` (on; each VFO can be on a
+different band independently)." =>
+    SetBandIndependenceState { state }
+);
 
 // ------------------------------------------------------------------------------------------------
-// DO — DIGOUT1 State (K4 only)
+// Public Types: SetCwSidetonePitch
 // ------------------------------------------------------------------------------------------------
 
-/// Query DIGOUT1 (digital output pin 1) state (K4 only).
-///
-/// RSP format: `DOn;` — `n` = `0` (low) or `1` (high).
-command!(GetDigOut1);
+define_command!("Set the CW sidetone pitch in Hz (`CW`).
 
-impl_command!(GetDigOut1, b"DO");
+On the K4 this command also sets the received CW pitch offset used for zero-beat tuning; on K3/KX
+transceivers the equivalent command is GET only.
 
-impl CommandWithResponse for GetDigOut1 {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize {
-        1
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"DO", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
+# Command format
 
-/// Set DIGOUT1 state (K4 only).
-command! { SetDigOut1 => high: bool }
+> `CW{nnn};`
 
-impl Command for SetDigOut1 {
-    fn command_id(&self) -> &[u8] {
-        b"DO"
+Where *nnn* is the pitch, between `300` and `800` Hz." =>
+    SetCwSidetonePitch {
+        pitch_hz: u16
     }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.high { b'1' } else { b'0' }])
-    }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// DW — TX DATA Bandwidth (K4 only)
+// Public Types: GetDigitalAudio, SetDigitalAudio
 // ------------------------------------------------------------------------------------------------
 
-/// Query TX DATA (AFSK/FSK/PSK) bandwidth in Hz (K4 only).
-///
-/// RSP format: `DWnnnn;` — `nnnn` = 0000–9999 Hz in 10 Hz units.
-command!(GetTxDataBandwidth);
+define_command!("Get the digital audio routing mode (`DA`).
 
-impl_command!(GetTxDataBandwidth, b"DW");
+# Command format
 
-impl CommandWithResponse for GetTxDataBandwidth {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize {
-        4
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"DW", 4)?;
-        parse_decimal_u16(d)
-    }
-}
+> `DA;`
 
-/// Set TX DATA bandwidth in units of 10 Hz (K4 only).
-command! { SetTxDataBandwidth => bandwidth_10hz: u16 }
+# Response format
 
-impl Command for SetTxDataBandwidth {
-    fn command_id(&self) -> &[u8] {
-        b"DW"
+> `DA{n};`
+
+Where *n* is one of [`DigitalAudioRoutingMode`]." =>
+    GetDigitalAudioRoutingMode
+);
+
+define_command!("Set the digital audio routing mode (`DA`).
+
+# Command format
+
+> `DA{n};`
+
+Where *n* is one of [`DigitalAudioRoutingMode`]." =>
+    SetDigitalAudioRoutingMode {
+        mode: DigitalAudioRoutingMode
     }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:04}", self.bandwidth_10hz).into_bytes())
+);
+
+define_command_enum!(
+    "Digital audio routing mode for [`GetDigitalAudioRoutingMode`] and [`SetDigitalAudioRoutingMode`]." =>
+    DigitalAudioRoutingMode {
+        "Analog audio routing." => Analog = b'0',
+        "Digital audio out to USB." => DigitalOut = b'1',
+        "Digital audio in from USB." => DigitalIn = b'2',
+        "Full digital audio I/O via USB." => FullDigital = b'3'
     }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// EC — Echo Command to RS-232 (K4 only, SET only)
+// Public Types: GetDigOut1, SetDigOut1
 // ------------------------------------------------------------------------------------------------
 
-/// Enable or disable command echo to RS-232 (K4 only, SET only).
-///
-/// RSP format: `ECn;` — `n` = `0` (no echo) or `1` (echo commands back to sender).
-command! { SetCommandEcho => on: bool }
+define_command!("Get the DIGOUT1 (digital output pin 1) state (`DO`).
 
-impl Command for SetCommandEcho {
-    fn command_id(&self) -> &[u8] {
-        b"EC"
+# Command format
+
+> `DO;`
+
+# Response format
+
+> `DO{n};`
+
+Where `n` is the boolean state `0` (low) or `1` (high)." =>
+    GetDigitalOutputPin1State
+);
+
+define_command!("Set the DIGOUT1 (digital output pin 1) state (`DO`).
+
+# Command format
+
+> `DO{n};`
+
+Where `n` is the boolean state `0` (low) or `1` (high)." =>
+    SetDigitalOutputPin1State {
+        high: bool
     }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.on { b'1' } else { b'0' }])
-    }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// ER — Error Reporting (K4 only)
+// Public Types: GetTxDataBandwidth, SetTxDataBandwidth
 // ------------------------------------------------------------------------------------------------
 
-/// Query error reporting state (K4 only).
-///
-/// RSP format: `ERn;` — `n` = `0` (disabled) or `1` (enabled; error RSPs are sent
-/// unsolicited to the serial port when command errors occur).
-command!(GetErrorReporting);
+define_command!("Get the TX DATA (AFSK/FSK/PSK) bandwidth (`DW`).
 
-impl_command!(GetErrorReporting, b"ER");
+# Command format
 
-impl CommandWithResponse for GetErrorReporting {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize {
-        1
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"ER", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
+> `DW;`
 
-/// Set error reporting on/off (K4 only).
-command! { SetErrorReporting => on: bool }
+# Response format
 
-impl Command for SetErrorReporting {
-    fn command_id(&self) -> &[u8] {
-        b"ER"
+> `DW{nnnn};`
+
+Where *nnnn* is the bandwidth, between `0000` and `9999`, in units of 10 Hz." =>
+    GetTransmitDataBandwidth
+);
+
+define_command!("Set the TX DATA (AFSK/FSK/PSK) bandwidth (`DW`).
+
+# Command format
+
+> `DW{nnnn};`
+
+Where *nnnn* is the bandwidth, between `0000` and `9999`, in units of 10 Hz." =>
+    SetTransmitDataBandwidth {
+        bandwidth_10hz: u16
     }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.on { b'1' } else { b'0' }])
-    }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// FC$ — Center Panadapter on VFO (K4 only, SET only)
+// Public Types: SetCommandEcho
 // ------------------------------------------------------------------------------------------------
 
-/// Center the panadapter on the current VFO frequency (K4 only, SET only).
-///
-/// RSP format: `FC;` or `FC$;` (no arguments). VFO A uses `FC`, VFO B uses `FC$`.
-command! { CenterPanadapter => vfo: Vfo }
+define_command!("Set whether commands received on RS-232 are echoed back to the sender (`EC`).
 
-impl Command for CenterPanadapter {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"FC",
-            Vfo::B => b"FC$",
-            _ => panic!("CenterPanadapter: only VFO A and B supported"),
-        }
-    }
-}
+# Command format
+
+> `EC{n};`
+
+Where `n` is the boolean state `0` off or `1` on, echo commands back to sender." =>
+    SetCommandEchoState { state }
+);
 
 // ------------------------------------------------------------------------------------------------
-// FP$ — Filter Preset (K4 only)
+// Public Types: GetErrorReporting, SetErrorReporting
 // ------------------------------------------------------------------------------------------------
 
-/// Query active filter preset slot (K4 only).
-///
-/// RSP format: `FPn;` or `FP$n;` — `n` = 1–8 (preset slot number).
-command! { GetFilterPreset => vfo: Vfo }
+define_command!("Get whether unsolicited error reports are enabled (`ER`).
 
-impl Command for GetFilterPreset {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"FP",
-            Vfo::B => b"FP$",
-            _ => panic!("GetFilterPreset: only VFO A and B supported"),
-        }
-    }
-}
+# Command format
 
-impl CommandWithResponse for GetFilterPreset {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        1
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, self.command_id(), 1)?;
-        Ok(d[0] - b'0')
-    }
-}
+> `ER;`
 
-/// Set filter preset slot (1–8).
-command! { SetFilterPreset => vfo: Vfo, preset: u8 }
+# Response format
 
-impl Command for SetFilterPreset {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"FP",
-            Vfo::B => b"FP$",
-            _ => panic!("SetFilterPreset: only VFO A and B supported"),
-        }
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'0' + self.preset.clamp(1, 8)])
-    }
-}
+> `ER{n};`
+
+Where `n` is the boolean state `0` (disabled) or `1` (enabled; error RSPs are sent unsolicited to
+the serial port when command errors occur)." =>
+    GetErrorReportingState
+);
+
+define_command!("Set whether unsolicited error reports are enabled (`ER`).
+
+# Command format
+
+> `ER{n};`
+
+Where `n` is the boolean state `0` (disabled) or `1` (enabled)." =>
+    SetErrorReportingState { state }
+);
 
 // ------------------------------------------------------------------------------------------------
-// GT$ — AGC Mode (K4 extended, K41 mode)
+// Public Types: CenterPanadapterA, CenterPanadapterB
 // ------------------------------------------------------------------------------------------------
 
-/// Query AGC mode via K4-extended command (K41 mode required).
-///
-/// RSP format: `GTnn;` or `GT$nn;` — `nn` = 00 (off), 01 (fast), 02 (slow), 03 (auto).
-command! { GetK4AgcMode => vfo: Vfo }
+define_command!("Center the panadapter on VFO A's current frequency (`FC`).
 
-impl Command for GetK4AgcMode {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"GT",
-            Vfo::B => b"GT$",
-            _ => panic!("GetK4AgcMode: only VFO A and B supported"),
-        }
-    }
-}
+# Command format
 
-impl CommandWithResponse for GetK4AgcMode {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        2
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, self.command_id(), 2)?;
-        parse_decimal_u8(d)
-    }
-}
+> `FC;`" =>
+    CenterPanadapterOnVfoA
+);
 
-/// Set AGC mode (K4 extended; 0=off, 1=fast, 2=slow, 3=auto).
-command! { SetK4AgcMode => vfo: Vfo, mode: u8 }
+define_command!("Center the panadapter on VFO B's current frequency (`FC$`).
 
-impl Command for SetK4AgcMode {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"GT",
-            Vfo::B => b"GT$",
-            _ => panic!("SetK4AgcMode: only VFO A and B supported"),
-        }
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:02}", self.mode.min(3)).into_bytes())
-    }
-}
+# Command format
+
+> `FC$;`" =>
+    CenterPanadapterOnVfoB
+);
 
 // ------------------------------------------------------------------------------------------------
-// ID — Radio Identification (K4 extended)
+// Public Types: GetVfoAFilterPresetSlot, GetVfoBFilterPresetSlot, SetVfoAFilterPresetSlot,
+//      SetVfoBFilterPresetSlot
 // ------------------------------------------------------------------------------------------------
 
-/// Query radio identification string (K4 extended).
-///
-/// RSP format: `IDnnn;` — `nnn` is a numeric model ID (K4 returns `018`; K3 returns `017`).
-command!(GetRadioId);
+define_command!("Get the active filter preset slot for VFO A (`FP`).
 
-impl_command!(GetRadioId, b"ID");
+# Command format
 
-impl CommandWithResponse for GetRadioId {
-    type Response = u16;
-    fn expected_response_length(&self) -> usize {
-        3
+> `FP;`
+
+# Response format
+
+> `FP{n};`
+
+Where *n* is the preset slot, between `1` and `8`." =>
+    GetVfoAFilterPresetSlot
+);
+
+define_command!("Get the active filter preset slot for VFO B (`FP$`).
+
+# Command format
+
+> `FP$;`
+
+# Response format
+
+> `FP${n};`
+
+Where *n* is the preset slot, between `1` and `8`." =>
+    GetVfoBFilterPresetSlot
+);
+
+define_command!("Set the active filter preset slot for VFO A (`FP`).
+
+# Command format
+
+> `FP{n};`
+
+Where *n* is the preset slot, between `1` and `8`." =>
+    SetVfoAFilterPresetSlot {
+        preset: u8
     }
-    fn parse(&self, bytes: &[u8]) -> Result<u16, RigError> {
-        let d = validate_response(bytes, b"ID", 3)?;
-        parse_decimal_u16(d)
+);
+
+define_command!("Set the active filter preset slot for VFO B (`FP$`).
+
+# Command format
+
+> `FP${n};`
+
+Where *n* is the preset slot, between `1` and `8`." =>
+    SetVfoBFilterPresetSlot {
+        preset: u8
     }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// IS$ — IF Center Pitch (K4 extended, K41 mode)
+// Public Types: GetVfoAAgcMode, GetVfoBAgcMode, SetVfoAAgcMode, SetVfoBAgcMode
 // ------------------------------------------------------------------------------------------------
 
-/// Query IF center pitch in Hz (K4 extended, K41 mode required).
-///
-/// RSP format: `IS±nnnn;` or `IS$±nnnn;` — sign-prefixed 4-digit Hz value per VFO.
-command! { GetK4IfCenterPitch => vfo: Vfo }
+define_command!("Get the AGC mode for VFO A via the K4-extended command (`GT`).
 
-impl Command for GetK4IfCenterPitch {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"IS",
-            Vfo::B => b"IS$",
-            _ => panic!("GetK4IfCenterPitch: only VFO A and B supported"),
-        }
-    }
-}
+K4 extended command; K41 mode required.
 
-impl CommandWithResponse for GetK4IfCenterPitch {
-    type Response = i16;
-    fn expected_response_length(&self) -> usize {
-        5
+# Command format
+
+> `GT;`
+
+# Response format
+
+> `GT{nn};`
+
+Where *nn* is one of [`AgcMode`]." =>
+    GetVfoAAgcMode
+);
+
+define_command!("Get the AGC mode for VFO B via the K4-extended command (`GT$`).
+
+K4 extended command; K41 mode required.
+
+# Command format
+
+> `GT$;`
+
+# Response format
+
+> `GT${nn};`
+
+Where *nn* is one of [`AgcMode`]." =>
+    GetVfoBAgcMode
+);
+
+define_command!("Set the AGC mode for VFO A via the K4-extended command (`GT`).
+
+K4 extended command; K41 mode required.
+
+# Command format
+
+> `GT{nn};`
+
+Where *nn* is one of [`AgcMode`]." =>
+    SetVfoAAgcMode {
+        mode: u8
     }
-    fn parse(&self, bytes: &[u8]) -> Result<i16, RigError> {
-        let d = validate_response(bytes, self.command_id(), 5)?;
-        parse_signed_i16(d)
+);
+
+define_command!("Set the AGC mode for VFO B via the K4-extended command (`GT$`).
+
+K4 extended command; K41 mode required.
+
+# Command format
+
+> `GT${nn};`
+
+Where *nn* is one of [`AgcMode`]." =>
+    SetVfoBAgcMode {
+        mode: u8
     }
-}
+);
+
+define_command_enum!("AGC mode for [`GetVfoAAgcMode`], [`GetVfoBAgcMode`], [`SetVfoAAgcMode`], and [`SetVfoBAgcMode`]." =>
+    AgcMode {
+        "AGC off." => Off = b'0',
+        "Fast AGC." => Fast = b'1',
+        "Slow AGC." => Slow = b'2',
+        "Auto AGC." => Auto = b'3'
+    }
+);
 
 // ------------------------------------------------------------------------------------------------
-// KP — Keyer Paddle (K4 only)
+// Public Types: GetTransceiverId
 // ------------------------------------------------------------------------------------------------
 
-/// Query keyer paddle emulation mode (K4 only).
-///
-/// RSP format: `KPn;` — `n` = 0 (normal), 1 (dit only), 2 (dah only).
-command!(GetKeyerPaddle);
+define_command!("Get the radio identification string (`ID`).
 
-impl_command!(GetKeyerPaddle, b"KP");
+K4 extended command; K41 mode required.
 
-impl CommandWithResponse for GetKeyerPaddle {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        1
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"KP", 1)?;
-        Ok(d[0] - b'0')
-    }
-}
+# Command format
 
-/// Set keyer paddle mode (0=normal, 1=dit, 2=dah).
-command! { SetKeyerPaddle => mode: u8 }
+> `ID;`
 
-impl Command for SetKeyerPaddle {
-    fn command_id(&self) -> &[u8] {
-        b"KP"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'0' + self.mode.min(2)])
-    }
-}
+# Response format
+
+> `ID{nnn};`
+
+Where *nnn* is a numeric model ID; the K4 returns `018`, the K3 returns `017`." =>
+    GetTransceiverId
+);
 
 // ------------------------------------------------------------------------------------------------
-// KS — Keyer Speed (K4 extended range: 8–100 WPM)
+// Public Types: GetK4IfCenterPitchA, GeGetVfoAIfCenterPitch
 // ------------------------------------------------------------------------------------------------
 
-/// Set keyer speed in WPM (K4 extended range: 8–100; K3/KX limit is 50).
-///
-/// RSP format: `KSnnn;` — `nnn` = 008–100. Use [`super::k3_kx::GetKeyerSpeed`] to query.
-command! { SetK4KeyerSpeed => wpm: u8 }
+define_command!("Get the IF center pitch for VFO A (`IS`).
 
-impl Command for SetK4KeyerSpeed {
-    fn command_id(&self) -> &[u8] {
-        b"KS"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.wpm.clamp(8, 100)).into_bytes())
-    }
-}
+K4 extended command; K41 mode required.
 
-// ------------------------------------------------------------------------------------------------
-// LI — Line Input (K4 only)
-// ------------------------------------------------------------------------------------------------
+# Command format
 
-/// Query line audio input level (K4 only).
-///
-/// RSP format: `LInnn;` — `nnn` = 000–060.
-command!(GetLineInput);
+> `IS;`
 
-impl_command!(GetLineInput, b"LI");
+# Response format
 
-impl CommandWithResponse for GetLineInput {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        3
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"LI", 3)?;
-        parse_decimal_u8(d)
-    }
-}
+> `IS{±nnnn};`
 
-/// Set line audio input level (0–60).
-command! { SetLineInput => level: u8 }
+Where *±nnnn* is the sign-prefixed pitch offset, in Hz, from the IF center frequency." =>
+    GetVfoAIfCenterPitch
+);
 
-impl Command for SetLineInput {
-    fn command_id(&self) -> &[u8] {
-        b"LI"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.level.min(60)).into_bytes())
-    }
-}
+define_command!("Get the IF center pitch for VFO B (`IS$`).
+
+K4 extended command; K41 mode required.
+
+# Command format
+
+> `IS$;`
+
+# Response format
+
+> `IS${±nnnn};`
+
+Where *±nnnn* is the sign-prefixed pitch offset, in Hz, from the IF center frequency." =>
+    GetVfoBIfCenterPitch
+);
 
 // ------------------------------------------------------------------------------------------------
-// LO — Line Output (K4 only)
+// Public Types: GetKeyerPaddleEmulationMode, SetKeyerPaddleEmulationMode, KeyerPaddleEmulationMode
 // ------------------------------------------------------------------------------------------------
 
-/// Query line audio output level (K4 only).
-///
-/// RSP format: `LOnnn;` — `nnn` = 000–060.
-command!(GetLineOutput);
+define_command!("Get the keyer paddle emulation mode (`KP`).
 
-impl_command!(GetLineOutput, b"LO");
+# Command format
 
-impl CommandWithResponse for GetLineOutput {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        3
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"LO", 3)?;
-        parse_decimal_u8(d)
-    }
-}
+> `KP;`
 
-/// Set line audio output level (0–60).
-command! { SetLineOutput => level: u8 }
+# Response format
 
-impl Command for SetLineOutput {
-    fn command_id(&self) -> &[u8] {
-        b"LO"
+> `KP{n};`
+
+Where *n* is the keyer paddle mode; see [`KeyerPaddleEmulationMode`]." =>
+    GetKeyerPaddleEmulationMode
+);
+
+define_command!("Set the keyer paddle emulation mode (`KP`) .
+
+# Command format
+
+> `KP{n};`
+
+Where *n* is the keyer paddle mode; see [`KeyerPaddleEmulationMode`]." =>
+    SetKeyerPaddleEmulationMode {
+        mode: KeyerPaddleEmulationMode
     }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.level.min(60)).into_bytes())
+);
+
+define_command_enum!("Keyer paddle emulation mode (K4 only)." =>
+    KeyerPaddleEmulationMode {
+        "Normal paddle operation." => Normal = b'0',
+        "Dit-only; the paddle emulates a straight key sending continuous dits." => DitOnly = b'1',
+        "Dah-only; the paddle emulates a straight key sending continuous dahs." => DahOnly = b'2'
     }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// MA$ — Mode Alternates (K4 only, GET only)
+// Public Types: SetK4KeyerSpeed
 // ------------------------------------------------------------------------------------------------
 
-/// Query the list of mode alternates for the current band (K4 only, GET only).
-///
-/// RSP format: `MAmm...;` or `MA$mm...;` — a variable-length string of mode character
-/// codes indicating which modes are available on the current band/VFO.
-command! { GetModeAlternates => vfo: Vfo }
+define_command!("Set the keyer speed in WPM (`KS`).
 
-impl Command for GetModeAlternates {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"MA",
-            Vfo::B => b"MA$",
-            _ => panic!("GetModeAlternates: only VFO A and B supported"),
-        }
-    }
-}
+K4 extended command; K41 mode required.
 
-impl CommandWithResponse for GetModeAlternates {
-    type Response = Vec<u8>;
-    fn expected_response_length(&self) -> usize {
-        8
+On K3/KX transceivers the equivalent set command is limited to 8-50 WPM; use
+[`super::k3_kx::GetKeyerSpeed`] to query the current speed.
+
+# Command format
+
+> `KS{nnn};`
+
+Where *nnn* is the speed, between `008` and `100` WPM." =>
+    SetKeyerSpeed {
+        wpm: u8
     }
-    fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
-        let d = validate_response(bytes, self.command_id(), 8)?;
-        Ok(d.to_vec())
-    }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// MI — Mic Input Select (K4 only)
+// Public Types: GetAudioLineInputLevel, SetAudioLineInputLevel
 // ------------------------------------------------------------------------------------------------
 
-/// Query mic input selection (K4 only).
-///
-/// RSP format: `MIn;` — `n` = 0 (front mic), 1 (rear mic), 2 (USB audio), 3 (Bluetooth).
-command!(GetMicInput);
+define_command!("Get the line audio input level (`LI`).
 
-impl_command!(GetMicInput, b"MI");
+# Command format
 
-impl CommandWithResponse for GetMicInput {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        1
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"MI", 1)?;
-        Ok(d[0] - b'0')
-    }
-}
+> `LI;`
 
-/// Set mic input (0=front, 1=rear, 2=USB, 3=Bluetooth).
-command! { SetMicInput => input: u8 }
+# Response format
 
-impl Command for SetMicInput {
-    fn command_id(&self) -> &[u8] {
-        b"MI"
+> `LI{nnn};`
+
+Where *nnn* is the level, between `000` and `060`." =>
+    GetAudioLineInputLevel
+);
+
+define_command!("Set the line audio input level (`LI`).
+
+# Command format
+
+> `LI{nnn};`
+
+Where *nnn* is the level, between `000` and `060`." =>
+    SetAudioLineInputLevel {
+        level: u8
     }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'0' + self.input.min(3)])
-    }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// MX — Main/Sub Audio Mix (K4 only)
+// Public Types: GetAudioLineOutputLevel, SetAudioLineOutputLevel
 // ------------------------------------------------------------------------------------------------
 
-/// Query main/sub audio mix ratio (K4 only).
-///
-/// RSP format: `MXnn;` — `nn` = 00–99 (0=all main, 99=all sub).
-command!(GetAudioMix);
+define_command!("Get the line audio output level (`LO`).
 
-impl_command!(GetAudioMix, b"MX");
+# Command format
 
-impl CommandWithResponse for GetAudioMix {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        2
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"MX", 2)?;
-        parse_decimal_u8(d)
-    }
-}
+> `LO;`
 
-/// Set main/sub audio mix ratio (0=all main, 99=all sub).
-command! { SetAudioMix => ratio: u8 }
+# Response format
 
-impl Command for SetAudioMix {
-    fn command_id(&self) -> &[u8] {
-        b"MX"
+> `LO{nnn};`
+
+Where *nnn* is the level, between `000` and `060`." =>
+    GetAudioLineOutputLevel
+);
+
+define_command!("Set the line audio output level (`LO`).
+
+# Command format
+
+> `LO{nnn};`
+
+Where *nnn* is the level, between `000` and `060`." =>
+    SetAudioLineOutputLevel {
+        level: u8
     }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:02}", self.ratio.min(99)).into_bytes())
-    }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// NA$ — Auto Notch (K4 only)
+// Public Types: GetVfoAModeAlternates, GetVfoBModeAlternatesGetVfoAModeAlternates
 // ------------------------------------------------------------------------------------------------
 
-/// Query auto notch state (K4 only).
-///
-/// RSP format: `NAn;` or `NA$n;` — `n` = `0` (off) or `1` (on) per VFO.
-command! { GetAutoNotch => vfo: Vfo }
+define_command!("Get the list of mode alternates available on the current band, for VFO A (`MA`).
 
-impl Command for GetAutoNotch {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"NA",
-            Vfo::B => b"NA$",
-            _ => panic!("GetAutoNotch: only VFO A and B supported"),
-        }
-    }
-}
+# Command format
 
-impl CommandWithResponse for GetAutoNotch {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize {
-        1
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, self.command_id(), 1)?;
-        Ok(d[0] == b'1')
-    }
-}
+> `MA;`
 
-/// Set auto notch on/off.
-command! { SetAutoNotch => vfo: Vfo, on: bool }
+# Response format
 
-impl Command for SetAutoNotch {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"NA",
-            Vfo::B => b"NA$",
-            _ => panic!("SetAutoNotch: only VFO A and B supported"),
-        }
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.on { b'1' } else { b'0' }])
-    }
-}
+> `MA...;`
+
+The response is a variable-length string of mode character codes indicating which modes are
+available on the current band, returned as raw bytes." =>
+    GetVfoAModeAlternates
+);
+
+define_command!("Get the list of mode alternates available on the current band, for VFO B (`MA$`).
+
+# Command format
+
+> `MA$;`
+
+# Response format
+
+> `MA$...;`
+
+The response is a variable-length string of mode character codes indicating which modes are
+available on the current band, returned as raw bytes." =>
+    GetVfoBModeAlternates
+);
 
 // ------------------------------------------------------------------------------------------------
-// NM$ — Manual Notch (K4 only)
+// Public Types: GetMicInputSource, SetMicInputSource, MicInputSource
 // ------------------------------------------------------------------------------------------------
 
-/// Manual notch state returned by `GetManualNotch`.
+define_command!("Get the microphone input source (`MI`).
+
+# Command format
+
+> `MI;`
+
+# Response format
+
+> `MI{n};`
+
+Where *n* is the microphone input source; see [`MicInputSource`]." =>
+    GetMicInputSource
+);
+
+define_command!("Set the microphone input source (`MI`) (K4 only).
+
+# Command format
+
+> `MI{n};`
+
+Where *n* is the microphone input source; see [`MicInputSource`]." =>
+    SetMicInputSource {
+        input: MicInputSource
+    }
+);
+
+define_command_enum!("Microphone input source." =>
+    MicInputSource {
+        "Front panel microphone jack." => Front = b'0',
+        "Rear panel microphone jack." => Rear = b'1',
+        "USB audio input." => Usb = b'2',
+        "Bluetooth audio input." => Bluetooth = b'3'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetAudioMixRatio, SetAudioMixRatio
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the main/sub receiver audio mix ratio (`MX`).
+
+# Command format
+
+> `MX;`
+
+# Response format
+
+> `MX{nn};`
+
+Where *nn* is the mix ratio, between `00` (all main) and `99` (all sub)." =>
+    GetAudioMixRatio
+);
+
+define_command!("Set the main/sub receiver audio mix ratio (`MX`).
+
+# Command format
+
+> `MX{nn};`
+
+Where *nn* is the mix ratio, between `00` (all main) and `99` (all sub)." =>
+    SetAudioMixRatio {
+        ratio: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetVfoAAutoNotchState, GetVfoBAutoNotchState, SetVfoAAutoNotchState,
+//      SetVfoBAutoNotchState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the auto notch state for VFO A (`NA`).
+
+# Command format
+
+> `NA;`
+
+# Response format
+
+> `NA{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetVfoAAutoNotchState
+);
+
+define_command!("Get the auto notch state for VFO B (`NA$`).
+
+# Command format
+
+> `NA$;`
+
+# Response format
+
+> `NA${n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetVfoBAutoNotchState
+);
+
+define_command!("Set the auto notch state for VFO A (`NA`).
+
+# Command format
+
+> `NA{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetVfoAAutoNotchState { state }
+);
+
+define_command!("Set the auto notch state for VFO B (`NA$`).
+
+# Command format
+
+> `NA${n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetVfoBAutoNotchState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetManualNotchA, GetManualNotchB, SetManualNotchA, SetManualNotchB, ManualNotch
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the manual notch frequency and state for VFO A (`NM`).
+
+# Command format
+
+> `NM;`
+
+# Response format
+
+> `NM{n}{s}{±nnnn};`
+
+Where:
+
+* `n` is the boolean state `0` (off) or `1` (on).
+* `s` is a step-size digit, present in the response but not currently interpreted.
+* *±nnnn* is the notch offset, in Hz, from the passband center." =>
+    GetVfoAManualNotchSettings
+);
+
+define_command!("Get the manual notch frequency and state for VFO B (`NM$`).
+
+# Command format
+
+> `NM$;`
+
+# Response format
+
+> `NM${n}{s}{±nnnn};`
+
+Where:
+
+* `n` is the boolean state `0` (off) or `1` (on).
+* `s` is a step-size digit, present in the response but not currently interpreted.
+* *±nnnn* is the notch offset, in Hz, from the passband center." =>
+    GetVfoBManualNotchSettings
+);
+
+define_command!("Set the manual notch frequency and state for VFO A (`NM`).
+
+# Command format
+
+> `NM{n}0{±nnnn};`
+
+Where:
+
+* `n` is the boolean state `0` (off) or `1` (on).
+* *s* the step-size digit is always sent as `0`.
+* *±nnnn* is the notch offset, in Hz, from the passband center, between `-9999` and `9999`." =>
+    SetVfoAManualNotchSettings {
+        state: bool,
+        offset_hz: i16
+    }
+);
+
+define_command!("Set the manual notch frequency and state for VFO B (`NM$`).
+
+# Command format
+
+> `NM${n}0{±nnnn};`
+
+Where:
+
+* `n` is the boolean state `0` (off) or `1` (on).
+* *s* the step-size digit is always sent as `0`.
+* *±nnnn* is the notch offset, in Hz, from the passband center, between `-9999` and `9999`." =>
+    SetVfoBManualNotchSettings {
+        state: bool,
+        offset_hz: i16
+    }
+);
+
+/// The parsed manual notch state and frequency offset returned by [`GetVfoAManualNotchSettings`]
+/// and [`GetVfoBManualNotchSettings`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ManualNotch {
-    /// `true` = notch active.
-    pub on: bool,
-    /// Notch frequency offset in Hz relative to passband center.
+    /// `true` if the manual notch is active.
+    pub state: bool,
+    /// Notch frequency offset in Hz relative to the passband center.
     pub offset_hz: i16,
 }
 
-/// Query manual notch frequency and state (K4 only).
-///
-/// RSP format: `NMns±nnnn;` or `NM$ns±nnnn;` — `n`=on/off, `s`=step (ignored),
-/// `±nnnn`=notch Hz offset from passband center.
-command! { GetManualNotch => vfo: Vfo }
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetVfoANoiseReductionSettings, GetVfoBNoiseReductionSettings,
+//      SetVfoANoiseReductionSettings, SetVfoBNoiseReductionSettings, NoiseReduction
+// ------------------------------------------------------------------------------------------------
 
-impl Command for GetManualNotch {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"NM",
-            Vfo::B => b"NM$",
-            _ => panic!("GetManualNotch: only VFO A and B supported"),
+define_command!("Get the noise reduction (LMS) state and level for VFO A (`NR`).
+
+# Command format
+
+> `NR;`
+
+# Response format
+
+> `NR{n}{l};`
+
+Where:
+
+* `n` is the boolean state `0` (off) or `1` (on).
+* *l* is the noise reduction level, between `0` and `9`." =>
+    GetVfoANoiseReductionSettings
+);
+
+define_command!("Get the noise reduction (LMS) state and level for VFO B (`NR$`).
+
+# Command format
+
+> `NR$;`
+
+# Response format
+
+> `NR${n}{l};`
+
+Where:
+
+* `n` is the boolean state `0` (off) or `1` (on).
+* *l* is the noise reduction level, between `0` and `9`." =>
+    GetVfoBNoiseReductionSettings
+);
+
+define_command!("Set the noise reduction (LMS) state and level for VFO A (`NR`).
+
+# Command format
+
+> `NR{n}{l};`
+
+Where:
+
+* `n` is the boolean state `0` (off) or `1` (on).
+* *l* is the noise reduction level, between `0` and `9`." =>
+    SetVfoANoiseReductionSettings {
+        state: bool,
+        level: u8
+    }
+);
+
+define_command!("Set the noise reduction (LMS) state and level for VFO B (`NR$`).
+
+# Command format
+
+> `NR${n}{l};`
+
+Where:
+
+* `n` is the boolean state `0` (off) or `1` (on).
+* *l* is the noise reduction level, between `0` and `9`." =>
+    SetVfoBNoiseReductionSettings {
+        state: bool,
+        level: u8
+    }
+);
+
+define_command_struct!(
+    "The parsed noise reduction state and level returned by [`GetVfoANoiseReductionSettings`] and [`GetVfoBNoiseReductionSettings`]." =>
+    NoiseReduction {
+        state: bool,
+        level: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: PlayDvrMessage
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Play a DVR (digital voice recorder) message (`PB`).
+
+# Command format
+
+> `PB{n};`
+
+Where *n* is the message number, between `1` and `8`; `0` stops playback." =>
+    PlayDvrMessage {
+        message: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetVfoACtssTone, GetVfoBCtssTone, SetVfoACtssTone, SetVfoBCtssTone
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the CTCSS (PL) tone code for VFO A (`PL`).
+
+FM mode only.
+
+# Command format
+
+> `PL;`
+
+# Response format
+
+> `PL{nnn};`
+
+Where *nnn* is the tone code, between `000` (no tone) and `038`." =>
+    GetVfoACtssTone
+);
+
+define_command!("Get the CTCSS (PL) tone code for VFO B (`PL$`).
+
+FM mode only.
+
+# Command format
+
+> `PL$;`
+
+# Response format
+
+> `PL${nnn};`
+
+Where *nnn* is the tone code, between `000` (no tone) and `038`." =>
+    GetVfoBCtssTone
+);
+
+define_command!("Set the CTCSS (PL) tone code for VFO A (`PL`).
+
+FM mode only.
+
+# Command format
+
+> `PL{nnn};`
+
+Where *nnn* is the tone code, between `000` (no tone) and `038`.
+
+**Note**: see the tone frequency table in the D12 reference for the mapping from code to frequency." =>
+    SetVfoACtssTone {
+        tone_code: u8
+    }
+);
+
+define_command!("Set the CTCSS (PL) tone code for VFO B (`PL$`).
+
+FM mode only.
+
+# Command format
+
+> `PL${nnn};`
+
+Where *nnn* is the tone code, between `000` (no tone) and `038`.
+
+**Note**: see the tone frequency table in the D12 reference for the mapping from code to frequency." =>
+    SetVfoBCtssTone {
+        tone_code: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetCurrentBandPowerLimit
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the per-band power limit setting for the current band (`PP`).
+
+# Command format
+
+> `PP;`
+
+# Response format
+
+> `PP{nnn};`
+
+Where *nnn* is the stored power limit for the current band, in watts, between `000` and `110`." =>
+    GetCurrentBandPowerLimit
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetPowerStatus, SetPowerStatus, PowerStatus
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the transceiver power state (`PS`).
+
+K4 extended command; K41 mode required.
+
+# Command format
+
+> `PS;`
+
+# Response format
+
+> `PS{n};`
+
+Where *n* is the power state; see [`PowerStatus`]." =>
+    GetPowerStatus
+);
+
+define_command!("Set the transceiver power state (`PS`).
+
+K4 extended command; K41 mode required.
+
+# Command format
+
+> `PS{n};`
+
+Where *n* is the power state; see [`PowerStatus`]. 
+
+**Note**: Setting [`FirmwareRestart`](PowerStatus::FirmwareRestart) triggers a controlled firmware
+restart." =>
+    SetPowerStatus {
+        state: PowerStatus
+    }
+);
+
+define_command_enum!("Transceiver power state." =>
+    PowerStatus {
+        "Power off." => PowerOff = b'0',
+        "Power on." => PowerOn = b'1',
+        "Trigger a controlled firmware restart." => FirmwareRestart = b'2'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetActiveSoftwareReleaseChannel, SetActiveSoftwareReleaseChannel,
+//      SoftwareReleaseChannel
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the active software release channel (`RL`).
+
+# Command format
+
+> `RL;`
+
+# Response format
+
+> `RL{n};`
+
+Where *n* is the release channel; see [`SoftwareReleaseChannel`]." =>
+    GetActiveSoftwareReleaseChannel
+);
+
+define_command!("Set the active software release channel (`RL`).
+
+# Command format
+
+> `RL{n};`
+
+Where *n* is the release channel; see [`SoftwareReleaseChannel`]." =>
+    SetActiveSoftwareReleaseChannel {
+        channel: SoftwareReleaseChannel
+    }
+);
+
+define_command_enum!("Software release channel." =>
+    SoftwareReleaseChannel {
+        "Stable release channel." => Stable = b'0',
+        "Beta release channel." => Beta = b'1',
+        "Alpha release channel." => Alpha = b'2'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetRepeaterOffset, SetRepeaterOffset, RepeaterOffset
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the repeater offset direction and frequency (`RP`).
+
+FM mode only.
+
+# Command format
+
+> `RP;`
+
+# Response format
+
+> `RP{n}{s}{nnnnnn};`
+
+Where:
+
+* *n* is the offset direction, see [`RepeaterOffsetDirection`].
+* `s` is a split flag, present in the response but not currently interpreted.
+* *nnnnnn* is the offset, in Hz." =>
+    GetRepeaterOffset
+);
+
+define_command!("Set the repeater offset direction and frequency (`RP`).
+
+FM mode only.
+
+# Command format
+
+> `RP{n}0{nnnnnn};`
+
+Where:
+
+* *n* is the offset direction, see [`RepeaterOffsetDirection`].
+* *s* the split flag is always sent as `0`.
+* *nnnnnn* is the offset, in Hz, between `000000` and `999999`." =>
+    SetRepeaterOffset {
+        direction: RepeaterOffsetDirection,
+        offset_hz: u32
+    }
+);
+
+/// The parsed repeater offset direction and frequency returned by [`GetRepeaterOffset`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RepeaterOffset {
+    /// Offset direction: `0` = off, `1` = positive, `2` = negative.
+    pub direction: RepeaterOffsetDirection,
+    /// Offset in Hz.
+    pub offset_hz: u32,
+}
+
+define_command_enum!("Repeater offset direction for [`GetRepeaterOffset`] and [`SetRepeaterOffset`]." =>
+    RepeaterOffsetDirection {
+        "No offset." => Off = b'0',
+        "Positive offset." => Positive = b'1',
+        "Negative offset." => Negative = b'2'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetScreenCount
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the number of display screens available (`SC`).
+
+# Command format
+
+> `SC;`
+
+# Response format
+
+> `SC{nn};`
+
+Where *nn* is the number of VFO-screen combinations available, between `00` and `99`." =>
+    GetScreenCount
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: SetK4Delay
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Set the QSK or VOX delay, in milliseconds (`SD`).
+
+K4 extended command; K41 mode required.
+
+# Command format
+
+> `SD{nnnn};`
+
+Where *nnnn* is the delay, between `0000` (full QSK / instant VOX) and `2000` ms." =>
+    SetK4QskOrVoxDelay {
+        delay_ms: u16
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: SetSystemAutoInfo
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Configure the system auto-info interval (`SI`).
+
+# Command format
+
+> `SI{nnnn};`
+
+Where *nnnn* is the interval, in ms, between unsolicited periodic status reports, between `0000`
+(disabled) and `9999`." =>
+    SetSystemAutoInfoInterval {
+        interval_ms: u16
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetStreamingLatency, SetStreamingLatency
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the remote audio streaming latency setting (`SL`).
+
+# Command format
+
+> `SL;`
+
+# Response format
+
+> `SL{nn};`
+
+Where *nn* is the latency class, between `00` (lowest latency) and `99`." =>
+    GetStreamingLatencyClass
+);
+
+define_command!("Set the remote audio streaming latency setting (`SL`).
+
+# Command format
+
+> `SL{nn};`
+
+Where *nn* is the latency class, between `00` (lowest latency) and `99`." =>
+    SetStreamingLatencyClass {
+        latency: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetSerialNumber
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the transceiver serial number (`SN`).
+
+# Command format
+
+> `SN;`
+
+# Response format
+
+> `SN{nnnnn};`
+
+Where *nnnnn* is the 5-digit serial number." =>
+    GetTransceiverSerialNumber
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: CaptureScreenshot
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Capture a screenshot to the SD card (`SS`).
+
+# Command format
+
+> `SS;`
+
+Saves a PNG screenshot of the current display to the SD card; there is no argument or response
+beyond the usual acknowledgement." =>
+    CaptureScreenshot
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetTxGainConstant
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the transmit gain constant used for calibration (`TA`).
+
+# Command format
+
+> `TA;`
+
+# Response format
+
+> `TA{nnn};`
+
+Where *nnn* is the internal DAC calibration value, between `000` and `255`." =>
+    GetTransmitGainConstant
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetVfoATextDecodeMode, GetVfoBTextDecodeMode, SetVfoATextDecodeMode,
+//      SetVfoBTextDecodeMode, TextDecodeMode
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the text decode/encode mode for VFO A (`TD`).
+
+# Command format
+
+> `TD;`
+
+# Response format
+
+> `TD{n};`
+
+Where *n* is the text decode/encode mode; see [`TextDecodeMode`]." =>
+    GetVfoATextDecodeMode
+);
+
+define_command!("Get the text decode/encode mode for VFO B (`TD$`).
+
+# Command format
+
+> `TD$;`
+
+# Response format
+
+> `TD${n};`
+
+Where *n* is text decode/encode mode; see [`TextDecodeMode`]." =>
+    GetVfoBTextDecodeMode
+);
+
+define_command!("Set the text decode/encode mode for VFO A (`TD`).
+
+# Command format
+
+> `TD{n};`
+
+Where *n* is text decode/encode mode; see [`TextDecodeMode`]." =>
+    SetVfoATextDecodeMode {
+        mode: TextDecodeMode
+    }
+);
+
+define_command!("Set the text decode/encode mode for VFO B (`TD$`).
+
+# Command format
+
+> `TD${n};`
+
+Where *n* is text decode/encode mode; see [`TextDecodeMode`]." =>
+    SetVfoBTextDecodeMode {
+        mode: TextDecodeMode
+    }
+);
+
+define_command_enum!("Text decode/encode mode." =>
+    TextDecodeMode {
+        "Off." => Off = b'0',
+        "CW decode." => Cw = b'1',
+        "RTTY decode." => Rtty = b'2',
+        "PSK decode." => Psk = b'3'
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetTransmitGain
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the current transmit gain setting (`TG`).
+
+# Command format
+
+> `TG;`
+
+# Response format
+
+> `TG{nnn};`
+
+Where *nnn* is the internal DAC value, between `000` and `255`." =>
+    GetTransmitGain
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetTransmitTestModeState, SetTransmitTestModeState
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the TX test mode state (`TS`).
+
+# Command format
+
+> `TS;`
+
+# Response format
+
+> `TS{n};`
+
+Where `n` is the boolean state `0` (normal TX) or `1` (transmit test mode; continuous carrier)." =>
+    GetTransmitTestModeState
+);
+
+define_command!("Set the TX test mode state (`TS`).
+
+Transmits a continuous carrier when enabled; intended for calibration and test use only.
+
+# Command format
+
+> `TS{n};`
+
+Where `n` is the boolean state `0` (normal TX) or `1` (transmit test mode; continuous carrier)." =>
+    SetTransmitTestModeState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: SetTune
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Start or stop the ATU tuning sequence (K4 only, SET only).
+
+# Command format
+
+> `TU{n};`
+
+Where `n` is the boolean state `0` (stop tuning) or `1` (start ATU tune)." =>
+    SetAtuTuningState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetUtcTimestamp
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the current UTC date and time from the K4 real-time clock (`UT`).
+
+# Command format
+
+> `UT;`
+
+# Response format
+
+> `UT{hh}{mm}{ss}{MM}{DD}{YYYY};`
+
+Where *hh* is the hour, *mm* the minute, *ss* the second, *MM* the month, *DD* the day and *YYYY*
+the year, returned as raw bytes." =>
+    GetUtcTimestamp
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetCoarseTuningStep, SetCoarseTuningStep
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the coarse VFO tune step size (`VC`).
+
+# Command format
+
+> `VC;`
+
+# Response format
+
+> `VC{nn};`
+
+Where *nn* is the coarse tuning step multiplier, between `00` and `99`." =>
+    GetCoarseTuningStep
+);
+
+define_command!("Set the coarse VFO tune step size (`VC`).
+
+# Command format
+
+> `VC{nn};`
+
+Where *nn* is the coarse tuning step multiplier, between `00` and `99`." =>
+    SetCoarseTuningStep {
+        step: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetVoxGain, SetVoxGain
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the VOX gain (`VG`).
+
+# Command format
+
+> `VG;`
+
+# Response format
+
+> `VG{nnn};`
+
+Where *nnn* is the gain, between `000` (off / minimum sensitivity) and `009` (maximum)." =>
+    GetVoxGain
+);
+
+define_command!("Set the VOX gain (`VG`).
+
+# Command format
+
+> `VG{nnn};`
+
+Where *nnn* is the gain, between `000` (off / minimum sensitivity) and `009` (maximum)." =>
+    SetVoxGain {
+        gain: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetVoxInhibit, SetVoxInhibit
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the VOX inhibit state (`VI`).
+
+# Command format
+
+> `VI;`
+
+# Response format
+
+> `VI{n};`
+
+Where `n` is the boolean state `0` (VOX enabled) or `1` (VOX inhibited / muted)." =>
+    GetVoxInhibitState
+);
+
+define_command!("Set the VOX inhibit state (`VI`).
+
+# Command format
+
+> `VI{n};`
+
+Where `n` is the boolean state `0` (VOX enabled) or `1` (VOX inhibited / muted)." =>
+    SetVoxInhibitState { state }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetVfoATransverterOffset, GetVfoBTransverterOffset
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the VFO frequency offset used for transverter operation, for VFO A (`VO`).
+
+# Command format
+
+> `VO;`
+
+# Response format
+
+> `VO{nnnnnnnnnn};`
+
+Where *nnnnnnnnnn* is the 10-digit Hz offset value, returned as raw bytes for the caller to
+interpret; the value may be signed ASCII." =>
+    GetVfoATransverterOffset
+);
+
+define_command!("Get the VFO frequency offset used for transverter operation, for VFO B (`VO$`).
+
+# Command format
+
+> `VO$;`
+
+# Response format
+
+> `VO${nnnnnnnnnn};`
+
+Where *nnnnnnnnnn* is the 10-digit Hz offset value, returned as raw bytes for the caller to
+interpret; the value may be signed ASCII." =>
+    GetVfoBTransverterOffset
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetVfoTuningStepA, GetVfoTuningStepB, SetVfoTuningStepA, SetVfoTuningStepB
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the VFO tuning step size, in Hz, for VFO A (`VT`).
+
+# Command format
+
+> `VT;`
+
+# Response format
+
+> `VT{nnnnnn};`
+
+Where *nnnnnn* is the step size in Hz, e.g. `000001` for 1 Hz or `001000` for 1 kHz." =>
+    GetVfoATuningStep
+);
+
+define_command!("Get the VFO tuning step size, in Hz, for VFO B (`VT$`).
+
+# Command format
+
+> `VT$;`
+
+# Response format
+
+> `VT${nnnnnn};`
+
+Where *nnnnnn* is the step size in Hz, e.g. `000001` for 1 Hz or `001000` for 1 kHz." =>
+    GetVfoBTuningStep
+);
+
+define_command!("Set the VFO tuning step size, in Hz, for VFO A (`VT`).
+
+# Command format
+
+> `VT{nnnnnn};`
+
+Where *nnnnnn* is the step size in Hz, between `000000` and `999999`." =>
+    SetVfoATuningStep {
+        step_hz: u32
+    }
+);
+
+define_command!("Set the VFO tuning step size, in Hz, for VFO B (`VT$`).
+
+# Command format
+
+> `VT${nnnnnn};`
+
+Where *nnnnnn* is the step size in Hz, between `000000` and `999999`." =>
+    SetVfoBTuningStep {
+        step_hz: u32
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetWattmeterCalibrationConstant, SetWattmeterCalibrationConstant
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the wattmeter calibration value (`WM`).
+
+# Command format
+
+> `WM;`
+
+# Response format
+
+> `WM{nnn};`
+
+Where *nnn* is the internal calibration constant, between `000` and `255`." =>
+    GetWattmeterCalibrationConstant
+);
+
+define_command!("Set the wattmeter calibration value (`WM`).
+
+# Command format
+
+> `WM{nnn};`
+
+Where *nnn* is the internal calibration constant, between `000` and `255`." =>
+    SetWattmeterCalibrationConstant {
+        value: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetVfoATransverterActiveBandSlot, GetVfoBTransverterActiveBandSlot,
+//      SetVfoATransverterActiveBandSlot, SetVfoBTransverterActiveBandSlot
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the active transverter band slot for VFO A (`XV`).
+
+# Command format
+
+> `XV;`
+
+# Response format
+
+> `XV{nn};`
+
+Where *nn* is the transverter band slot, between `00` and `08`." =>
+    GetVfoATransverterActiveBandSlot
+);
+
+define_command!("Get the active transverter band slot for VFO B (`XV$`).
+
+# Command format
+
+> `XV$;`
+
+# Response format
+
+> `XV${nn};`
+
+Where *nn* is the transverter band slot, between `00` and `08`." =>
+    GetVfoBTransverterActiveBandSlot
+);
+
+define_command!("Set the active transverter band slot for VFO A (`XV`).
+
+# Command format
+
+> `XV{nn};`
+
+Where *nn* is the transverter band slot, between `00` and `08`." =>
+    SetVfoATransverterActiveBandSlot {
+        band_slot: u8
+    }
+);
+
+define_command!("Set the active transverter band slot for VFO B (`XV$`).
+
+# Command format
+
+> `XV${nn};`
+
+Where *nn* is the transverter band slot, between `00` and `08`." =>
+    SetVfoBTransverterActiveBandSlot {
+        band_slot: u8
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Implementations
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(CopyVfoAtoVfoB => b"AB" with Some |_cmd: &CopyVfoAtoVfoB| {
+    vec![b'0']
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(SwapVfoAandVfoB => b"AB" with Some |_cmd: &SwapVfoAandVfoB| {
+    vec![b'1']
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetAtuMode => b"AT");
+impl_command_with_response!(GetAtuMode => try_from enum AtuMode);
+
+impl_command!(SetAtuMode => b"AT" for as byte mode);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetBandIndependenceState => b"BI");
+impl_command_with_response!(GetBandIndependenceState => boolean);
+
+impl_command!(SetBandIndependenceState => b"BI" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(SetCwSidetonePitch => b"CW"
+    format pitch_hz uint 3, if |cmd: &SetCwSidetonePitch| {
+    if (300..=800).contains(&cmd.pitch_hz) {
+        Ok(())
+    } else {
+        Err(RigError::InvalidArgumentValue {
+            argument_name: "hz",
+            type_name: "u16",
+            value: cmd.pitch_hz.to_string(),
+        })
+    }
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetDigitalAudioRoutingMode => b"DA");
+impl_command_with_response!(GetDigitalAudioRoutingMode => try_from enum DigitalAudioRoutingMode);
+
+impl_command!(SetDigitalAudioRoutingMode => b"DA" for as byte mode);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetDigitalOutputPin1State => b"DO");
+impl_command_with_response!(GetDigitalOutputPin1State => boolean);
+
+impl_command!(SetDigitalOutputPin1State => b"DO" for boolean high);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetTransmitDataBandwidth => b"DW");
+impl_command_with_response!(GetTransmitDataBandwidth => 4, u16_from_ascii => u16);
+
+impl_command!(SetTransmitDataBandwidth => b"DW" with Some |cmd: &SetTransmitDataBandwidth| {
+    format_u16_ascii_4(cmd.bandwidth_10hz)
+}, if |cmd: &SetTransmitDataBandwidth| {
+    if cmd.bandwidth_10hz <= 9999 {
+        Ok(())
+    } else {
+        Err(RigError::InvalidArgumentValue {
+            argument_name: "bandwidth_10hz",
+            type_name: "u16",
+            value: cmd.bandwidth_10hz.to_string(),
+        })
+    }
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(SetCommandEchoState => b"EC" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetErrorReportingState => b"ER");
+impl_command_with_response!(GetErrorReportingState => boolean);
+
+impl_command!(SetErrorReportingState => b"ER" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(CenterPanadapterOnVfoA => b"FC");
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(CenterPanadapterOnVfoB => b"FC$");
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoAFilterPresetSlot => b"FP");
+impl_command_with_response!(GetVfoAFilterPresetSlot => 1, u8_from_ascii => u8);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoBFilterPresetSlot => b"FP$");
+impl_command_with_response!(GetVfoBFilterPresetSlot => 1, u8_from_ascii => u8);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(
+    SetVfoAFilterPresetSlot => b"FP"
+    format preset uint 1,
+    if |cmd: &SetVfoAFilterPresetSlot| {
+        if (1..=8).contains(&cmd.preset) {
+            Ok(())
+        } else {
+            Err(RigError::InvalidArgumentValue {
+                argument_name: "preset",
+                type_name: "u8",
+                value: cmd.preset.to_string(),
+            })
         }
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(
+    SetVfoBFilterPresetSlot => b"FP$"
+    format preset uint 1,
+    if |cmd: &SetVfoBFilterPresetSlot| {
+        if (1..=8).contains(&cmd.preset) {
+            Ok(())
+        } else {
+            Err(RigError::InvalidArgumentValue {
+                argument_name: "preset",
+                type_name: "u8",
+                value: cmd.preset.to_string(),
+            })
+        }
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoAAgcMode => b"GT");
+impl_command_with_response!(GetVfoAAgcMode => 2, u8_from_ascii => u8);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoBAgcMode => b"GT$");
+impl_command_with_response!(GetVfoBAgcMode => 2, u8_from_ascii => u8);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(
+    SetVfoAAgcMode => b"GT"
+    format mode uint 2,
+    if |cmd: &SetVfoAAgcMode| {
+        if cmd.mode <= 3 {
+            Ok(())
+        } else {
+            Err(RigError::InvalidArgumentValue {
+                argument_name: "mode",
+                type_name: "u8",
+                value: cmd.mode.to_string(),
+            })
+        }
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(
+    SetVfoBAgcMode => b"GT$"
+    format mode uint 2,
+    if |cmd: &SetVfoBAgcMode| {
+        if cmd.mode <= 3 {
+            Ok(())
+        } else {
+            Err(RigError::InvalidArgumentValue {
+                argument_name: "mode",
+                type_name: "u8",
+                value: cmd.mode.to_string(),
+            })
+        }
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetTransceiverId => b"ID");
+impl_command_with_response!(GetTransceiverId => 3, u16_from_ascii => u16);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoAIfCenterPitch => b"IS");
+impl_command_with_response!(GetVfoAIfCenterPitch => 5, parse_signed_hz_4 => i16);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoBIfCenterPitch => b"IS$");
+impl_command_with_response!(GetVfoBIfCenterPitch => 5, parse_signed_hz_4 => i16);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetKeyerPaddleEmulationMode => b"KP");
+impl_command_with_response!(GetKeyerPaddleEmulationMode => try_from enum KeyerPaddleEmulationMode);
+
+impl_command!(SetKeyerPaddleEmulationMode => b"KP" for as byte mode);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(
+    SetKeyerSpeed => b"KS"
+    format wpm uint 3,
+    if |cmd: &SetKeyerSpeed| {
+        if (8..=100).contains(&cmd.wpm) {
+            Ok(())
+        } else {
+            Err(RigError::InvalidArgumentValue {
+                argument_name: "wpm",
+                type_name: "u8",
+                value: cmd.wpm.to_string(),
+            })
+        }
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetAudioLineInputLevel => b"LI");
+impl_command_with_response!(GetAudioLineInputLevel => 3, u8_from_ascii => u8);
+
+impl_command!(
+    SetAudioLineInputLevel => b"LI"
+    format level uint 3,
+    if |cmd: &SetAudioLineInputLevel| {
+        if cmd.level <= 60 {
+            Ok(())
+        } else {
+            Err(RigError::InvalidArgumentValue {
+                argument_name: "level",
+                type_name: "u8",
+                value: cmd.level.to_string(),
+            })
+        }
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetAudioLineOutputLevel => b"LO");
+impl_command_with_response!(GetAudioLineOutputLevel => 3, u8_from_ascii => u8);
+
+impl_command!(
+    SetAudioLineOutputLevel => b"LO"
+    format level uint 3,
+    if |cmd: &SetAudioLineOutputLevel| {
+        if cmd.level <= 60 {
+            Ok(())
+        } else {
+            Err(RigError::InvalidArgumentValue {
+                argument_name: "level",
+                type_name: "u8",
+                value: cmd.level.to_string(),
+            })
+        }
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoAModeAlternates => b"MA");
+
+impl CommandWithResponse for GetVfoAModeAlternates {
+    type Response = Vec<u8>;
+
+    fn expected_response_length(&self) -> usize {
+        0
+    }
+
+    fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
+        let d = validate_response(bytes, self.command_id(), 0)?;
+        bytes_to_vec(d)
     }
 }
 
-impl CommandWithResponse for GetManualNotch {
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoBModeAlternates => b"MA$");
+
+impl CommandWithResponse for GetVfoBModeAlternates {
+    type Response = Vec<u8>;
+
+    fn expected_response_length(&self) -> usize {
+        0
+    }
+
+    fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
+        let d = validate_response(bytes, self.command_id(), 0)?;
+        bytes_to_vec(d)
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetMicInputSource => b"MI");
+impl_command_with_response!(GetMicInputSource => try_from enum MicInputSource);
+
+impl_command!(SetMicInputSource => b"MI" for as byte input);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetAudioMixRatio => b"MX");
+impl_command_with_response!(GetAudioMixRatio => 2, u8_from_ascii => u8);
+
+impl_command!(
+    SetAudioMixRatio => b"MX"
+    format ratio uint 2,
+    if |cmd: &SetAudioMixRatio| {
+        if cmd.ratio <= 99 {
+            Ok(())
+        } else {
+            Err(RigError::InvalidArgumentValue {
+                argument_name: "ratio",
+                type_name: "u8",
+                value: cmd.ratio.to_string(),
+            })
+        }
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoAAutoNotchState => b"NA");
+impl_command_with_response!(GetVfoAAutoNotchState => boolean);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoBAutoNotchState => b"NA$");
+impl_command_with_response!(GetVfoBAutoNotchState => boolean);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(SetVfoAAutoNotchState => b"NA" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(SetVfoBAutoNotchState => b"NA$" for state);
+
+// ------------------------------------------------------------------------------------------------
+// NM/NM$ pack the on/off flag, an ignored step digit, and a sign-prefixed 4-digit Hz offset into a
+// single argument, so `impl_command!`'s field shorthands cannot express the encoding; the
+// implementations below are hand-rolled.
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoAManualNotchSettings => b"NM");
+
+impl CommandWithResponse for GetVfoAManualNotchSettings {
     type Response = ManualNotch;
+
     fn expected_response_length(&self) -> usize {
         7
     }
+
     fn parse(&self, bytes: &[u8]) -> Result<ManualNotch, RigError> {
-        let d = validate_response(bytes, self.command_id(), 7)?;
+        let d = validate_response(bytes, self.command_id(), self.expected_response_length())?;
         Ok(ManualNotch {
-            on: d[0] == b'1',
-            offset_hz: parse_signed_i16(&d[2..7])?,
+            state: d[0] == b'1',
+            offset_hz: parse_signed_hz_4(&d[2..7])?,
         })
     }
 }
 
-/// Set manual notch (on/off and frequency offset in Hz).
-command! { SetManualNotch => vfo: Vfo, on: bool, offset_hz: i16 }
+// ------------------------------------------------------------------------------------------------
 
-impl Command for SetManualNotch {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"NM",
-            Vfo::B => b"NM$",
-            _ => panic!("SetManualNotch: only VFO A and B supported"),
-        }
+impl_command!(GetVfoBManualNotchSettings => b"NM$");
+
+impl CommandWithResponse for GetVfoBManualNotchSettings {
+    type Response = ManualNotch;
+
+    fn expected_response_length(&self) -> usize {
+        7
     }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        let flag = if self.on { b'1' } else { b'0' };
-        let sign = if self.offset_hz < 0 { b'-' } else { b'+' };
-        let mag = self.offset_hz.unsigned_abs();
-        let mut v = vec![flag, b'0', sign];
-        v.extend_from_slice(format!("{:04}", mag).as_bytes());
-        Some(v)
+
+    fn parse(&self, bytes: &[u8]) -> Result<ManualNotch, RigError> {
+        let d = validate_response(bytes, self.command_id(), self.expected_response_length())?;
+        Ok(ManualNotch {
+            state: d[0] == b'1',
+            offset_hz: parse_signed_hz_4(&d[2..7])?,
+        })
     }
 }
 
 // ------------------------------------------------------------------------------------------------
-// NR$ — Noise Reduction (K4 only)
+
+impl_command!(SetVfoAManualNotchSettings => b"NM" with |cmd: &SetVfoAManualNotchSettings| {
+    Ok(Some(manual_k4_notch_argument_bytes(cmd.state, cmd.offset_hz)))
+}, if |cmd: &SetVfoAManualNotchSettings| { validate_k4_manual_notch_offset(cmd.offset_hz) });
+
 // ------------------------------------------------------------------------------------------------
 
-/// Noise reduction state returned by `GetNoiseReduction`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct NoiseReduction {
-    /// `true` = noise reduction active.
-    pub on: bool,
-    /// Level 0–9.
-    pub level: u8,
-}
+impl_command!(SetVfoBManualNotchSettings => b"NM$" with |cmd: &SetVfoBManualNotchSettings| {
+    Ok(Some(manual_k4_notch_argument_bytes(cmd.state, cmd.offset_hz)))
+}, if |cmd: &SetVfoBManualNotchSettings| { validate_k4_manual_notch_offset(cmd.offset_hz) });
 
-/// Query noise reduction (LMS) state and level (K4 only).
-///
-/// RSP format: `NRnl;` or `NR$nl;` — `n` = on/off, `l` = level (0–9).
-command! { GetNoiseReduction => vfo: Vfo }
+// ------------------------------------------------------------------------------------------------
+// NR/NR$ pack the on/off flag and the level into a single two-byte argument, so
+// `impl_command!`'s field shorthands cannot express the encoding; the implementations below are
+// hand-rolled.
+// ------------------------------------------------------------------------------------------------
 
-impl Command for GetNoiseReduction {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"NR",
-            Vfo::B => b"NR$",
-            _ => panic!("GetNoiseReduction: only VFO A and B supported"),
-        }
-    }
-}
+impl_command!(GetVfoANoiseReductionSettings => b"NR");
 
-impl CommandWithResponse for GetNoiseReduction {
+impl CommandWithResponse for GetVfoANoiseReductionSettings {
     type Response = NoiseReduction;
+
     fn expected_response_length(&self) -> usize {
         2
     }
+
     fn parse(&self, bytes: &[u8]) -> Result<NoiseReduction, RigError> {
-        let d = validate_response(bytes, self.command_id(), 2)?;
+        let d = validate_response(bytes, self.command_id(), self.expected_response_length())?;
         Ok(NoiseReduction {
-            on: d[0] == b'1',
+            state: d[0] == b'1',
             level: d[1] - b'0',
         })
     }
 }
 
-/// Set noise reduction on/off and level (0–9).
-command! { SetNoiseReduction => vfo: Vfo, on: bool, level: u8 }
-
-impl Command for SetNoiseReduction {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"NR",
-            Vfo::B => b"NR$",
-            _ => panic!("SetNoiseReduction: only VFO A and B supported"),
-        }
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![
-            if self.on { b'1' } else { b'0' },
-            b'0' + self.level.min(9),
-        ])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// PB — DVR Message Playback (K4 only)
 // ------------------------------------------------------------------------------------------------
 
-/// Play a DVR (digital voice recorder) message (K4 only, SET only).
-///
-/// RSP format: `PBn;` — `n` = 1–8 (message number); `n` = 0 stops playback.
-command! { PlayDvrMessage => message: u8 }
+impl_command!(GetVfoBNoiseReductionSettings => b"NR$");
 
-impl Command for PlayDvrMessage {
-    fn command_id(&self) -> &[u8] {
-        b"PB"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'0' + self.message.min(8)])
-    }
-}
+impl CommandWithResponse for GetVfoBNoiseReductionSettings {
+    type Response = NoiseReduction;
 
-// ------------------------------------------------------------------------------------------------
-// PL$ — PL / CTCSS Tone (K4 only)
-// ------------------------------------------------------------------------------------------------
-
-/// Query CTCSS (PL) tone code (K4 only, FM mode).
-///
-/// RSP format: `PLnnn;` or `PL$nnn;` — `nnn` = tone code 000–038.
-/// `000` = no tone. See Table in D12 reference for tone frequencies.
-command! { GetPlTone => vfo: Vfo }
-
-impl Command for GetPlTone {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"PL",
-            Vfo::B => b"PL$",
-            _ => panic!("GetPlTone: only VFO A and B supported"),
-        }
-    }
-}
-
-impl CommandWithResponse for GetPlTone {
-    type Response = u8;
     fn expected_response_length(&self) -> usize {
-        3
+        2
     }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, self.command_id(), 3)?;
-        parse_decimal_u8(d)
-    }
-}
 
-/// Set PL/CTCSS tone code (0=off, 1–38=tone).
-command! { SetPlTone => vfo: Vfo, tone_code: u8 }
-
-impl Command for SetPlTone {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"PL",
-            Vfo::B => b"PL$",
-            _ => panic!("SetPlTone: only VFO A and B supported"),
-        }
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.tone_code.min(38)).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// PP — Per-Band Power (K4 only, GET only)
-// ------------------------------------------------------------------------------------------------
-
-/// Query the per-band power limit setting (K4 only, GET only).
-///
-/// RSP format: `PPnnn;` — `nnn` = 000–110 watts (stored limit for the current band).
-command!(GetPerBandPower);
-
-impl_command!(GetPerBandPower, b"PP");
-
-impl CommandWithResponse for GetPerBandPower {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        3
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"PP", 3)?;
-        parse_decimal_u8(d)
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// PS — Power On/Off/Restart (K4 extended)
-// ------------------------------------------------------------------------------------------------
-
-/// Set transceiver power state (K4 extended).
-///
-/// RSP format: `PSn;` — `n` = 0 (power off), 1 (power on), 2 (firmware restart).
-/// On K4, `PS2;` triggers a controlled firmware restart.
-command! { SetK4PowerStatus => state: u8 }
-
-impl Command for SetK4PowerStatus {
-    fn command_id(&self) -> &[u8] {
-        b"PS"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'0' + self.state.min(2)])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// RL — Software Release Selection (K4 only)
-// ------------------------------------------------------------------------------------------------
-
-/// Query the active software release channel (K4 only).
-///
-/// RSP format: `RLn;` — `n` = 0 (stable), 1 (beta), 2 (alpha).
-command!(GetSoftwareRelease);
-
-impl_command!(GetSoftwareRelease, b"RL");
-
-impl CommandWithResponse for GetSoftwareRelease {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        1
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"RL", 1)?;
-        Ok(d[0] - b'0')
-    }
-}
-
-/// Set software release channel (0=stable, 1=beta, 2=alpha).
-command! { SetSoftwareRelease => channel: u8 }
-
-impl Command for SetSoftwareRelease {
-    fn command_id(&self) -> &[u8] {
-        b"RL"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'0' + self.channel.min(2)])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// RP — Repeater Offset (K4 only)
-// ------------------------------------------------------------------------------------------------
-
-/// Repeater offset state returned by `GetRepeaterOffset`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct RepeaterOffset {
-    /// 0=off, 1=positive offset, 2=negative offset.
-    pub direction: u8,
-    /// Offset in Hz.
-    pub offset_hz: u32,
-}
-
-/// Query repeater offset direction and frequency (K4 only, FM mode).
-///
-/// RSP format: `RPnsnnnnnn;` — `n` = direction (0=off, 1=+, 2=−),
-/// `s` = split flag, `nnnnnn` = offset in Hz.
-command!(GetRepeaterOffset);
-
-impl_command!(GetRepeaterOffset, b"RP");
-
-impl CommandWithResponse for GetRepeaterOffset {
-    type Response = RepeaterOffset;
-    fn expected_response_length(&self) -> usize {
-        8
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<RepeaterOffset, RigError> {
-        let d = validate_response(bytes, b"RP", 8)?;
-        let direction = d[0] - b'0';
-        let mut n = 0u32;
-        for &b in &d[2..8] {
-            if !(b'0'..=b'9').contains(&b) {
-                return Err(RigError::InvalidResponseData { data: d.to_vec() });
-            }
-            n = n * 10 + u32::from(b - b'0');
-        }
-        Ok(RepeaterOffset {
-            direction,
-            offset_hz: n,
+    fn parse(&self, bytes: &[u8]) -> Result<NoiseReduction, RigError> {
+        let d = validate_response(bytes, self.command_id(), self.expected_response_length())?;
+        Ok(NoiseReduction {
+            state: d[0] == b'1',
+            level: d[1] - b'0',
         })
     }
 }
 
-/// Set repeater offset direction (0=off, 1=positive, 2=negative) and Hz.
-command! { SetRepeaterOffset => direction: u8, offset_hz: u32 }
-
-impl Command for SetRepeaterOffset {
-    fn command_id(&self) -> &[u8] {
-        b"RP"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        let mut v = vec![b'0' + self.direction.min(2), b'0'];
-        v.extend_from_slice(format!("{:06}", self.offset_hz).as_bytes());
-        Some(v)
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// SC — Screen Count (K4 only, GET only)
 // ------------------------------------------------------------------------------------------------
 
-/// Query the number of available display screens (K4 only, GET only).
-///
-/// RSP format: `SCnn;` — `nn` = 00–99 (number of VFO-screen combos available).
-command!(GetScreenCount);
-
-impl_command!(GetScreenCount, b"SC");
-
-impl CommandWithResponse for GetScreenCount {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        2
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"SC", 2)?;
-        parse_decimal_u8(d)
-    }
-}
+impl_command!(SetVfoANoiseReductionSettings => b"NR" with Some |cmd: &SetVfoANoiseReductionSettings| {
+    vec![if cmd.state { b'1' } else { b'0' }, b'0' + cmd.level]
+}, if |cmd: &SetVfoANoiseReductionSettings| { validate_k4_noise_reduction_level(cmd.level) });
 
 // ------------------------------------------------------------------------------------------------
-// SD — QSK/VOX Delay (K4 extended range)
-// ------------------------------------------------------------------------------------------------
 
-/// Set QSK or VOX delay in milliseconds (K4 extended range: 0–2000 ms).
-///
-/// RSP format: `SDnnnn;` — `nnnn` = 0000–2000 ms (`0000` = full QSK / instant VOX).
-command! { SetK4Delay => ms: u16 }
-
-impl Command for SetK4Delay {
-    fn command_id(&self) -> &[u8] {
-        b"SD"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:04}", self.ms.min(2000)).into_bytes())
-    }
-}
+impl_command!(SetVfoBNoiseReductionSettings => b"NR$" with Some |cmd: &SetVfoBNoiseReductionSettings| {
+    vec![if cmd.state { b'1' } else { b'0' }, b'0' + cmd.level]
+}, if |cmd: &SetVfoBNoiseReductionSettings| { validate_k4_noise_reduction_level(cmd.level) });
 
 // ------------------------------------------------------------------------------------------------
-// SI — System Auto Info (K4 only, SET only)
-// ------------------------------------------------------------------------------------------------
 
-/// Configure system auto-info interval (K4 only, SET only).
-///
-/// RSP format: `SInnnn;` — `nnnn` = 0000–9999 ms interval between unsolicited
-/// periodic status reports. `0000` = disable periodic reports.
-command! { SetSystemAutoInfo => interval_ms: u16 }
-
-impl Command for SetSystemAutoInfo {
-    fn command_id(&self) -> &[u8] {
-        b"SI"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:04}", self.interval_ms).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// SL — Remote Streaming Audio Latency (K4 only)
-// ------------------------------------------------------------------------------------------------
-
-/// Query remote audio streaming latency setting (K4 only).
-///
-/// RSP format: `SLnn;` — `nn` = 00–99 (latency class; 00 = lowest latency).
-command!(GetStreamingLatency);
-
-impl_command!(GetStreamingLatency, b"SL");
-
-impl CommandWithResponse for GetStreamingLatency {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        2
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"SL", 2)?;
-        parse_decimal_u8(d)
-    }
-}
-
-/// Set remote audio streaming latency (0–99).
-command! { SetStreamingLatency => latency: u8 }
-
-impl Command for SetStreamingLatency {
-    fn command_id(&self) -> &[u8] {
-        b"SL"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:02}", self.latency.min(99)).into_bytes())
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// SN — Serial Number (K4 only, GET only)
-// ------------------------------------------------------------------------------------------------
-
-/// Query the transceiver serial number (K4 only, GET only).
-///
-/// RSP format: `SNnnnnn;` — `nnnnn` = 5-digit serial number.
-command!(GetSerialNumber);
-
-impl_command!(GetSerialNumber, b"SN");
-
-impl CommandWithResponse for GetSerialNumber {
-    type Response = u32;
-    fn expected_response_length(&self) -> usize {
-        5
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u32, RigError> {
-        let d = validate_response(bytes, b"SN", 5)?;
-        let mut n = 0u32;
-        for &b in d {
-            if !(b'0'..=b'9').contains(&b) {
-                return Err(RigError::InvalidResponseData { data: d.to_vec() });
-            }
-            n = n * 10 + u32::from(b - b'0');
-        }
-        Ok(n)
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// SS — Screenshot Capture (K4 only, SET only)
-// ------------------------------------------------------------------------------------------------
-
-/// Capture a screenshot to the SD card (K4 only, SET only).
-///
-/// RSP format: `SS;` (no arguments). Saves a PNG screenshot to the SD card.
-command!(CaptureScreenshot);
-
-impl_command!(CaptureScreenshot, b"SS");
-
-// ------------------------------------------------------------------------------------------------
-// TA — TX Gain Constant (K4 only, GET only)
-// ------------------------------------------------------------------------------------------------
-
-/// Query the TX gain constant used for calibration (K4 only, GET only).
-///
-/// RSP format: `TAnnn;` — `nnn` = 000–255 (internal DAC calibration value).
-command!(GetTxGainConstant);
-
-impl_command!(GetTxGainConstant, b"TA");
-
-impl CommandWithResponse for GetTxGainConstant {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        3
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"TA", 3)?;
-        parse_decimal_u8(d)
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// TD$ — Text Decode/Encode Mode (K4 only)
-// ------------------------------------------------------------------------------------------------
-
-/// Query text decode/encode mode (K4 only).
-///
-/// RSP format: `TDn;` or `TD$n;` — `n` = 0 (off), 1 (CW decode), 2 (RTTY decode),
-/// 3 (PSK decode).
-command! { GetTextDecodeMode => vfo: Vfo }
-
-impl Command for GetTextDecodeMode {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"TD",
-            Vfo::B => b"TD$",
-            _ => panic!("GetTextDecodeMode: only VFO A and B supported"),
+impl_command!(
+    PlayDvrMessage => b"PB"
+    format message uint 1,
+    if |cmd: &PlayDvrMessage| {
+        if cmd.message <= 8 {
+            Ok(())
+        } else {
+            Err(RigError::InvalidArgumentValue {
+                argument_name: "message",
+                type_name: "u8",
+                value: cmd.message.to_string(),
+            })
         }
     }
-}
+);
 
-impl CommandWithResponse for GetTextDecodeMode {
-    type Response = u8;
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoACtssTone => b"PL");
+impl_command_with_response!(GetVfoACtssTone => 3, u8_from_ascii => u8);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoBCtssTone => b"PL$");
+impl_command_with_response!(GetVfoBCtssTone => 3, u8_from_ascii => u8);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(
+    SetVfoACtssTone => b"PL"
+    format tone_code uint 3,
+    if |cmd: &SetVfoACtssTone| { validate_k4_pl_tone_code(cmd.tone_code) }
+);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(
+    SetVfoBCtssTone => b"PL$"
+    format tone_code uint 3,
+    if |cmd: &SetVfoBCtssTone| { validate_k4_pl_tone_code(cmd.tone_code) }
+);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetCurrentBandPowerLimit => b"PP");
+impl_command_with_response!(GetCurrentBandPowerLimit => 3, u8_from_ascii => u8);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetPowerStatus => b"PS");
+impl_command_with_response!(GetPowerStatus => try_from enum PowerStatus);
+
+impl_command!(SetPowerStatus => b"PS" for as byte state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetActiveSoftwareReleaseChannel => b"RL");
+impl_command_with_response!(GetActiveSoftwareReleaseChannel => try_from enum SoftwareReleaseChannel);
+
+impl_command!(SetActiveSoftwareReleaseChannel => b"RL" for as byte channel);
+
+// ------------------------------------------------------------------------------------------------
+// RP packs the offset direction, an ignored split flag, and a 6-digit Hz offset into a single
+// argument, so `impl_command!`'s field shorthands cannot express the encoding; the implementations
+// below are hand-rolled.
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetRepeaterOffset => b"RP");
+
+impl CommandWithResponse for GetRepeaterOffset {
+    type Response = RepeaterOffset;
+
     fn expected_response_length(&self) -> usize {
-        1
+        8
     }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, self.command_id(), 1)?;
-        Ok(d[0] - b'0')
+
+    fn parse(&self, bytes: &[u8]) -> Result<RepeaterOffset, RigError> {
+        let d = validate_response(bytes, self.command_id(), self.expected_response_length())?;
+        Ok(RepeaterOffset {
+            direction: RepeaterOffsetDirection::from_repr(d[0]).ok_or(
+                RigError::InvalidArgumentValue {
+                    argument_name: "direction",
+                    type_name: "RepeaterOffsetDirection",
+                    value: d[0].to_string(),
+                },
+            )?,
+            offset_hz: u32_from_ascii(&d[2..8])?,
+        })
     }
 }
 
-/// Set text decode/encode mode (0=off, 1=CW, 2=RTTY, 3=PSK).
-command! { SetTextDecodeMode => vfo: Vfo, mode: u8 }
+impl_command!(SetRepeaterOffset => b"RP" with Some |cmd: &SetRepeaterOffset| {
+    let mut v = vec![cmd.direction as u8];
+    v.extend_from_slice(&format_u32_ascii_6(cmd.offset_hz));
+    v
+}, if |cmd: &SetRepeaterOffset| {
+    if cmd.offset_hz > 999_999 {
+        Err(RigError::InvalidArgumentValue {
+            argument_name: "offset_hz",
+            type_name: "u32",
+            value: cmd.offset_hz.to_string(),
+        })
+    } else {
+        Ok(())
+    }
+});
 
-impl Command for SetTextDecodeMode {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"TD",
-            Vfo::B => b"TD$",
-            _ => panic!("SetTextDecodeMode: only VFO A and B supported"),
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetScreenCount => b"SC");
+impl_command_with_response!(GetScreenCount => 2, u8_from_ascii => u8);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(SetK4QskOrVoxDelay => b"SD" with Some |cmd: &SetK4QskOrVoxDelay| {
+    format_u16_ascii_4(cmd.delay_ms)
+}, if |cmd: &SetK4QskOrVoxDelay| {
+    if cmd.delay_ms <= 2000 {
+        Ok(())
+    } else {
+        Err(RigError::InvalidArgumentValue {
+            argument_name: "ms",
+            type_name: "u16",
+            value: cmd.delay_ms.to_string(),
+        })
+    }
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(SetSystemAutoInfoInterval => b"SI" with Some |cmd: &SetSystemAutoInfoInterval| {
+    format_u16_ascii_4(cmd.interval_ms)
+}, if |cmd: &SetSystemAutoInfoInterval| {
+    if cmd.interval_ms <= 9999 {
+        Ok(())
+    } else {
+        Err(RigError::InvalidArgumentValue {
+            argument_name: "interval_ms",
+            type_name: "u16",
+            value: cmd.interval_ms.to_string(),
+        })
+    }
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetStreamingLatencyClass => b"SL");
+impl_command_with_response!(GetStreamingLatencyClass => 2, u8_from_ascii => u8);
+
+impl_command!(
+    SetStreamingLatencyClass => b"SL"
+    format latency uint 2,
+    if |cmd: &SetStreamingLatencyClass| {
+        if cmd.latency <= 99 {
+            Ok(())
+        } else {
+            Err(RigError::InvalidArgumentValue {
+                argument_name: "latency",
+                type_name: "u8",
+                value: cmd.latency.to_string(),
+            })
         }
     }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![b'0' + self.mode.min(3)])
-    }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// TG — TX Gain (K4 only, GET only)
-// ------------------------------------------------------------------------------------------------
 
-/// Read current TX gain setting (K4 only, GET only).
-///
-/// RSP format: `TGnnn;` — `nnn` = 000–255 (internal DAC value).
-command!(GetTxGain);
-
-impl_command!(GetTxGain, b"TG");
-
-impl CommandWithResponse for GetTxGain {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        3
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"TG", 3)?;
-        parse_decimal_u8(d)
-    }
-}
+impl_command!(GetTransceiverSerialNumber => b"SN");
+impl_command_with_response!(GetTransceiverSerialNumber => 5, u32_from_ascii => u32);
 
 // ------------------------------------------------------------------------------------------------
-// TS — TX Test Mode (K4 only)
-// ------------------------------------------------------------------------------------------------
 
-/// Query TX test mode state (K4 only).
-///
-/// RSP format: `TSn;` — `n` = `0` (normal TX) or `1` (TX test mode; continuous carrier).
-command!(GetTxTestMode);
-
-impl_command!(GetTxTestMode, b"TS");
-
-impl CommandWithResponse for GetTxTestMode {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize {
-        1
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"TS", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-
-/// Set TX test mode on/off (K4 only; transmits a continuous carrier when enabled).
-command! { SetTxTestMode => on: bool }
-
-impl Command for SetTxTestMode {
-    fn command_id(&self) -> &[u8] {
-        b"TS"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.on { b'1' } else { b'0' }])
-    }
-}
+impl_command!(CaptureScreenshot => b"SS");
 
 // ------------------------------------------------------------------------------------------------
-// TU — ATU Tune (K4 only, SET only)
-// ------------------------------------------------------------------------------------------------
 
-/// Start or stop the ATU tuning sequence (K4 only, SET only).
-///
-/// RSP format: `TUn;` — `n` = `0` (stop tuning) or `1` (start ATU tune).
-command! { SetTune => start: bool }
-
-impl Command for SetTune {
-    fn command_id(&self) -> &[u8] {
-        b"TU"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.start { b'1' } else { b'0' }])
-    }
-}
+impl_command!(GetTransmitGainConstant => b"TA");
+impl_command_with_response!(GetTransmitGainConstant => 3, u8_from_ascii => u8);
 
 // ------------------------------------------------------------------------------------------------
-// UT — UTC Timestamp (K4 only, GET only)
-// ------------------------------------------------------------------------------------------------
 
-/// Query the current UTC time and date from the K4 real-time clock (GET only).
-///
-/// RSP format: `UThhmmssMMDDYYYY;` — `hh` hour, `mm` minute, `ss` second,
-/// `MM` month, `DD` day, `YYYY` year.
-command!(GetUtcTimestamp);
-
-impl_command!(GetUtcTimestamp, b"UT");
-
-impl CommandWithResponse for GetUtcTimestamp {
-    type Response = Vec<u8>;
-    fn expected_response_length(&self) -> usize {
-        14
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
-        let d = validate_response(bytes, b"UT", 14)?;
-        Ok(d.to_vec())
-    }
-}
+impl_command!(GetVfoATextDecodeMode => b"TD");
+impl_command_with_response!(GetVfoATextDecodeMode => try_from enum TextDecodeMode);
 
 // ------------------------------------------------------------------------------------------------
-// VC — Coarse Tune Step (K4 only)
-// ------------------------------------------------------------------------------------------------
 
-/// Query the coarse VFO tune step size (K4 only).
-///
-/// RSP format: `VCnn;` — `nn` = 00–99 (step size multiplier for coarse tuning).
-command!(GetCoarseTuneStep);
-
-impl_command!(GetCoarseTuneStep, b"VC");
-
-impl CommandWithResponse for GetCoarseTuneStep {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        2
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"VC", 2)?;
-        parse_decimal_u8(d)
-    }
-}
-
-/// Set coarse tune step (0–99).
-command! { SetCoarseTuneStep => step: u8 }
-
-impl Command for SetCoarseTuneStep {
-    fn command_id(&self) -> &[u8] {
-        b"VC"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:02}", self.step.min(99)).into_bytes())
-    }
-}
+impl_command!(GetVfoBTextDecodeMode => b"TD$");
+impl_command_with_response!(GetVfoBTextDecodeMode => try_from enum TextDecodeMode);
 
 // ------------------------------------------------------------------------------------------------
-// VG — VOX Gain (K4 only)
-// ------------------------------------------------------------------------------------------------
 
-/// Query VOX gain (K4 only).
-///
-/// RSP format: `VGnnn;` — `nnn` = 000–009 (0=off/minimum sensitivity, 9=maximum).
-command!(GetVoxGain);
-
-impl_command!(GetVoxGain, b"VG");
-
-impl CommandWithResponse for GetVoxGain {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        3
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"VG", 3)?;
-        parse_decimal_u8(d)
-    }
-}
-
-/// Set VOX gain (0–9).
-command! { SetVoxGain => gain: u8 }
-
-impl Command for SetVoxGain {
-    fn command_id(&self) -> &[u8] {
-        b"VG"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.gain.min(9)).into_bytes())
-    }
-}
+impl_command!(SetVfoATextDecodeMode => b"TD" for as byte mode);
 
 // ------------------------------------------------------------------------------------------------
-// VI — VOX Inhibit (K4 only)
-// ------------------------------------------------------------------------------------------------
 
-/// Query VOX inhibit state (K4 only).
-///
-/// RSP format: `VIn;` — `n` = `0` (VOX enabled) or `1` (VOX inhibited / muted).
-command!(GetVoxInhibit);
-
-impl_command!(GetVoxInhibit, b"VI");
-
-impl CommandWithResponse for GetVoxInhibit {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize {
-        1
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"VI", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-
-/// Set VOX inhibit on/off.
-command! { SetVoxInhibit => inhibit: bool }
-
-impl Command for SetVoxInhibit {
-    fn command_id(&self) -> &[u8] {
-        b"VI"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.inhibit { b'1' } else { b'0' }])
-    }
-}
+impl_command!(SetVfoBTextDecodeMode => b"TD$" for as byte mode);
 
 // ------------------------------------------------------------------------------------------------
-// VO$ — VFO Frequency Offset (K4 only)
+
+impl_command!(GetTransmitGain => b"TG");
+impl_command_with_response!(GetTransmitGain => 3, u8_from_ascii => u8);
+
 // ------------------------------------------------------------------------------------------------
 
-/// Query the VFO frequency offset for transverter operation (K4 only).
-///
-/// RSP format: `VOnnnnnnnnnn;` or `VO$nnnnnnnnnn;` — 10-digit Hz offset value
-/// (returned as raw bytes for caller to interpret; may be signed ASCII).
-command! { GetVfoOffset => vfo: Vfo }
+impl_command!(GetTransmitTestModeState => b"TS");
+impl_command_with_response!(GetTransmitTestModeState => boolean);
 
-impl Command for GetVfoOffset {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"VO",
-            Vfo::B => b"VO$",
-            _ => panic!("GetVfoOffset: only VFO A and B supported"),
+impl_command!(SetTransmitTestModeState => b"TS" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(SetAtuTuningState => b"TU" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetUtcTimestamp => b"UT");
+impl_command_with_response!(GetUtcTimestamp => 14, bytes_to_vec => Vec<u8>);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetCoarseTuningStep => b"VC");
+impl_command_with_response!(GetCoarseTuningStep => 2, u8_from_ascii => u8);
+
+impl_command!(
+    SetCoarseTuningStep => b"VC"
+    format step uint 2,
+    if |cmd: &SetCoarseTuningStep| {
+        if cmd.step <= 99 {
+            Ok(())
+        } else {
+            Err(RigError::InvalidArgumentValue {
+                argument_name: "step",
+                type_name: "u8",
+                value: cmd.step.to_string(),
+            })
         }
     }
-}
-
-impl CommandWithResponse for GetVfoOffset {
-    type Response = Vec<u8>;
-    fn expected_response_length(&self) -> usize {
-        10
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
-        let d = validate_response(bytes, self.command_id(), 10)?;
-        Ok(d.to_vec())
-    }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// VT$ — VFO Tuning Step (K4 only)
-// ------------------------------------------------------------------------------------------------
 
-/// Query VFO tuning step size in Hz (K4 only).
-///
-/// RSP format: `VTnnnnnn;` or `VT$nnnnnn;` — `nnnnnn` = step in Hz
-/// (e.g., `000001` = 1 Hz, `001000` = 1 kHz).
-command! { GetVfoTuningStep => vfo: Vfo }
+impl_command!(GetVoxGain => b"VG");
+impl_command_with_response!(GetVoxGain => 3, u8_from_ascii => u8);
 
-impl Command for GetVfoTuningStep {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"VT",
-            Vfo::B => b"VT$",
-            _ => panic!("GetVfoTuningStep: only VFO A and B supported"),
+impl_command!(
+    SetVoxGain => b"VG"
+    format gain uint 3,
+    if |cmd: &SetVoxGain| {
+        if cmd.gain <= 9 {
+            Ok(())
+        } else {
+            Err(RigError::InvalidArgumentValue {
+                argument_name: "gain",
+                type_name: "u8",
+                value: cmd.gain.to_string(),
+            })
         }
     }
-}
-
-impl CommandWithResponse for GetVfoTuningStep {
-    type Response = u32;
-    fn expected_response_length(&self) -> usize {
-        6
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u32, RigError> {
-        let d = validate_response(bytes, self.command_id(), 6)?;
-        let mut n = 0u32;
-        for &b in d {
-            if !(b'0'..=b'9').contains(&b) {
-                return Err(RigError::InvalidResponseData { data: d.to_vec() });
-            }
-            n = n * 10 + u32::from(b - b'0');
-        }
-        Ok(n)
-    }
-}
-
-/// Set VFO tuning step in Hz.
-command! { SetVfoTuningStep => vfo: Vfo, step_hz: u32 }
-
-impl Command for SetVfoTuningStep {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"VT",
-            Vfo::B => b"VT$",
-            _ => panic!("SetVfoTuningStep: only VFO A and B supported"),
-        }
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:06}", self.step_hz).into_bytes())
-    }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// WM — Wattmeter Calibration (K4 only)
-// ------------------------------------------------------------------------------------------------
 
-/// Query wattmeter calibration value (K4 only).
-///
-/// RSP format: `WMnnn;` — `nnn` = 000–255 (internal calibration constant).
-command!(GetWattmeterCalibration);
+impl_command!(GetVoxInhibitState => b"VI");
+impl_command_with_response!(GetVoxInhibitState => boolean);
 
-impl_command!(GetWattmeterCalibration, b"WM");
-
-impl CommandWithResponse for GetWattmeterCalibration {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        3
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"WM", 3)?;
-        parse_decimal_u8(d)
-    }
-}
-
-/// Set wattmeter calibration value (0–255).
-command! { SetWattmeterCalibration => value: u8 }
-
-impl Command for SetWattmeterCalibration {
-    fn command_id(&self) -> &[u8] {
-        b"WM"
-    }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:03}", self.value).into_bytes())
-    }
-}
+impl_command!(SetVoxInhibitState => b"VI" for state);
 
 // ------------------------------------------------------------------------------------------------
-// XV$ — Transverter Band Select (K4 only)
+
+impl_command!(GetVfoATransverterOffset => b"VO");
+impl_command_with_response!(GetVfoATransverterOffset => 10, bytes_to_vec => Vec<u8>);
+
 // ------------------------------------------------------------------------------------------------
 
-/// Query the active transverter band slot (K4 only).
-///
-/// RSP format: `XVnn;` or `XV$nn;` — `nn` = 00–08 (transverter band slot number).
-command! { GetTransverterBand => vfo: Vfo }
+impl_command!(GetVfoBTransverterOffset => b"VO$");
+impl_command_with_response!(GetVfoBTransverterOffset => 10, bytes_to_vec => Vec<u8>);
 
-impl Command for GetTransverterBand {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"XV",
-            Vfo::B => b"XV$",
-            _ => panic!("GetTransverterBand: only VFO A and B supported"),
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoATuningStep => b"VT");
+impl_command_with_response!(GetVfoATuningStep => 6, u32_from_ascii => u32);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoBTuningStep => b"VT$");
+impl_command_with_response!(GetVfoBTuningStep => 6, u32_from_ascii => u32);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(SetVfoATuningStep => b"VT" with Some |cmd: &SetVfoATuningStep| {
+    format_u32_ascii_6(cmd.step_hz)
+}, if |cmd: &SetVfoATuningStep| { validate_k4_vfo_tuning_step(cmd.step_hz) });
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(SetVfoBTuningStep => b"VT$" with Some |cmd: &SetVfoBTuningStep| {
+    format_u32_ascii_6(cmd.step_hz)
+}, if |cmd: &SetVfoBTuningStep| { validate_k4_vfo_tuning_step(cmd.step_hz) });
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetWattmeterCalibrationConstant => b"WM");
+impl_command_with_response!(GetWattmeterCalibrationConstant => 3, u8_from_ascii => u8);
+
+impl_command!(SetWattmeterCalibrationConstant => b"WM" format value uint 3);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoATransverterActiveBandSlot => b"XV");
+impl_command_with_response!(GetVfoATransverterActiveBandSlot => 2, u8_from_ascii => u8);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetVfoBTransverterActiveBandSlot => b"XV$");
+impl_command_with_response!(GetVfoBTransverterActiveBandSlot => 2, u8_from_ascii => u8);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(
+    SetVfoATransverterActiveBandSlot => b"XV"
+    format band_slot uint 2,
+    if |cmd: &SetVfoATransverterActiveBandSlot| { validate_k4_transverter_band_slot(cmd.band_slot) }
+);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(
+    SetVfoBTransverterActiveBandSlot => b"XV$"
+    format band_slot uint 2,
+    if |cmd: &SetVfoBTransverterActiveBandSlot| { validate_k4_transverter_band_slot(cmd.band_slot) }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Private Functions
+// ------------------------------------------------------------------------------------------------
+
+/// Parse a sign byte followed by four ASCII digits into a signed Hz offset, as used by the
+/// `IS`/`IS$` and `NM`/`NM$` commands.
+fn parse_signed_hz_4(bytes: &[u8]) -> Result<i16, RigError> {
+    let sign = sign_from_ascii_strict::<i32>(bytes[0])?;
+    let magnitude = i16::try_from(u16_from_ascii(&bytes[1..5])?).map_err(|_| {
+        RigError::InvalidResponseData {
+            data: bytes.to_vec(),
         }
+    })?;
+    Ok((sign as i16) * magnitude)
+}
+
+/// Format a `u16` as 4 zero-padded ASCII digits, as used by the `DW`, `SD` and `SI` commands.
+fn format_u16_ascii_4(n: u16) -> Vec<u8> {
+    format!("{n:04}").into_bytes()
+}
+
+/// Format a `u32` as 6 zero-padded ASCII digits, as used by the `RP` and `VT`/`VT$` commands.
+fn format_u32_ascii_6(n: u32) -> Vec<u8> {
+    format!("{n:06}").into_bytes()
+}
+
+/// Build the argument bytes for `NM`/`NM$`: the on/off flag, a fixed `0` step digit, and the
+/// sign-prefixed 4-digit Hz offset.
+fn manual_k4_notch_argument_bytes(state: bool, offset_hz: i16) -> Vec<u8> {
+    let mut v = vec![if state { b'1' } else { b'0' }, b'0'];
+    v.extend_from_slice(&format_int_ascii(offset_hz, 4));
+    v
+}
+
+/// Validate the notch offset used by `SetManualNotchA`/`SetManualNotchB`; the wire format has room
+/// for only 4 decimal digits of magnitude.
+fn validate_k4_manual_notch_offset(offset_hz: i16) -> Result<(), RigError> {
+    if (-9999..=9999).contains(&offset_hz) {
+        Ok(())
+    } else {
+        Err(RigError::InvalidArgumentValue {
+            argument_name: "offset_hz",
+            type_name: "i16",
+            value: offset_hz.to_string(),
+        })
     }
 }
 
-impl CommandWithResponse for GetTransverterBand {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize {
-        2
-    }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, self.command_id(), 2)?;
-        parse_decimal_u8(d)
+/// Validate the noise reduction level used by `SetNoiseReductionA`/`SetNoiseReductionB`.
+fn validate_k4_noise_reduction_level(level: u8) -> Result<(), RigError> {
+    if level <= 9 {
+        Ok(())
+    } else {
+        Err(RigError::InvalidArgumentValue {
+            argument_name: "level",
+            type_name: "u8",
+            value: level.to_string(),
+        })
     }
 }
 
-/// Set transverter band slot (0–8).
-command! { SetTransverterBand => vfo: Vfo, band_slot: u8 }
-
-impl Command for SetTransverterBand {
-    fn command_id(&self) -> &[u8] {
-        match self.vfo {
-            Vfo::A => b"XV",
-            Vfo::B => b"XV$",
-            _ => panic!("SetTransverterBand: only VFO A and B supported"),
-        }
+/// Validate the CTCSS tone code used by `SetPlToneA`/`SetPlToneB`.
+fn validate_k4_pl_tone_code(tone_code: u8) -> Result<(), RigError> {
+    if tone_code <= 38 {
+        Ok(())
+    } else {
+        Err(RigError::InvalidArgumentValue {
+            argument_name: "tone_code",
+            type_name: "u8",
+            value: tone_code.to_string(),
+        })
     }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:02}", self.band_slot.min(8)).into_bytes())
+}
+
+/// Validate the text decode/encode mode used by `SetTextDecodeModeA`/`SetTextDecodeModeB`.
+fn validate_k4_text_decode_mode(mode: u8) -> Result<(), RigError> {
+    if mode <= 3 {
+        Ok(())
+    } else {
+        Err(RigError::InvalidArgumentValue {
+            argument_name: "mode",
+            type_name: "u8",
+            value: mode.to_string(),
+        })
+    }
+}
+
+/// Validate the tuning step used by `SetVfoTuningStepA`/`SetVfoTuningStepB`; the wire format has
+/// room for only 6 decimal digits.
+fn validate_k4_vfo_tuning_step(step_hz: u32) -> Result<(), RigError> {
+    if step_hz <= 999_999 {
+        Ok(())
+    } else {
+        Err(RigError::InvalidArgumentValue {
+            argument_name: "step_hz",
+            type_name: "u32",
+            value: step_hz.to_string(),
+        })
+    }
+}
+
+/// Validate the transverter band slot used by `SetTransverterBandA`/`SetTransverterBandB`.
+fn validate_k4_transverter_band_slot(band_slot: u8) -> Result<(), RigError> {
+    if band_slot <= 8 {
+        Ok(())
+    } else {
+        Err(RigError::InvalidArgumentValue {
+            argument_name: "band_slot",
+            type_name: "u8",
+            value: band_slot.to_string(),
+        })
     }
 }

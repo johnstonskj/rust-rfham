@@ -275,7 +275,7 @@ impl FromStr for UniversalRigName {
                 } else {
                     None
                 },
-                more: more,
+                more,
             })
         }
     }

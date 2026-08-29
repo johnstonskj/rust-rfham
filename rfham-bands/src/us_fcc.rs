@@ -213,7 +213,7 @@ pub fn arrl_voluntary_band_plan() -> BandPlan {
                         .with_license_restrictions(
                             vec!["G", "A", "E"]
                                 .into_iter()
-                                .map(|n| LicenseKey::new_unchecked(n))
+                                .map(LicenseKey::new_unchecked)
                                 .collect(),
                         )
                         .with_usage_restrictions(vec![UsageRestriction::Rtty, UsageRestriction::Data, UsageRestriction::Phone])
@@ -225,7 +225,7 @@ pub fn arrl_voluntary_band_plan() -> BandPlan {
                         .with_license_restrictions(
                             vec!["G", "A", "E"]
                                 .into_iter()
-                                .map(|n|LicenseKey::new_unchecked(n))
+                                .map(LicenseKey::new_unchecked)
                                 .collect(),
                         )
                         .with_usage_restrictions(vec![UsageRestriction::Rtty, UsageRestriction::Data, UsageRestriction::Phone])
@@ -235,7 +235,7 @@ pub fn arrl_voluntary_band_plan() -> BandPlan {
                     BandRestrictions::default().with_license_restrictions(
                         vec!["G", "A", "E"]
                             .into_iter()
-                            .map(|n| LicenseKey::new_unchecked(n))
+                            .map(LicenseKey::new_unchecked)
                             .collect(),
                     )
                     .with_usage_restrictions(vec![UsageRestriction::Rtty, UsageRestriction::Data, UsageRestriction::Phone])
@@ -326,7 +326,7 @@ pub fn arrl_voluntary_band_plan() -> BandPlan {
                         .with_license_restrictions(
                             vec!["T", "G", "A", "E"]
                                 .into_iter()
-                                .map(|n| LicenseKey::new_unchecked(n))
+                                .map(LicenseKey::new_unchecked)
                                 .collect(),
                         )
                         .with_usage_restrictions(vec![UsageRestriction::Rtty, UsageRestriction::Data, UsageRestriction::Phone])
@@ -336,7 +336,7 @@ pub fn arrl_voluntary_band_plan() -> BandPlan {
                         .with_license_restrictions(
                             vec!["T", "G", "A", "E"]
                                 .into_iter()
-                                .map(|n| LicenseKey::new_unchecked(n))
+                                .map(LicenseKey::new_unchecked)
                                 .collect(),
                         )
                         .with_usage_restrictions(vec![UsageRestriction::Rtty, UsageRestriction::Data, UsageRestriction::Phone])
@@ -347,7 +347,7 @@ pub fn arrl_voluntary_band_plan() -> BandPlan {
                         .with_license_restrictions(
                             vec!["T", "G", "A", "E"]
                                 .into_iter()
-                                .map(|n| LicenseKey::new_unchecked(n))
+                                .map(LicenseKey::new_unchecked)
                                 .collect(),
                         )),
                 PlanBand::new(band_9cm()).with_restrictions(
@@ -355,7 +355,7 @@ pub fn arrl_voluntary_band_plan() -> BandPlan {
                         .with_license_restrictions(
                             vec!["T", "G", "A", "E"]
                                 .into_iter()
-                                .map(|n| LicenseKey::new_unchecked(n))
+                                .map(LicenseKey::new_unchecked)
                                 .collect(),
                         )),
                 PlanBand::new(band_5cm()).with_restrictions(
@@ -363,7 +363,7 @@ pub fn arrl_voluntary_band_plan() -> BandPlan {
                         .with_license_restrictions(
                             vec!["T", "G", "A", "E"]
                                 .into_iter()
-                                .map(|n| LicenseKey::new_unchecked(n))
+                                .map(LicenseKey::new_unchecked)
                                 .collect(),
                         )),
                 PlanBand::new(band_3cm()).with_restrictions(
@@ -371,7 +371,7 @@ pub fn arrl_voluntary_band_plan() -> BandPlan {
                         .with_license_restrictions(
                             vec!["T", "G", "A", "E"]
                                 .into_iter()
-                                .map(|n| LicenseKey::new_unchecked(n))
+                                .map(LicenseKey::new_unchecked)
                                 .collect(),
                         )),
                 PlanBand::new(band_1_2cm()).with_restrictions(
@@ -379,7 +379,7 @@ pub fn arrl_voluntary_band_plan() -> BandPlan {
                         .with_license_restrictions(
                             vec!["T", "G", "A", "E"]
                                 .into_iter()
-                                .map(|n| LicenseKey::new_unchecked(n))
+                                .map(LicenseKey::new_unchecked)
                                 .collect(),
                         )),
                 PlanBand::new(band_6mm()).with_restrictions(
@@ -387,7 +387,7 @@ pub fn arrl_voluntary_band_plan() -> BandPlan {
                         .with_license_restrictions(
                             vec!["T", "G", "A", "E"]
                                 .into_iter()
-                                .map(|n| LicenseKey::new_unchecked(n))
+                                .map(LicenseKey::new_unchecked)
                                 .collect(),
                         )),
                 PlanBand::new(band_4mm()).with_restrictions(
@@ -395,7 +395,7 @@ pub fn arrl_voluntary_band_plan() -> BandPlan {
                         .with_license_restrictions(
                             vec!["T", "G", "A", "E"]
                                 .into_iter()
-                                .map(|n| LicenseKey::new_unchecked(n))
+                                .map(LicenseKey::new_unchecked)
                                 .collect(),
                         )),
                 PlanBand::new(band_2_5mm()).with_restrictions(
@@ -403,7 +403,7 @@ pub fn arrl_voluntary_band_plan() -> BandPlan {
                         .with_license_restrictions(
                             vec!["T", "G", "A", "E"]
                                 .into_iter()
-                                .map(|n| LicenseKey::new_unchecked(n))
+                                .map(LicenseKey::new_unchecked)
                                 .collect(),
                         )),
                 PlanBand::new(band_2mm()).with_restrictions(
@@ -411,7 +411,7 @@ pub fn arrl_voluntary_band_plan() -> BandPlan {
                         .with_license_restrictions(
                             vec!["T", "G", "A", "E"]
                                 .into_iter()
-                                .map(|n| LicenseKey::new_unchecked(n))
+                                .map(LicenseKey::new_unchecked)
                                 .collect(),
                         )),
                 PlanBand::new(band_1mm()).with_restrictions(
@@ -419,7 +419,7 @@ pub fn arrl_voluntary_band_plan() -> BandPlan {
                         .with_license_restrictions(
                             vec!["T", "G", "A", "E"]
                                 .into_iter()
-                                .map(|n| LicenseKey::new_unchecked(n))
+                                .map(LicenseKey::new_unchecked)
                                 .collect(),
                         )),
             ])

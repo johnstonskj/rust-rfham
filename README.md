@@ -2,26 +2,30 @@
 
 Ham Radio libraries and tools for Rust.
 
+<!-- markdownlint-disable MD013 -->
 [![Apache-2.0 License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![MIT License](https://img.shields.io/badge/license-mit-118811.svg)](https://opensource.org/license/mit)
 [![GitHub stars](https://img.shields.io/github/stars/johnstonskj/rust-rfham.svg)](<https://github.com/johnstonskj/rust-rfham/stargazers>)
+<!-- markdownlint-enable MD013 -->
 
 More details will be added the the [RF-Ham book](ps://simonkjohnston.life/rust-rfham).
 
 ## Crates
 
-| Name               | Crate                                                                                                       | Docs                                                                                   | Description                          | Status                   |
-|--------------------|-------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|--------------------------------------|--------------------------|
-| [**rfham**](./rfham/README.md)          | [![crates.io](https://img.shields.io/crates/v/rfham.svg)](https://crates.io/crates/rfham)                   | [![docs.rs](https://docs.rs/rfham/badge.svg)](https://docs.rs/rfham)                   | Will act as *prelude* combination    | Not Started              |
+<!-- markdownlint-disable MD013 -->
+| Name                                             | Crate                                                                                                       | Docs                                                                                   | Description                          | Status                   |
+|--------------------------------------------------|-------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|--------------------------------------|--------------------------|
+| [**rfham**](./rfham/README.md)                   | [![crates.io](https://img.shields.io/crates/v/rfham.svg)](https://crates.io/crates/rfham)                   | [![docs.rs](https://docs.rs/rfham/badge.svg)](https://docs.rs/rfham)                   | Will act as *prelude* combination    | Not Started              |
 | [**rfham-antennas**](./rfham-antennas/README.md) | [![crates.io](https://img.shields.io/crates/v/rfham-antennas.svg)](https://crates.io/crates/rfham-antennas) | [![docs.rs](https://docs.rs/rfham-antennas/badge.svg)](https://docs.rs/rfham-antennas) | Provides antenna models/calculations | Started                  |
-| [**rfham-bands**](./rfham-bands/README.md)    | [![crates.io](https://img.shields.io/crates/v/rfham-bands.svg)](https://crates.io/crates/rfham-bands)       | [![docs.rs](https://docs.rs/rfham-bands/badge.svg)](https://docs.rs/rfham-bands)             | Country-specific band plans          | Complete for US          |
-| [**rfham-cli**](./rfham-cli/README.md)      | [![crates.io](https://img.shields.io/crates/v/rfham-cli.svg)](https://crates.io/crates/rfham-cli)           | N/A          | CLI for interacting with the rest    | Tracking complete        |
-| [**rfham-config**](./rfham-config/README.md)   | [![crates.io](https://img.shields.io/crates/v/rfham-config.svg)](https://crates.io/crates/rfham-config)     | [![docs.rs](https://docs.rs/rfham-config/badge.svg)](https://docs.rs/rfham-config)     | Shared configuration file handling   | Tracking complete        |
-| [**rfham-core**](./rfham-core/README.md)     | [![crates.io](https://img.shields.io/crates/v/rfham-core.svg)](https://crates.io/crates/rfham-core)         | [![docs.rs](https://docs.rs/rfham-core/badge.svg)](https://docs.rs/rfham-core)         | Core data types                      | Complete                 |
-| [**rfham-geo**](./rfham-geo/README.md)      | [![crates.io](https://img.shields.io/crates/v/rfham-geo.svg)](https://crates.io/crates/rfham-geo)           | [![docs.rs](https://docs.rs/rfham-geo/badge.svg)](https://docs.rs/rfham-geo)           | Grid locators and lookup             | Grid Complete, No Lookup |
-| [**rfham-itu**](./rfham-itu/README.md)      | [![crates.io](https://img.shields.io/crates/v/rfham-itu.svg)](https://crates.io/crates/rfham-itu)           | [![docs.rs](https://docs.rs/rfham-itu/badge.svg)](https://docs.rs/rfham-itu)           | ITU band allocations                 | Complete                 |
+| [**rfham-bands**](./rfham-bands/README.md)       | [![crates.io](https://img.shields.io/crates/v/rfham-bands.svg)](https://crates.io/crates/rfham-bands)       | [![docs.rs](https://docs.rs/rfham-bands/badge.svg)](https://docs.rs/rfham-bands)       | Country-specific band plans          | Complete for US          |
+| [**rfham-cli**](./rfham-cli/README.md)           | [![crates.io](https://img.shields.io/crates/v/rfham-cli.svg)](https://crates.io/crates/rfham-cli)           | N/A                                                                                    | CLI for interacting with the rest    | Tracking complete        |
+| [**rfham-config**](./rfham-config/README.md)     | [![crates.io](https://img.shields.io/crates/v/rfham-config.svg)](https://crates.io/crates/rfham-config)     | [![docs.rs](https://docs.rs/rfham-config/badge.svg)](https://docs.rs/rfham-config)     | Shared configuration file handling   | Tracking complete        |
+| [**rfham-core**](./rfham-core/README.md)         | [![crates.io](https://img.shields.io/crates/v/rfham-core.svg)](https://crates.io/crates/rfham-core)         | [![docs.rs](https://docs.rs/rfham-core/badge.svg)](https://docs.rs/rfham-core)         | Core data types                      | Complete                 |
+| [**rfham-geo**](./rfham-geo/README.md)           | [![crates.io](https://img.shields.io/crates/v/rfham-geo.svg)](https://crates.io/crates/rfham-geo)           | [![docs.rs](https://docs.rs/rfham-geo/badge.svg)](https://docs.rs/rfham-geo)           | Grid locators and lookup             | Grid Complete, No Lookup |
+| [**rfham-itu**](./rfham-itu/README.md)           | [![crates.io](https://img.shields.io/crates/v/rfham-itu.svg)](https://crates.io/crates/rfham-itu)           | [![docs.rs](https://docs.rs/rfham-itu/badge.svg)](https://docs.rs/rfham-itu)           | ITU band allocations                 | Complete                 |
 | [**rfham-markdown**](./rfham-markdown/README.md) | [![crates.io](https://img.shields.io/crates/v/rfham-markdown.svg)](https://crates.io/crates/rfham-markdown) | [![docs.rs](https://docs.rs/rfham-markdown/badge.svg)](https://docs.rs/rfham-markdown) | Utility crate for writing markdown   | Complete                 |
-| [**rfham-radios**](./rfham-radios/README.md)   | [![crates.io](https://img.shields.io/crates/v/rfham-radios.svg)](https://crates.io/crates/rfham-radios)     | [![docs.rs](https://docs.rs/rfham-radios/badge.svg)](https://docs.rs/rfham-radios)     | Provides radio models                | Not Started              |
+| [**rfham-rigs**](./rfham-rigs/README.md)         | [![crates.io](https://img.shields.io/crates/v/rfham-rigs.svg)](https://crates.io/crates/rfham-rigs)         | [![docs.rs](https://docs.rs/rfham-rigs/badge.svg)](https://docs.rs/rfham-rigs)         | Provides radio models                | Not Started              |
+<!-- markdownlint-enable MD013 -->
 
 ## Architecture
 
@@ -33,6 +37,7 @@ TBD
 
 ### Apache-2.0
 
+<!-- markdownlint-disable MD013 -->
 > ```text
 > Copyright 2025 Simon Johnston <johnstonskj@gmail.com>
 > 
@@ -50,9 +55,11 @@ TBD
 > ```
 
 See the enclosed file [LICENSE-Apache](https://github.com/johnstonskj/rust-zsh-plugin/blob/main/LICENSE-Apache).
+<!-- markdownlint-enable MD013 -->
 
 ### MIT
 
+<!-- markdownlint-disable MD013 -->
 > ```text
 > Copyright 2025 Simon Johnston <johnstonskj@gmail.com>
 > 
@@ -75,3 +82,4 @@ See the enclosed file [LICENSE-Apache](https://github.com/johnstonskj/rust-zsh-p
 > ```
 
 See the enclosed file [LICENSE-MIT](https://github.com/johnstonskj/rust-zsh-plugin/blob/main/LICENSE-MIT).
+<!-- markdownlint-enable MD013 -->

@@ -1,247 +1,392 @@
 //!
-//! Serial commands for the Elecraft PX3 panadapter.
+//! CAT commands for the Elecraft PX3 panadapter.
 //!
-//! Commands follow the **A6** programmer's reference
-//! (Elecraft PX3 Programmer's Reference, rev. A6, Feb 2017).
+//! The PX3 shares the full P3 command set with the [`super::p3`] module; this module documents
+//! only the PX3-specific additions. All PX3-only commands use the `#` prefix.
 //!
-//! The PX3 is a superset of the [`super::p3`] module. All P3 commands are supported here via
-//! re-exports; PX3-specific additions follow below.
+//! Commands follow the specification in reference **1** unless otherwise noted.
 //!
-//! All commands use the `#` prefix. The `=` product-ID query has no prefix.
+//! # References
 //!
-
-pub use super::p3::{
-    CaptureBitmap, GetBandLabelDisplay, GetBaudRate, GetCenterFreqTrack, GetDisplayAveraging,
-    GetDisplayMode, GetDisplaySpan, GetFixedSpanFreqA, GetFixedSpanFreqB, GetFirmwareVersion,
-    GetFontSize, GetMarkerAActive, GetMarkerBActive, GetMarkerFreqA, GetMarkerFreqB,
-    GetNoiseBlankerLevel, GetNoiseBlankerLowPass, GetPassThroughMode, GetPeakHoldMode,
-    GetPowerSave, GetProductId, GetRefCalibOffset, GetReferenceLevel, GetSpanLowerLimit,
-    GetSpanUpperLimit, GetSpectrumLowerLevel, GetSpectrumUpperLevel, GetSubRxVersion,
-    GetTransceiverConnected, GetVfoBDisplay, GetWaterfallMax, GetWaterfallMin, GetWaterfallMode,
-    QsyToMarker, ResetToDefaults, SetBandLabelDisplay, SetBaudRate, SetCenterFreqTrack,
-    SetDisplayAveraging, SetDisplayMode, SetDisplaySpan, SetFixedSpanFreqA, SetFixedSpanFreqB,
-    SetFontSize, SetMarkerAActive, SetMarkerBActive, SetMarkerFreqA, SetMarkerFreqB,
-    SetNoiseBlankerLevel, SetNoiseBlankerLowPass, SetPassThroughMode, SetPeakHoldMode,
-    SetPowerSave, SetRefCalibOffset, SetReferenceLevel, SetSpanLowerLimit, SetSpanUpperLimit,
-    SetSpectrumLowerLevel, SetSpectrumUpperLevel, SetVfoBDisplay, SetWaterfallMax,
-    SetWaterfallMin, SetWaterfallMode,
-};
+//! 1. [Elecraft PX3 Programmer's Reference, rev. A6](https://ftp.elecraft.com/PX3/Manuals%20Downloads/PX3_Pgmrs_Ref_A6.pdf), Feb 2017.
+//!
 
 use crate::{
     error::RigError,
-    protocol::cat::{Command, CommandWithResponse, common::validate_response},
+    protocol::cat::{
+        Command, CommandWithResponse,
+        common::{u8_from_ascii, validate_response},
+    },
 };
 
 // ------------------------------------------------------------------------------------------------
-// #BCI — Bandscope Channel Indicator (GET/SET) — PX3 only
+// Public Types
 // ------------------------------------------------------------------------------------------------
 
-///
-/// Query the bandscope channel indicator setting.
-///
-/// # Reference (PX3 rev. A6, §#BCI)
-///
-/// **GET** format: `#BCI;`
-/// **SET/RSP** format: `#BCIn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetBandscopeChannelIndicator;
-
-/// Enable or disable the bandscope channel indicator.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetBandscopeChannelIndicator {
-    pub enabled: bool,
-}
-
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetBandscopeChannelIndicatorState, SetBandscopeChannelIndicatorState
 // ------------------------------------------------------------------------------------------------
 
-impl Command for GetBandscopeChannelIndicator {
-    fn command_id(&self) -> &[u8] { b"#BCI" }
-}
-impl CommandWithResponse for GetBandscopeChannelIndicator {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#BCI", 1)?;
-        Ok(d[0] == b'1')
+define_command!("Get the bandscope channel indicator on/off state.
+
+# Command format
+
+> `#BCI;`
+
+# Response format
+
+> `#BCI{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetBandscopeChannelIndicatorState
+);
+
+define_command!("Set the bandscope channel indicator on/off state.
+
+# Command format
+
+> `#BCI{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetBandscopeChannelIndicatorState {
+        enabled: bool
     }
-}
-impl Command for SetBandscopeChannelIndicator {
-    fn command_id(&self) -> &[u8] { b"#BCI" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetBandscopeChannelList, SetBandscopeChannelList
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the bandscope channel list overlay on/off state.
+
+# Command format
+
+> `#BCL;`
+
+# Response format
+
+> `#BCL{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetBandscopeChannelList
+);
+
+define_command!("Set the bandscope channel list overlay on/off state.
+
+# Command format
+
+> `#BCL{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetBandscopeChannelList {
+        enabled: bool
     }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// #BCL — Bandscope Channel List (GET/SET) — PX3 only
+// Public Types: GetBandscopeChannelName, SetBandscopeChannelName
 // ------------------------------------------------------------------------------------------------
 
-///
-/// Query or set the bandscope channel list overlay.
-///
-/// # Reference (PX3 rev. A6, §#BCL)
-///
-/// **GET** format: `#BCL;`
-/// **SET/RSP** format: `#BCLn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetBandscopeChannelList;
+define_command!("Get the bandscope channel name overlay on/off state.
 
-/// Enable or disable the bandscope channel list overlay.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetBandscopeChannelList {
-    pub enabled: bool,
-}
+# Command format
 
-// ------------------------------------------------------------------------------------------------
+> `#BCN;`
 
-impl Command for GetBandscopeChannelList {
-    fn command_id(&self) -> &[u8] { b"#BCL" }
-}
-impl CommandWithResponse for GetBandscopeChannelList {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#BCL", 1)?;
-        Ok(d[0] == b'1')
+# Response format
+
+> `#BCN{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetBandscopeChannelName
+);
+
+define_command!("Set the bandscope channel name overlay on/off state.
+
+# Command format
+
+> `#BCN{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetBandscopeChannelName {
+        enabled: bool
     }
-}
-impl Command for SetBandscopeChannelList {
-    fn command_id(&self) -> &[u8] { b"#BCL" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetCalibSignal, SetCalibSignal
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get whether the internal calibration signal is active.
+
+# Command format
+
+> `#CAL;`
+
+# Response format
+
+> `#CAL{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetCalibSignal
+);
+
+define_command!("Set whether the internal calibration signal is active.
+
+# Command format
+
+> `#CAL{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetCalibSignal {
+        enabled: bool
     }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// #BCN — Bandscope Channel Name (GET/SET) — PX3 only
+// Public Types: GetMemoryAntennaA
 // ------------------------------------------------------------------------------------------------
 
-///
-/// Query or set the bandscope channel name overlay.
-///
-/// # Reference (PX3 rev. A6, §#BCN)
-///
-/// **GET** format: `#BCN;`
-/// **SET/RSP** format: `#BCNn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetBandscopeChannelName;
+define_command!("Get the antenna band-map stored in memory slot A.
 
-/// Enable or disable the bandscope channel name overlay.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetBandscopeChannelName {
-    pub enabled: bool,
-}
+# Command format
+
+> `#MAA;`
+
+# Response format
+
+> `#MAA...;`
+
+The response is a variable-length, model-specific antenna band-map, returned as raw bytes." =>
+    GetMemoryAntennaA
+);
 
 // ------------------------------------------------------------------------------------------------
+// Public Types: GetMemoryAntennaB
+// ------------------------------------------------------------------------------------------------
 
-impl Command for GetBandscopeChannelName {
-    fn command_id(&self) -> &[u8] { b"#BCN" }
-}
-impl CommandWithResponse for GetBandscopeChannelName {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#BCN", 1)?;
-        Ok(d[0] == b'1')
+define_command!("Get the antenna band-map stored in memory slot B.
+
+# Command format
+
+> `#MBA;`
+
+# Response format
+
+> `#MBA...;`
+
+The response is a variable-length, model-specific antenna band-map, returned as raw bytes." =>
+    GetMemoryAntennaB
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetOffscreenBandscopePosition, SetOffscreenBandscopePosition
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the off-screen bandscope vertical position.
+
+# Command format
+
+> `#OSBP;`
+
+# Response format
+
+> `#OSBP{nn};`
+
+Where *nn* is the vertical position, in pixels, from the top of the screen." =>
+    GetOffscreenBandscopePosition
+);
+
+define_command!("Set the off-screen bandscope vertical position.
+
+# Command format
+
+> `#OSBP{nn};`
+
+Where *nn* is the vertical position, in pixels, from the top of the screen." =>
+    SetOffscreenBandscopePosition {
+        position: u8
     }
-}
-impl Command for SetBandscopeChannelName {
-    fn command_id(&self) -> &[u8] { b"#BCN" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetOffscreenBandscopeActive, SetOffscreenBandscopeActive
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get whether the off-screen bandscope is active.
+
+# Command format
+
+> `#OSBA;`
+
+# Response format
+
+> `#OSBA{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetOffscreenBandscopeActive
+);
+
+define_command!("Set whether the off-screen bandscope is active.
+
+# Command format
+
+> `#OSBA{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetOffscreenBandscopeActive {
+        enabled: bool
     }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// #CAL — Calibration Signal (GET/SET) — PX3 only
+// Public Types: GetTxHold, SetTxHold
 // ------------------------------------------------------------------------------------------------
 
-///
-/// Query or control the internal calibration signal.
-///
-/// # Reference (PX3 rev. A6, §#CAL)
-///
-/// **GET** format: `#CAL;`
-/// **SET/RSP** format: `#CALn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetCalibSignal;
+define_command!("Get the TX hold display on/off state.
 
-/// Enable or disable the internal calibration signal.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetCalibSignal {
-    pub enabled: bool,
-}
+# Command format
 
-// ------------------------------------------------------------------------------------------------
+> `#TXH;`
 
-impl Command for GetCalibSignal {
-    fn command_id(&self) -> &[u8] { b"#CAL" }
-}
-impl CommandWithResponse for GetCalibSignal {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#CAL", 1)?;
-        Ok(d[0] == b'1')
+# Response format
+
+> `#TXH{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetTxHold
+);
+
+define_command!("Set the TX hold display on/off state.
+
+# Command format
+
+> `#TXH{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetTxHold {
+        enabled: bool
     }
-}
-impl Command for SetCalibSignal {
-    fn command_id(&self) -> &[u8] { b"#CAL" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
+);
+
+// ------------------------------------------------------------------------------------------------
+// Public Types: GetTxMarker, SetTxMarker
+// ------------------------------------------------------------------------------------------------
+
+define_command!("Get the TX frequency marker display on/off state.
+
+# Command format
+
+> `#TXM;`
+
+# Response format
+
+> `#TXM{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetTxMarker
+);
+
+define_command!("Set the TX frequency marker display on/off state.
+
+# Command format
+
+> `#TXM{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetTxMarker {
+        enabled: bool
     }
-}
+);
 
 // ------------------------------------------------------------------------------------------------
-// #MAA / #MBA — Memory Antenna Assignments (GET only) — PX3 only
+// Public Types: GetUsbAudioEnable, SetUsbAudioEnable
 // ------------------------------------------------------------------------------------------------
 
-///
-/// Query the antenna band-map stored in memory slot A.
-///
-/// # Reference (PX3 rev. A6, §#MAA)
-///
-/// **GET** format: `#MAA;`
-/// **RSP** format: `#MAA…;` — variable-length antenna map data.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetMemoryAntennaA;
+define_command!("Get whether USB audio output is enabled.
 
-///
-/// Query the antenna band-map stored in memory slot B.
-///
-/// # Reference (PX3 rev. A6, §#MBA)
-///
-/// **GET** format: `#MBA;`
-/// **RSP** format: `#MBA…;` — variable-length antenna map data.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetMemoryAntennaB;
+# Command format
+
+> `#USB;`
+
+# Response format
+
+> `#USB{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    GetUsbAudioEnable
+);
+
+define_command!("Set whether USB audio output is enabled.
+
+# Command format
+
+> `#USB{n};`
+
+Where `n` is the boolean state `0` (off) or `1` (on)." =>
+    SetUsbAudioEnable {
+        enabled: bool
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Implementations
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetBandscopeChannelIndicatorState => b"#BCI");
+impl_command_with_response!(GetBandscopeChannelIndicatorState => boolean);
+
+impl_command!(SetBandscopeChannelIndicatorState => b"#BCI" for boolean enabled);
 
 // ------------------------------------------------------------------------------------------------
 
-impl Command for GetMemoryAntennaA {
-    fn command_id(&self) -> &[u8] { b"#MAA" }
-}
+impl_command!(GetBandscopeChannelList => b"#BCL");
+impl_command_with_response!(GetBandscopeChannelList => boolean);
+
+impl_command!(SetBandscopeChannelList => b"#BCL" for boolean enabled);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetBandscopeChannelName => b"#BCN");
+impl_command_with_response!(GetBandscopeChannelName => boolean);
+
+impl_command!(SetBandscopeChannelName => b"#BCN" for boolean enabled);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetCalibSignal => b"#CAL");
+impl_command_with_response!(GetCalibSignal => boolean);
+
+impl_command!(SetCalibSignal => b"#CAL" for boolean enabled);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetMemoryAntennaA => b"#MAA");
+
 impl CommandWithResponse for GetMemoryAntennaA {
     type Response = Vec<u8>;
-    fn expected_response_length(&self) -> usize { 0 }
+
+    fn expected_response_length(&self) -> usize {
+        0
+    }
+
     fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
         let d = validate_response(bytes, b"#MAA", 0)?;
         Ok(d.to_vec())
     }
 }
 
-impl Command for GetMemoryAntennaB {
-    fn command_id(&self) -> &[u8] { b"#MBA" }
-}
+// ------------------------------------------------------------------------------------------------
+
+impl_command!(GetMemoryAntennaB => b"#MBA");
+
 impl CommandWithResponse for GetMemoryAntennaB {
     type Response = Vec<u8>;
-    fn expected_response_length(&self) -> usize { 0 }
+
+    fn expected_response_length(&self) -> usize {
+        0
+    }
+
     fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
         let d = validate_response(bytes, b"#MBA", 0)?;
         Ok(d.to_vec())
@@ -249,209 +394,36 @@ impl CommandWithResponse for GetMemoryAntennaB {
 }
 
 // ------------------------------------------------------------------------------------------------
-// #OSBP / #OSBA — Off-screen Bandscope (GET/SET) — PX3 only
-// ------------------------------------------------------------------------------------------------
 
-///
-/// Query the off-screen bandscope vertical position (pixels from top).
-///
-/// # Reference (PX3 rev. A6, §#OSBP)
-///
-/// **GET** format: `#OSBP;`
-/// **SET/RSP** format: `#OSBPnn;`
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetOffscreenBandscopePosition;
+impl_command!(GetOffscreenBandscopePosition => b"#OSBP");
+impl_command_with_response!(GetOffscreenBandscopePosition => 2, u8_from_ascii => u8);
 
-/// Set the off-screen bandscope vertical position.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetOffscreenBandscopePosition {
-    pub position: u8,
-}
-
-///
-/// Query whether the off-screen bandscope is active.
-///
-/// # Reference (PX3 rev. A6, §#OSBA)
-///
-/// **GET** format: `#OSBA;`
-/// **SET/RSP** format: `#OSBAn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetOffscreenBandscopeActive;
-
-/// Enable or disable the off-screen bandscope.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetOffscreenBandscopeActive {
-    pub enabled: bool,
-}
+impl_command!(SetOffscreenBandscopePosition => b"#OSBP" format position uint 2);
 
 // ------------------------------------------------------------------------------------------------
 
-impl Command for GetOffscreenBandscopePosition {
-    fn command_id(&self) -> &[u8] { b"#OSBP" }
-}
-impl CommandWithResponse for GetOffscreenBandscopePosition {
-    type Response = u8;
-    fn expected_response_length(&self) -> usize { 2 }
-    fn parse(&self, bytes: &[u8]) -> Result<u8, RigError> {
-        let d = validate_response(bytes, b"#OSBP", 2)?;
-        parse_u8(d)
-    }
-}
-impl Command for SetOffscreenBandscopePosition {
-    fn command_id(&self) -> &[u8] { b"#OSBP" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(format!("{:02}", self.position).into_bytes())
-    }
-}
+impl_command!(GetOffscreenBandscopeActive => b"#OSBA");
+impl_command_with_response!(GetOffscreenBandscopeActive => boolean);
 
-impl Command for GetOffscreenBandscopeActive {
-    fn command_id(&self) -> &[u8] { b"#OSBA" }
-}
-impl CommandWithResponse for GetOffscreenBandscopeActive {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#OSBA", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetOffscreenBandscopeActive {
-    fn command_id(&self) -> &[u8] { b"#OSBA" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #TXH / #TXM — TX Hold and TX Marker (GET/SET) — PX3 only
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query the TX hold display setting.
-///
-/// # Reference (PX3 rev. A6, §#TXH)
-///
-/// **GET** format: `#TXH;`
-/// **SET/RSP** format: `#TXHn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetTxHold;
-
-/// Enable or disable TX hold display.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetTxHold {
-    pub enabled: bool,
-}
-
-///
-/// Query the TX marker display setting.
-///
-/// # Reference (PX3 rev. A6, §#TXM)
-///
-/// **GET** format: `#TXM;`
-/// **SET/RSP** format: `#TXMn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetTxMarker;
-
-/// Enable or disable the TX frequency marker.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetTxMarker {
-    pub enabled: bool,
-}
+impl_command!(SetOffscreenBandscopeActive => b"#OSBA" for boolean enabled);
 
 // ------------------------------------------------------------------------------------------------
 
-impl Command for GetTxHold {
-    fn command_id(&self) -> &[u8] { b"#TXH" }
-}
-impl CommandWithResponse for GetTxHold {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#TXH", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetTxHold {
-    fn command_id(&self) -> &[u8] { b"#TXH" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
-    }
-}
+impl_command!(GetTxHold => b"#TXH");
+impl_command_with_response!(GetTxHold => boolean);
 
-impl Command for GetTxMarker {
-    fn command_id(&self) -> &[u8] { b"#TXM" }
-}
-impl CommandWithResponse for GetTxMarker {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#TXM", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetTxMarker {
-    fn command_id(&self) -> &[u8] { b"#TXM" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// #USB — USB Audio Enable (GET/SET) — PX3 only
-// ------------------------------------------------------------------------------------------------
-
-///
-/// Query whether USB audio output is enabled.
-///
-/// # Reference (PX3 rev. A6, §#USB)
-///
-/// **GET** format: `#USB;`
-/// **SET/RSP** format: `#USBn;` — `n` = 0 (off), 1 (on).
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GetUsbAudioEnable;
-
-/// Enable or disable USB audio output.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SetUsbAudioEnable {
-    pub enabled: bool,
-}
+impl_command!(SetTxHold => b"#TXH" for boolean enabled);
 
 // ------------------------------------------------------------------------------------------------
 
-impl Command for GetUsbAudioEnable {
-    fn command_id(&self) -> &[u8] { b"#USB" }
-}
-impl CommandWithResponse for GetUsbAudioEnable {
-    type Response = bool;
-    fn expected_response_length(&self) -> usize { 1 }
-    fn parse(&self, bytes: &[u8]) -> Result<bool, RigError> {
-        let d = validate_response(bytes, b"#USB", 1)?;
-        Ok(d[0] == b'1')
-    }
-}
-impl Command for SetUsbAudioEnable {
-    fn command_id(&self) -> &[u8] { b"#USB" }
-    fn argument_bytes(&self) -> Option<Vec<u8>> {
-        Some(vec![if self.enabled { b'1' } else { b'0' }])
-    }
-}
+impl_command!(GetTxMarker => b"#TXM");
+impl_command_with_response!(GetTxMarker => boolean);
+
+impl_command!(SetTxMarker => b"#TXM" for boolean enabled);
 
 // ------------------------------------------------------------------------------------------------
-// Private parse helpers
-// ------------------------------------------------------------------------------------------------
 
-fn parse_u8(bytes: &[u8]) -> Result<u8, RigError> {
-    let mut n = 0u16;
-    for &b in bytes {
-        if !(b'0'..=b'9').contains(&b) {
-            return Err(RigError::InvalidResponseData { data: bytes.to_vec() });
-        }
-        n = n * 10 + u16::from(b - b'0');
-    }
-    u8::try_from(n).map_err(|_| RigError::InvalidResponseData { data: bytes.to_vec() })
-}
+impl_command!(GetUsbAudioEnable => b"#USB");
+impl_command_with_response!(GetUsbAudioEnable => boolean);
+
+impl_command!(SetUsbAudioEnable => b"#USB" for boolean enabled);

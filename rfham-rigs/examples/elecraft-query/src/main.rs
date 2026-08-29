@@ -1,11 +1,17 @@
 use rfham_config::connections::{Connection, SerialConnection};
 use rfham_rigs::{
-    protocol::cat::{
-        CatWrapper, Vfo,
-        common::{GetOperatingFrequency, GetTransceiverId},
-        elecraft::{
-            k3_kx::{GetInstalledOptions, GetK3IconsAndStatus, GetOperatingMode, InstalledOptions},
-            meta::{GetK2CommandMode, GetK3CommandMode},
+    protocol::{
+        ProtocolHandler,
+        cat::{
+            CatWrapper,
+            common::{GetTransceiverId, GetVfoAFrequency, GetVfoBFrequency},
+            elecraft::{
+                k3_kx::{
+                    GetInstalledOptions, GetK3IconsAndStatus, GetVfoAOperatingMode,
+                    GetVfoBOperatingMode, InstalledOptions,
+                },
+                meta::{GetK2CommandMode, GetK3CommandMode},
+            },
         },
     },
     rigs::elecraft::kx3,
@@ -79,25 +85,25 @@ fn main() -> Result<ExitCode, IoError> {
         Err(e) => eprintln!("Error: {e}"),
     }
 
-    match cat.send_and_receive(GetOperatingFrequency { vfo: Vfo::A }) {
+    match cat.send_and_receive(GetVfoAFrequency) {
         Ok(Some(frequency)) => println!("VFO A: {frequency:#} Hz"),
-        Ok(None) => println!("GetOperatingFrequency command timed out"),
+        Ok(None) => println!("GetVfoAFrequency command timed out"),
         Err(e) => eprintln!("Error: {e}"),
     }
 
-    match cat.send_and_receive(GetOperatingMode { vfo: Vfo::A }) {
+    match cat.send_and_receive(GetVfoAOperatingMode) {
         Ok(Some(mode)) => println!("VFO A: {mode}"),
         Ok(None) => println!("GetOperatingMode command timed out"),
         Err(e) => eprintln!("Error: {e}"),
     }
 
-    match cat.send_and_receive(GetOperatingFrequency { vfo: Vfo::B }) {
+    match cat.send_and_receive(GetVfoBFrequency) {
         Ok(Some(frequency)) => println!("VFO B: {frequency:#} Hz"),
-        Ok(None) => println!("GetOperatingFrequency command timed out"),
+        Ok(None) => println!("GetVfoBFrequency command timed out"),
         Err(e) => eprintln!("Error: {e}"),
     }
 
-    match cat.send_and_receive(GetOperatingMode { vfo: Vfo::B }) {
+    match cat.send_and_receive(GetVfoBOperatingMode) {
         Ok(Some(mode)) => println!("VFO B: {mode}"),
         Ok(None) => println!("GetOperatingMode command timed out"),
         Err(e) => eprintln!("Error: {e}"),

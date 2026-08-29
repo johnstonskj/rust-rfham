@@ -9,19 +9,19 @@
 //! ```
 //!
 
-use crate::error::{RigError, lock_poisoned};
+use crate::error::{RigError, enum_parse, lock_poisoned};
 use rfham_config::connections::{Connection, Host, IpConnection, SerialConnection};
 use serialport::{
     DataBits, Error as SerialError, FlowControl, Parity, SerialPort, SerialPortBuilder, StopBits,
 };
 use std::{
-    fmt::Debug,
+    fmt::{Debug, Display},
     io::{Error as IoError, ErrorKind, Read, Write},
     net::{SocketAddr, TcpStream, ToSocketAddrs},
     sync::{Arc, RwLock, RwLockWriteGuard},
     time::Duration,
 };
-use strum::{EnumIs, EnumTryAs};
+use strum::{AsRefStr, EnumIs, EnumTryAs, FromRepr};
 
 // ------------------------------------------------------------------------------------------------
 // Public Macros
@@ -43,23 +43,76 @@ pub enum ActiveConnectionKind {
     Ip { stream: TcpStream },
 }
 
+///
+/// In telecommunications and electronics, baud is a common unit of measurement of symbol rate,
+/// which is one of the components that determine the speed of communication over a data channel.
+///
+/// It is the unit for symbol rate or modulation rate in symbols per second or pulses per second.
+/// It is the number of distinct symbol changes (signalling events) made to the transmission medium
+/// per second in a digitally modulated signal or a bd rate line code.
+///
+/// Baud is related to gross bit rate, which can be expressed in bits per second (bit/s).
+/// If there are precisely two symbols in the system (typically 0 and 1), then baud and bits per
+/// second are equivalent.
+///
+/// Its symbol is uppercase (Bd), but when the unit is spelled out, it should be written in
+/// lowercase (baud) except when it begins a sentence or is capitalized for another reason, such as
+/// in title case. It was defined by the CCITT (now the ITU-T) in November 1926.
+///
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, AsRefStr, EnumIs, FromRepr)]
+#[repr(u32)]
+pub enum BaudRate {
+    /// Bell 103 modem or ITU-T V.21 modem.
+    Bd300 = 300,
+    /// Bell 202, Bell 212A, orITU-T V.22 modem.
+    Bd1200 = 1200,
+    /// ITU-T V.22bis modem.
+    Bd2400 = 2400,
+    /// ITU-T V.27ter modem.
+    Bd4800 = 4800,
+    /// ITU-T V.32 modem.
+    Bd9600 = 9600,
+    /// ITU-T V.32bis modem.
+    Bd14000 = 14000,
+    Bd19200 = 19200,
+    Bd38400 = 38400,
+    /// ITU-T V.90/V.92 modem.
+    Bd56000 = 56000,
+    /// ITU-T V.32bis modem with V.42bis compression.
+    Bd57600 = 57600,
+    /// ITU-T V.34 modem with V.42bis compression, low cost serial V.90/V.92 modem with V.42bis or V.44 compression.
+    Bd115200 = 115200,
+    /// ISO 11898-3 CAN bus.
+    Bd125000 = 125000,
+    /// Basic Rate Interface ISDN terminal adapter.
+    Bd128000 = 128000,
+    /// LocalTalk, Econet, high end serial V.90/V.92 modem with V.42bis or V.44 compression.
+    Bd230400 = 230400,
+    /// DMX512, stage lighting and effects network.
+    Bd250000 = 250000,
+}
+
 const DEFAULT_SERIAL_TIMEOUT: Duration = Duration::from_millis(200);
 const DEFAULT_IP_CONNECT_TIMEOUT: Duration = Duration::new(15, 0);
 
 // ------------------------------------------------------------------------------------------------
-// Public Functions
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Private Macros
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Private Types
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
 // Implementations
+// ------------------------------------------------------------------------------------------------
+
+impl Display for BaudRate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", *self as u32)
+    }
+}
+
+impl TryFrom<u32> for BaudRate {
+    type Error = RigError;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        Self::from_repr(value).ok_or_else(|| enum_parse(value, "BaudRate"))
+    }
+}
+
 // ------------------------------------------------------------------------------------------------
 
 impl Read for ActiveConnectionKind {
@@ -149,7 +202,7 @@ impl ActiveConnection {
     }
 
     pub fn inner(&mut self) -> Result<RwLockWriteGuard<'_, ActiveConnectionKind>, RigError> {
-        self.inner.write().map_err(|e| lock_poisoned(e))
+        self.inner.write().map_err(lock_poisoned)
     }
 }
 
@@ -162,14 +215,14 @@ fn to_socket_address(conn: &IpConnection) -> Result<Option<SocketAddr>, IoError>
         Host::HostName(name) => (name.as_str(), conn.port())
             .to_socket_addrs()
             .map(|addrs| addrs.into_iter().next()),
-        Host::Address(addr) => (addr.clone(), conn.port())
+        Host::Address(addr) => (*addr, conn.port())
             .to_socket_addrs()
             .map(|addrs| addrs.into_iter().next()),
     }
 }
 
 pub fn to_serial_port_builder(conn: &SerialConnection) -> SerialPortBuilder {
-    serialport::new(&conn.path().display().to_string(), conn.baud_rate())
+    serialport::new(conn.path().display().to_string(), conn.baud_rate())
         .data_bits(conn.data_bits().unwrap_or(DataBits::Eight))
         .flow_control(conn.flow_control().unwrap_or(FlowControl::None))
         .parity(conn.parity().unwrap_or(Parity::None))

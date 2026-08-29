@@ -144,9 +144,9 @@ pub fn set_global_config(config: Configuration) -> Result<(), ConfigError> {
 }
 
 pub fn get_global_config() -> Result<RwLockReadGuard<'static, Configuration>, ConfigError> {
-    Ok(SHARED_CONFIG
+    SHARED_CONFIG
         .read()
-        .map_err(|e| ConfigError::LockPoison(e.to_string()))?)
+        .map_err(|e| ConfigError::LockPoison(e.to_string()))
 }
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -280,6 +280,7 @@ impl PathTarget for Configuration {
                     if let Some(path) = tail {
                         let (head, tail) = path.split();
                         if let PathElement::Index(index) = head {
+                            #[allow(clippy::unnecessary_unwrap)]
                             if tail.is_none() {
                                 Err(ConfigError::PathTooShort(
                                     head.to_string(),
@@ -319,7 +320,9 @@ impl PathTarget for Configuration {
                         Ok(Value::None)
                     }
                 }
-                name if name == CFG_FIELD_SERVICES => {
+                name if name == CFG_FIELD_SERVICES =>
+                {
+                    #[allow(clippy::unnecessary_unwrap)]
                     if tail.is_some() {
                         self.services.value(tail.as_ref().unwrap())
                     } else {
@@ -342,6 +345,7 @@ impl PathTarget for Configuration {
                                 ))
                             } else if let Some(connection) = self.connections.get(&name.to_string())
                             {
+                                #[allow(clippy::unnecessary_unwrap)]
                                 connection.value(&tail.unwrap())
                             } else {
                                 Err(ConfigError::InvalidPathComponent(
@@ -445,7 +449,7 @@ impl Configuration {
     where
         I: IntoIterator<Item = Equipment>,
     {
-        self.equipment = Vec::from_iter(equipment.into_iter());
+        self.equipment = Vec::from_iter(equipment);
         self
     }
 
@@ -458,7 +462,7 @@ impl Configuration {
     where
         I: IntoIterator<Item = (String, Connection)>,
     {
-        self.connections = HashMap::from_iter(connections.into_iter());
+        self.connections = HashMap::from_iter(connections);
         self
     }
 
@@ -559,7 +563,7 @@ impl Configuration {
         &mut self,
         connections: I,
     ) {
-        self.connections = HashMap::from_iter(connections.into_iter());
+        self.connections = HashMap::from_iter(connections);
     }
 
     pub fn exists(&self) -> bool {

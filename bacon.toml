@@ -33,10 +33,6 @@ command = ["cargo", "tarpaulin", "--color", "always"]
 need_stdout = true
 watch = ["tests"]
 
-[jobs.doc]
-command = ["cargo", "doc", "--color", "always", "--no-deps"]
-need_stdout = false
-
 [jobs.miri]
 command = ["cargo", "+nightly", "miri", "run"]
 need_stdout = true
@@ -47,6 +43,10 @@ need_stdout = true
 command = ["cargo", "doc", "--color", "always", "--no-deps", "--open"]
 need_stdout = false
 on_success = "back"                                                    # so that we don't open the browser at each change
+
+[jobs.rustdoc]
+command = ["cargo", "rustdoc", "--color", "always"]
+need_stdout = false
 
 # You can run your application and have the result displayed in bacon,
 # *if* it makes sense for this crate. You can run an example the same
@@ -68,6 +68,7 @@ a = "job:check-all"
 i = "job:initial"
 c = "job:clippy"
 d = "job:doc-open"
+shift-d = "job:rustdoc"
 t = "job:test"
 r = "job:run-help"
 v = "job:coverage"

@@ -6,5 +6,6 @@ edition = "2024"
 publish = false
 
 [dependencies]
+pastey = "0.2.3"
 rfham-config = { path = "../../../rfham-config" }
 rfham-rigs = { path = "../../" }

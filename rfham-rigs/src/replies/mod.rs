@@ -1,4 +1,4 @@
-use crate::{Frequency, Level, error::RigError};
+use crate::{Level, error::RigError, protocol::Frequency};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use strum::{EnumIs, EnumTryAs};
