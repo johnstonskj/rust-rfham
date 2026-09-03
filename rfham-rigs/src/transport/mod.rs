@@ -5,9 +5,6 @@
 //!
 //! # Examples
 //!
-//! ```rust
-//! ```
-//!
 
 use crate::error::{RigError, enum_parse, lock_poisoned};
 use rfham_config::connections::{Connection, Host, IpConnection, SerialConnection};
@@ -59,7 +56,7 @@ pub enum ActiveConnectionKind {
 /// lowercase (baud) except when it begins a sentence or is capitalized for another reason, such as
 /// in title case. It was defined by the CCITT (now the ITU-T) in November 1926.
 ///
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, AsRefStr, EnumIs, FromRepr)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, AsRefStr, EnumIs, FromRepr)]
 #[repr(u32)]
 pub enum BaudRate {
     /// Bell 103 modem or ITU-T V.21 modem.

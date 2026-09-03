@@ -9,212 +9,15 @@
 //!
 
 use crate::{
-    Level,
     error::{
         RigError, invalid_response_command_id, invalid_response_data, invalid_response_length,
         invalid_response_terminator,
     },
-    protocol::{
-        Frequency,
-        cat::{Command, MESSAGE_TERMINATOR},
-    },
+    protocol::cat::MESSAGE_TERMINATOR,
 };
 use core::fmt::Display;
 use num::{FromPrimitive, Integer, Signed, Unsigned};
 use tracing::error;
-
-// ------------------------------------------------------------------------------------------------
-// Public Macros
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Public Types
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Public Types: GetTransceiverId
-// ------------------------------------------------------------------------------------------------
-
-define_command!("Get the transceiver's radio ID code.
-
-# Command format
-
-> `ID;`
-
-# Response format
-
-> `ID{nnn};`
-
-Where *nnn* is a manufacturer-defined numeric code identifying the radio model." =>
-    GetTransceiverId
-);
-
-// ------------------------------------------------------------------------------------------------
-// Public Types: GetVfoAFrequency, SetVfoAFrequency
-// ------------------------------------------------------------------------------------------------
-
-define_command!("Get the VFO A operating frequency.
-
-# Command format
-
-> `FA;`
-
-# Response format
-
-> `FA{nnnnnnnnnnn};`
-
-Where *nnnnnnnnnnn* is the frequency, in Hz, as an 11-digit zero-padded value." =>
-    GetVfoAFrequency
-);
-
-define_command!("Set the VFO A operating frequency.
-
-# Command format
-
-> `FA{nnnnnnnnnnn};`
-
-Where *nnnnnnnnnnn* is the frequency, in Hz, as an 11-digit zero-padded value." =>
-    SetVfoAFrequency {
-        frequency: Frequency
-    }
-);
-
-// ------------------------------------------------------------------------------------------------
-// Public Types: GetVfoBFrequency, SetVfoBFrequency
-// ------------------------------------------------------------------------------------------------
-
-define_command!("Get the VFO B operating frequency.
-
-# Command format
-
-> `FB;`
-
-# Response format
-
-> `FB{nnnnnnnnnnn};`
-
-Where *nnnnnnnnnnn* is the frequency, in Hz, as an 11-digit zero-padded value." =>
-    GetVfoBFrequency
-);
-
-define_command!("Set the VFO B operating frequency.
-
-# Command format
-
-> `FB{nnnnnnnnnnn};`
-
-Where *nnnnnnnnnnn* is the frequency, in Hz, as an 11-digit zero-padded value." =>
-    SetVfoBFrequency {
-        frequency: Frequency
-    }
-);
-
-// ------------------------------------------------------------------------------------------------
-// Public Types: GetVfoAAfGain, SetVfoAAfGain
-// ------------------------------------------------------------------------------------------------
-
-define_command!("Get the AF (audio) gain for the VFO A (main) receiver.
-
-Unverified: no rig currently implemented in this crate exercises this command; the command byte
-and framing follow the general Kenwood dialect convention but have not been confirmed against a
-specific radio's programmer's reference.
-
-# Command format
-
-> `AG0;`
-
-# Response format
-
-> `AG0{n};`
-
-Where *n* is the gain level. See [`Level`]." =>
-    GetVfoAAfGain
-);
-
-define_command!("Set the AF (audio) gain for the VFO A (main) receiver.
-
-Unverified — see [`GetVfoAAfGain`].
-
-# Command format
-
-> `AG0{n};`
-
-Where *n* is the gain level. See [`Level`]." =>
-    SetVfoAAfGain {
-        level: Level
-    }
-);
-
-// ------------------------------------------------------------------------------------------------
-// Public Types: GetVfoBAfGain, SetVfoBAfGain
-// ------------------------------------------------------------------------------------------------
-
-define_command!("Get the AF (audio) gain for the VFO B (sub) receiver.
-
-Unverified — see [`GetVfoAAfGain`].
-
-# Command format
-
-> `AG1;`
-
-# Response format
-
-> `AG1{n};`
-
-Where *n* is the gain level. See [`Level`]." =>
-    GetVfoBAfGain
-);
-
-define_command!("Set the AF (audio) gain for the VFO B (sub) receiver.
-
-Unverified — see [`GetVfoAAfGain`].
-
-# Command format
-
-> `AG1{n};`
-
-Where *n* is the gain level. See [`Level`]." =>
-    SetVfoBAfGain {
-        level: Level
-    }
-);
-
-// ------------------------------------------------------------------------------------------------
-// Public Types: GetCurrentAntenna, SetCurrentAntenna
-// ------------------------------------------------------------------------------------------------
-
-define_command!("Get the currently selected antenna port.
-
-Unverified: no rig currently implemented in this crate exercises this command. Amplifier/tuner
-antenna-port selection (e.g. the KAT500's `AN` command) is a separate, independently verified
-command in its own vendor module — this one is a generic transceiver-level baseline, not a
-duplicate of that.
-
-# Command format
-
-> `AN;`
-
-# Response format
-
-> `AN{n};`
-
-Where *n* is the antenna port number, `1`-`3`." =>
-    GetCurrentAntenna
-);
-
-define_command!("Set the currently selected antenna port.
-
-Unverified — see [`GetCurrentAntenna`].
-
-# Command format
-
-> `AN{n};`
-
-Where *n* is the antenna port number, `1`-`3`." =>
-    SetCurrentAntenna {
-        antenna: u8
-    }
-);
 
 // ------------------------------------------------------------------------------------------------
 // Public Constants
@@ -368,6 +171,36 @@ pub(crate) fn bool_from_ascii_1_0(ascii: u8) -> Result<bool, RigError> {
     }
 }
 
+#[allow(unused)]
+pub(crate) fn assert_byte_eq(value: u8, expected: u8) -> Result<(), RigError> {
+    if value != expected {
+        error!("Expected fixed byte value {expected:02X}, got {value:02X}");
+        Err(invalid_response_data(&[value]))
+    } else {
+        Ok(())
+    }
+}
+
+#[allow(unused)]
+pub(crate) fn assert_all_bytes_eq(values: &[u8], expected: u8) -> Result<(), RigError> {
+    if values.iter().any(|&v| v != expected) {
+        error!("Expected fixed byte value {expected:02X} for all, got {values:02X?}");
+        Err(invalid_response_data(values))
+    } else {
+        Ok(())
+    }
+}
+
+#[allow(unused)]
+pub(crate) fn assert_byte_slice_eq(value: &[u8], expected: &[u8]) -> Result<(), RigError> {
+    if value != expected {
+        error!("Expected fixed byte string {expected:02X?}, got {value:02X?}");
+        Err(invalid_response_data(value))
+    } else {
+        Ok(())
+    }
+}
+
 // ------------------------------------------------------------------------------------------------
 
 #[inline(always)]
@@ -419,92 +252,3 @@ where
         })
     }
 }
-
-// ------------------------------------------------------------------------------------------------
-// Private Macros
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Private Types
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Implementations
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetTransceiverId => b"ID");
-impl_command_with_response!(GetTransceiverId => string);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetVfoAFrequency => b"FA");
-impl_command_with_response!(GetVfoAFrequency => try_from 11 Frequency);
-
-impl_command!(SetVfoAFrequency => b"FA" with Some |cmd: &SetVfoAFrequency| {
-    cmd.frequency.into()
-});
-impl_command_with_response!(SetVfoAFrequency => try_from 11 Frequency);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetVfoBFrequency => b"FB");
-impl_command_with_response!(GetVfoBFrequency => try_from 11 Frequency);
-
-impl_command!(SetVfoBFrequency => b"FB" with Some |cmd: &SetVfoBFrequency| {
-    cmd.frequency.into()
-});
-impl_command_with_response!(SetVfoBFrequency => try_from 11 Frequency);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetVfoAAfGain => b"AG0");
-impl_command_with_response!(GetVfoAAfGain => try_from 1 Level);
-
-impl_command!(SetVfoAAfGain => b"AG0" with Some |cmd: &SetVfoAAfGain| {
-    vec![u8::from(cmd.level)]
-});
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetVfoBAfGain => b"AG1");
-impl_command_with_response!(GetVfoBAfGain => try_from 1 Level);
-
-impl_command!(SetVfoBAfGain => b"AG1" with Some |cmd: &SetVfoBAfGain| {
-    vec![u8::from(cmd.level)]
-});
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetCurrentAntenna => b"AN");
-impl_command_with_response!(GetCurrentAntenna => 1, u8_from_ascii => u8);
-
-impl_command!(
-    SetCurrentAntenna => b"AN"
-    format antenna uint 1,
-    if |cmd: &SetCurrentAntenna| {
-        if (1..=3).contains(&cmd.antenna) {
-            Ok(())
-        } else {
-            Err(RigError::InvalidArgumentValue {
-                argument_name: "antenna",
-                type_name: "u8",
-                value: cmd.antenna.to_string(),
-            })
-        }
-    }
-);
-
-// ------------------------------------------------------------------------------------------------
-// Private Functions
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Sub-Modules
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Unit Tests
-// ------------------------------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {}

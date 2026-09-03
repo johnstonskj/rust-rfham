@@ -7,6 +7,15 @@
 //! Beyond that and some very basic *similar commands*, the protocol is largely vendor-, and in many
 //! cases model-, specific.
 //!
+//! # Modules
+//!
+//! The modules `elecraft`, `kenwood`, and `yaesu` **are** the public API and implementations
+//! of the CAT protocol for the respective vendors/families. Each of these modules contains
+//! sub-modules based on model families or other logical groupings.
+//!
+//! The module `common` contains validation, parsing, and formatting functions used
+//! by the various CAT command implementations, and is also *not*considered part of the public API.
+//!
 
 use crate::{
     error::RigError,
@@ -44,18 +53,6 @@ pub(crate) const STATE_OR_SYNTAX_ERROR_RESPONSE: &[u8] =
 pub(crate) const COMMUNICATION_ERROR_RESPONSE: &[u8] =
     &[COMMUNICATION_ERROR_RESPONSE_ID, MESSAGE_TERMINATOR];
 pub(crate) const OVERFLOW_ERROR_RESPONSE: &[u8] = &[OVERFLOW_ERROR_RESPONSE_ID, MESSAGE_TERMINATOR];
-
-// ------------------------------------------------------------------------------------------------
-// Public Functions
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Private Macros
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Private Types
-// ------------------------------------------------------------------------------------------------
 
 // ------------------------------------------------------------------------------------------------
 // Implementations
@@ -174,6 +171,12 @@ fn make_message(command_id: &[u8], argument_bytes: Option<Vec<u8>>, terminator: 
 mod macros;
 
 pub mod common;
+
+#[cfg(feature = "elecraft")]
 pub mod elecraft;
+
+#[cfg(feature = "kenwood")]
 pub mod kenwood;
+
+#[cfg(feature = "yaesu")]
 pub mod yaesu;

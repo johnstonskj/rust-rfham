@@ -1,17 +1,8 @@
 //!
-//! Provides a rig-control library for supported transceivers, tuners, and amplifiers.
+//! Not ready yet
 //!
-//!
-//! # Feature flags
-#![doc = document_features::document_features!()]
 
-use crate::error::{RigError, invalid_response_length};
-use serde::{Deserialize, Serialize};
-use std::{fmt::Display, str::FromStr};
-
-// ------------------------------------------------------------------------------------------------
-// Public Macros
-// ------------------------------------------------------------------------------------------------
+use rfham_config::connections::Connection;
 
 // ------------------------------------------------------------------------------------------------
 // Public Types
@@ -23,8 +14,18 @@ use std::{fmt::Display, str::FromStr};
 pub struct Level(u8);
 
 // ------------------------------------------------------------------------------------------------
-// Private Types
+// Public Functions
 // ------------------------------------------------------------------------------------------------
+
+#[cfg(feature = "entity-api")]
+pub fn init<R, C, S>(_rig: R, _connection: C) -> Result<(R, S), RigError>
+where
+    R: Rig,
+    C: Into<Connection>,
+    S: ReplySource,
+{
+    todo!()
+}
 
 // ------------------------------------------------------------------------------------------------
 // Implementations
@@ -126,16 +127,9 @@ impl Level {
 // Modules
 // ------------------------------------------------------------------------------------------------
 
-#[macro_use]
-pub mod error;
-
-pub mod rigs;
-
-#[cfg(feature = "transport")]
-pub mod transport;
-
-#[cfg(feature = "protocol")]
-pub mod protocol;
-
-#[cfg(feature = "entity-api")]
-pub mod api;
+pub mod actors;
+pub mod asyncs;
+pub mod entities;
+pub mod features;
+pub mod modes;
+pub mod replies;

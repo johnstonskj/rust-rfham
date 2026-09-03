@@ -16,48 +16,53 @@ use rfham_itu::allocations::AllocationBand;
 use rfham_rigs::{
     error::RigError,
     protocol::{
-        Command, Vfo,
-        cat::elecraft::k3_kx::{
-            AutoInfoMode, BaudRate, ClearRitOffset, DataSubMode, DiversityModeState,
-            EmulateButtonHold, EmulateButtonTap, GetActualPowerOutput, GetAgcTimeConstant,
-            GetAtuNetworkValues, GetAudioPeakingFilterState, GetAutoInfoMode, GetBargraphValue,
-            GetBufferedText, GetCwSidetonePitch, GetDataSubMode, GetDiversityMode, GetEssbMode,
-            GetFirmwareRevision, GetHighResolutionSMeter, GetIfCenterFrequency,
-            GetInstalledOptions, GetK3IconsAndStatus, GetKeyerSpeed, GetMemoryChannel,
-            GetMenuParameter, GetMenuParameter16, GetMicGain, GetMonitorLevel, GetPowerStatus,
-            GetQskDelay, GetReceiveAntenna, GetReceiveVfo, GetRitControl, GetRitXitOffset,
-            GetSpeechCompression, GetSubReceiver, GetTransceiverInformation,
-            GetTransmitBufferedText, GetTransmitMeterMode, GetTransmitPowerControl,
-            GetTransmitState, GetTransmitVfoSplitModeState, GetVfoABandNumber,
-            GetVfoADisplayAndIcons, GetVfoAFilterBandwidth, GetVfoAIfShift,
-            GetVfoALegacyFilterBandwidth, GetVfoALockState, GetVfoANoiseBlanker,
-            GetVfoANoiseBlankerLevel, GetVfoAOperatingMode, GetVfoAPreamp,
-            GetVfoAReceiveAttenuator, GetVfoARfGain, GetVfoASMeter, GetVfoASquelch,
-            GetVfoAXfilNumber, GetVfoBBandNumber, GetVfoBDisplayText, GetVfoBFilterBandwidth,
-            GetVfoBIfShift, GetVfoBLegacyFilterBandwidth, GetVfoBLockState, GetVfoBNoiseBlanker,
-            GetVfoBNoiseBlankerLevel, GetVfoBOperatingMode, GetVfoBPreamp,
-            GetVfoBReceiveAttenuator, GetVfoBRfGain, GetVfoBSMeter, GetVfoBSquelch,
-            GetVfoBXfilNumber, GetVfoLinkedState, GetVox, GetXitControl, GoToReceive, GoToTransmit,
-            MoveRitOffsetDown, MoveRitOffsetUp, MoveVfoAFrequencyDown, MoveVfoAFrequencyUp,
-            MoveVfoBFrequencyDown, MoveVfoBFrequencyUp, SelectMenuItem, SendCwText,
-            SetAgcTimeConstant, SetAudioPeakingFilterState, SetAutoInfoMode, SetBaudRate,
-            SetCommandProcessingDelay, SetDataSubMode, SetDiversityMode, SetErrorLogging,
-            SetEssbMode, SetKeyerSpeed, SetMemoryChannel, SetMenuParameter, SetMenuParameter16,
-            SetMicGain, SetMonitorLevel, SetPowerStatus, SetReceiveAntenna, SetReceiveVfo,
-            SetRitControl, SetRitXitOffset, SetSpeechCompression, SetSubReceiver,
-            SetTextToTerminal, SetTransmitEqualizer, SetTransmitMeterMode, SetTransmitPowerControl,
-            SetTransmitVfoSplitModeState, SetVfoABandNumber, SetVfoAFilterBandwidth,
-            SetVfoAIfShift, SetVfoALegacyFilterBandwidth, SetVfoALockState, SetVfoANoiseBlanker,
-            SetVfoANoiseBlankerLevel, SetVfoAOperatingMode, SetVfoAPreamp,
-            SetVfoAReceiveAttenuator, SetVfoARfGain, SetVfoASquelch, SetVfoBBandNumber,
-            SetVfoBDisplayText, SetVfoBFilterBandwidth, SetVfoBIfShift,
-            SetVfoBLegacyFilterBandwidth, SetVfoBLockState, SetVfoBNoiseBlanker,
-            SetVfoBNoiseBlankerLevel, SetVfoBOperatingMode, SetVfoBPreamp,
-            SetVfoBReceiveAttenuator, SetVfoBRfGain, SetVfoBSquelch, SetVfoLinkedState, SetVox,
-            SetXitControl, VfoFrequencyChangeStep,
+        Command,
+        cat::elecraft::{
+            Vfo,
+            k3_kx::{
+                AutoInfoMode, BaudRate, ClearRitOffset, DataSubMode, DiversityModeState,
+                EmulateButtonHold, EmulateButtonTap, GetActualPowerOutput, GetAgcTimeConstant,
+                GetAtuNetworkValues, GetAudioPeakingFilterState, GetAutoInfoMode, GetBargraphValue,
+                GetBufferedText, GetCwSidetonePitch, GetDataSubMode, GetDiversityMode, GetEssbMode,
+                GetFirmwareRevision, GetHighResolutionSMeter, GetIfCenterFrequency,
+                GetInstalledOptions, GetK3CommandMode, GetK3IconsAndStatus, GetKeyerSpeed,
+                GetMemoryChannel, GetMenuParameter, GetMenuParameter16, GetMicGain,
+                GetMonitorLevel, GetPowerStatus, GetQskDelay, GetReceiveAntenna, GetReceiveVfo,
+                GetRitControl, GetRitXitOffset, GetSpeechCompression, GetSubReceiver,
+                GetTransceiverInformation, GetTransmitBufferedText, GetTransmitMeterMode,
+                GetTransmitPowerControl, GetTransmitState, GetTransmitVfoSplitModeState,
+                GetVfoABandNumber, GetVfoADisplayAndIcons, GetVfoAFilterBandwidth, GetVfoAIfShift,
+                GetVfoALegacyFilterBandwidth, GetVfoALockState, GetVfoANoiseBlanker,
+                GetVfoANoiseBlankerLevel, GetVfoAOperatingMode, GetVfoAPreamp,
+                GetVfoAReceiveAttenuator, GetVfoARfGain, GetVfoASMeter, GetVfoASquelch,
+                GetVfoAXfilNumber, GetVfoBBandNumber, GetVfoBDisplayText, GetVfoBFilterBandwidth,
+                GetVfoBIfShift, GetVfoBLegacyFilterBandwidth, GetVfoBLockState,
+                GetVfoBNoiseBlanker, GetVfoBNoiseBlankerLevel, GetVfoBOperatingMode, GetVfoBPreamp,
+                GetVfoBReceiveAttenuator, GetVfoBRfGain, GetVfoBSMeter, GetVfoBSquelch,
+                GetVfoBXfilNumber, GetVfoLinkedState, GetVox, GetXitControl, GoToReceive,
+                GoToTransmit, K3CommandMode, MoveRitOffsetDown, MoveRitOffsetUp,
+                MoveVfoAFrequencyDown, MoveVfoAFrequencyUp, MoveVfoBFrequencyDown,
+                MoveVfoBFrequencyUp, OperatingMode, SelectMenuItem, SendCwText, SetAgcTimeConstant,
+                SetAudioPeakingFilterState, SetAutoInfoMode, SetBaudRate,
+                SetCommandProcessingDelay, SetDataSubMode, SetDiversityMode, SetErrorLogging,
+                SetEssbMode, SetK3CommandMode, SetKeyerSpeed, SetMemoryChannel, SetMenuParameter,
+                SetMenuParameter16, SetMicGain, SetMonitorLevel, SetPowerStatus, SetReceiveAntenna,
+                SetReceiveVfo, SetRitControl, SetRitXitOffset, SetSpeechCompression,
+                SetSubReceiver, SetTextToTerminal, SetTransmitEqualizer, SetTransmitMeterMode,
+                SetTransmitPowerControl, SetTransmitVfoSplitModeState, SetVfoABandNumber,
+                SetVfoAFilterBandwidth, SetVfoAIfShift, SetVfoALegacyFilterBandwidth,
+                SetVfoALockState, SetVfoANoiseBlanker, SetVfoANoiseBlankerLevel,
+                SetVfoAOperatingMode, SetVfoAPreamp, SetVfoAReceiveAttenuator, SetVfoARfGain,
+                SetVfoASquelch, SetVfoBBandNumber, SetVfoBDisplayText, SetVfoBFilterBandwidth,
+                SetVfoBIfShift, SetVfoBLegacyFilterBandwidth, SetVfoBLockState,
+                SetVfoBNoiseBlanker, SetVfoBNoiseBlankerLevel, SetVfoBOperatingMode, SetVfoBPreamp,
+                SetVfoBReceiveAttenuator, SetVfoBRfGain, SetVfoBSquelch, SetVfoLinkedState, SetVox,
+                SetXitControl, VfoFrequencyChangeStep,
+            },
         },
     },
 };
+use strum::IntoEnumIterator;
 
 /// Mirrors the sign encoding produced by the private `format_i16_ascii_4` helper: a literal
 /// `+`/`-` character followed by the zero-padded magnitude. (An earlier version of this helper
@@ -66,6 +71,31 @@ use rfham_rigs::{
 fn expected_signed_offset_4(n: i16) -> Vec<u8> {
     let sign = if n.is_negative() { "-" } else { "+" };
     format!("{sign}{:04}", n.unsigned_abs()).into_bytes()
+}
+
+// ------------------------------------------------------------------------------------------------
+// K3: GetK3CommandMode, SetK3CommandMode
+// ------------------------------------------------------------------------------------------------
+
+#[test]
+fn get_k3_command_mode_encodes() {
+    assert_eq!(GetK3CommandMode.to_message().unwrap(), b"K3;".to_vec());
+}
+
+#[test]
+fn set_k3_command_mode_encodes_normal() {
+    let cmd = SetK3CommandMode {
+        mode: K3CommandMode::normal(),
+    };
+    assert_eq!(cmd.to_message().unwrap(), b"K30;".to_vec());
+}
+
+#[test]
+fn set_k3_command_mode_encodes_extended() {
+    let cmd = SetK3CommandMode {
+        mode: K3CommandMode::extended(),
+    };
+    assert_eq!(cmd.to_message().unwrap(), b"K31;".to_vec());
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -86,27 +116,10 @@ fn set_auto_info_mode_encodes_off() {
 }
 
 #[test]
-fn set_auto_info_mode_encodes_k2() {
-    let cmd = SetAutoInfoMode {
-        mode: AutoInfoMode::K2,
-    };
-    assert_eq!(cmd.to_message().unwrap(), b"AI1;".to_vec());
-}
-
-#[test]
-fn set_auto_info_mode_encodes_k3() {
-    let cmd = SetAutoInfoMode {
-        mode: AutoInfoMode::K3,
-    };
-    assert_eq!(cmd.to_message().unwrap(), b"AI2;".to_vec());
-}
-
-#[test]
-fn set_auto_info_mode_encodes_k3_extended() {
-    let cmd = SetAutoInfoMode {
-        mode: AutoInfoMode::K3Extended,
-    };
-    assert_eq!(cmd.to_message().unwrap(), b"AI3;".to_vec());
+fn set_auto_info_mode_assert_accepts_all_values() {
+    for variant in AutoInfoMode::iter() {
+        assert!(SetAutoInfoMode { mode: variant }.validate().is_ok());
+    }
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -132,13 +145,13 @@ fn get_audio_peaking_filter_state_encodes() {
 
 #[test]
 fn set_audio_peaking_filter_state_encodes_on() {
-    let cmd = SetAudioPeakingFilterState { on: true };
+    let cmd = SetAudioPeakingFilterState::turn_on();
     assert_eq!(cmd.to_message().unwrap(), b"AP1;".to_vec());
 }
 
 #[test]
 fn set_audio_peaking_filter_state_encodes_off() {
-    let cmd = SetAudioPeakingFilterState { on: false };
+    let cmd = SetAudioPeakingFilterState::turn_off();
     assert_eq!(cmd.to_message().unwrap(), b"AP0;".to_vec());
 }
 
@@ -215,11 +228,10 @@ fn set_baud_rate_encodes_4800() {
 }
 
 #[test]
-fn set_baud_rate_encodes_115200() {
-    let cmd = SetBaudRate {
-        rate: BaudRate::Rate115200,
-    };
-    assert_eq!(cmd.to_message().unwrap(), b"BR5;".to_vec());
+fn set_baud_rate_assert_accepts_all_values() {
+    for variant in BaudRate::iter() {
+        assert!(SetBaudRate { rate: variant }.validate().is_ok());
+    }
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -350,11 +362,7 @@ fn set_command_delay_rejects_out_of_range() {
 #[test]
 fn vfo_a_down_encodes() {
     assert_eq!(
-        MoveVfoAFrequencyDown {
-            step: Some(VfoFrequencyChangeStep::Step10Hz)
-        }
-        .to_message()
-        .unwrap(),
+        MoveVfoAFrequencyDown::step_10hz().to_message().unwrap(),
         b"DN1;".to_vec()
     );
 }
@@ -362,29 +370,23 @@ fn vfo_a_down_encodes() {
 #[test]
 fn vfo_b_down_encodes() {
     assert_eq!(
-        MoveVfoBFrequencyDown {
-            step: Some(VfoFrequencyChangeStep::Step10Hz)
-        }
-        .to_message()
-        .unwrap(),
+        MoveVfoBFrequencyDown::step_10hz().to_message().unwrap(),
         b"DNB1;".to_vec()
     );
 }
 
 #[test]
-fn vfo_a_down_encodes_none() {
-    assert_eq!(
-        MoveVfoAFrequencyDown { step: None }.to_message().unwrap(),
-        b"DN;".to_vec()
-    );
+fn vfo_a_down_assert_accepts_all_values() {
+    for variant in VfoFrequencyChangeStep::iter() {
+        assert!(MoveVfoAFrequencyDown::step_by(variant).validate().is_ok());
+    }
 }
 
 #[test]
-fn vfo_b_down_encodes_none() {
-    assert_eq!(
-        MoveVfoBFrequencyDown { step: None }.to_message().unwrap(),
-        b"DNB;".to_vec()
-    );
+fn vfo_b_down_assert_accepts_all_values() {
+    for variant in VfoFrequencyChangeStep::iter() {
+        assert!(MoveVfoBFrequencyDown::step_by(variant).validate().is_ok());
+    }
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -463,6 +465,14 @@ fn set_diversity_mode_encodes_off() {
     assert_eq!(cmd.to_message().unwrap(), b"DV0;".to_vec());
 }
 
+#[test]
+fn set_diversity_mode_encodes_sub_and_diversity() {
+    let cmd = SetDiversityMode {
+        state: DiversityModeState::SubAndDiversity,
+    };
+    assert_eq!(cmd.to_message().unwrap(), b"DVS;".to_vec());
+}
+
 // ------------------------------------------------------------------------------------------------
 // EL: SetErrorLogging
 // ------------------------------------------------------------------------------------------------
@@ -534,14 +544,6 @@ fn set_receive_vfo_encodes_b() {
 fn set_receive_vfo_accepts_a_and_b() {
     assert!(SetReceiveVfo { vfo: Vfo::A }.validate().is_ok());
     assert!(SetReceiveVfo { vfo: Vfo::B }.validate().is_ok());
-}
-
-#[test]
-fn set_receive_vfo_rejects_other_vfos() {
-    assert!(matches!(
-        SetReceiveVfo { vfo: Vfo::C }.validate(),
-        Err(RigError::InvalidArgumentValue { .. })
-    ));
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -676,50 +678,28 @@ fn get_operating_mode_b_encodes() {
 
 #[test]
 fn set_operating_mode_a_encodes() {
-    let cmd = SetVfoAOperatingMode { mode: 3 };
+    let cmd = SetVfoAOperatingMode::to_cw();
     assert_eq!(cmd.to_message().unwrap(), b"MD3;".to_vec());
 }
 
 #[test]
-fn set_operating_mode_a_accepts_boundary_values() {
-    assert!(SetVfoAOperatingMode { mode: 1 }.validate().is_ok());
-    assert!(SetVfoAOperatingMode { mode: 9 }.validate().is_ok());
-}
-
-#[test]
-fn set_operating_mode_a_rejects_undefined_digits() {
-    assert!(matches!(
-        SetVfoBOperatingMode { mode: 0 }.validate(),
-        Err(RigError::InvalidArgumentValue { .. })
-    ));
-    assert!(matches!(
-        SetVfoBOperatingMode { mode: 8 }.validate(),
-        Err(RigError::InvalidArgumentValue { .. })
-    ));
+fn set_operating_mode_a_assert_accepts_all_values() {
+    for variant in OperatingMode::iter() {
+        assert!(SetVfoAOperatingMode { mode: variant }.validate().is_ok());
+    }
 }
 
 #[test]
 fn set_operating_mode_b_encodes() {
-    let cmd = SetVfoBOperatingMode { mode: 7 };
+    let cmd = SetVfoBOperatingMode::to_cw_reverse();
     assert_eq!(cmd.to_message().unwrap(), b"MD$7;".to_vec());
 }
 
 #[test]
 fn set_operating_mode_b_accepts_boundary_values() {
-    assert!(SetVfoBOperatingMode { mode: 1 }.validate().is_ok());
-    assert!(SetVfoBOperatingMode { mode: 9 }.validate().is_ok());
-}
-
-#[test]
-fn set_operating_mode_b_rejects_undefined_digits() {
-    assert!(matches!(
-        SetVfoBOperatingMode { mode: 0 }.validate(),
-        Err(RigError::InvalidArgumentValue { .. })
-    ));
-    assert!(matches!(
-        SetVfoBOperatingMode { mode: 8 }.validate(),
-        Err(RigError::InvalidArgumentValue { .. })
-    ));
+    for variant in OperatingMode::iter() {
+        assert!(SetVfoBOperatingMode { mode: variant }.validate().is_ok());
+    }
 }
 
 // ------------------------------------------------------------------------------------------------

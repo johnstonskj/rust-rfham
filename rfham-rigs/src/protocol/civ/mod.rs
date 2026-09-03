@@ -1,6 +1,6 @@
 //!
 //! This module provides implementations of the various CI-V protocol variants for Icom
-//! transceivers.
+//! and Xiegu transceivers.
 //!
 
 use crate::{
@@ -215,8 +215,8 @@ fn make_message(cmd: &impl Command, to_address: u8, terminator: u8) -> Result<Ve
 #[macro_use]
 mod macros;
 
-#[cfg(feature = "ic-705")]
-pub mod ic705;
+#[cfg(feature = "icom")]
+pub mod icom;
 
 // ------------------------------------------------------------------------------------------------
 // Unit Tests

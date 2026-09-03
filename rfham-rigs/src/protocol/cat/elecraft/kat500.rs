@@ -14,18 +14,11 @@
 //!
 
 use crate::{
-    error::{RigError, enum_parse, invalid_argument_value},
+    error::{RigError, invalid_argument_value},
     protocol::{
         Frequency,
-        cat::{
-            Command,
-            common::{
-                bytes_to_vec, string_from_ascii, u8_from_ascii, u16_from_ascii, u32_from_ascii,
-                validate_response,
-            },
-        },
+        cat::common::{bytes_to_vec, u8_from_ascii, u16_from_ascii, u32_from_ascii},
     },
-    transport::BaudRate,
 };
 
 // ------------------------------------------------------------------------------------------------
@@ -36,7 +29,7 @@ use crate::{
 // Public Types: GetAutoBypassState, SetAutoBypassState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get whether automatic bypass is enabled.
+define_cat_command!("Get whether automatic bypass is enabled (`AB`).
 
 When automatic bypass is on, the tuner monitors SWR and switches itself out of circuit whenever
 the untuned SWR is already acceptable.
@@ -53,7 +46,7 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
     GetAutoBypassState
 );
 
-define_command!("Set whether automatic bypass is enabled.
+define_cat_command!("Set whether automatic bypass is enabled (`AB`).
 
 # Command format
 
@@ -67,7 +60,7 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
 // Public Types: GetAutoEnableState, SetAutoEnableState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get whether the ATU is enabled, i.e. whether automatic tuning is allowed.
+define_cat_command!("Get whether the ATU is enabled, i.e. whether automatic tuning is allowed (`AE`).
 
 # Command format
 
@@ -81,7 +74,7 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
     GetAutoEnableState
 );
 
-define_command!("Set whether the ATU is enabled, i.e. whether automatic tuning is allowed.
+define_cat_command!("Set whether the ATU is enabled, i.e. whether automatic tuning is allowed (`AE`).
 
 # Command format
 
@@ -92,10 +85,10 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
 );
 
 // ------------------------------------------------------------------------------------------------
-// Public Types: GetAtuFaultState
+// Public Types: GetFaultConditionState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get whether the ATU currently has a fault condition.
+define_cat_command!("Get whether the ATU currently has a fault condition (`AFT`).
 
 # Command format
 
@@ -106,14 +99,14 @@ define_command!("Get whether the ATU currently has a fault condition.
 > `AFT{n};`
 
 Where `n` is the boolean state `0` (no fault) or `1` (fault present)." =>
-    GetAtuFaultState
+    GetFaultConditionState
 );
 
 // ------------------------------------------------------------------------------------------------
 // Public Types: GetAtuKeepInPlaceState, SetAtuKeepInPlaceState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the ATU keep-in-place state.
+define_cat_command!("Get the ATU keep-in-place state (`AKIP`).
 
 When keep-in-place is on, the tuner retains its last L/C setting rather than re-tuning on band or
 frequency changes.
@@ -127,24 +120,24 @@ frequency changes.
 > `AKIP{n};`
 
 Where `n` is the boolean state `0` (off) or `1` (on)." =>
-    GetAtuKeepInPlaceState
+    GetKeepInPlaceState
 );
 
-define_command!("Set the ATU keep-in-place state.
+define_cat_command!("Set the ATU keep-in-place state (`AKIP`).
 
 # Command format
 
 > `AKIP{n};`
 
 Where `n` is the boolean state `0` (off) or `1` (on)." =>
-    SetAtuKeepInPlaceState { state }
+    SetKeepInPlaceState { state }
 );
 
 // ------------------------------------------------------------------------------------------------
 // Public Types: GetAmplifierInterface, SetAmplifierInterface
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the amplifier interface relay state.
+define_cat_command!("Get the amplifier interface relay state (`AMPI`).
 
 # Command format
 
@@ -155,18 +148,26 @@ define_command!("Get the amplifier interface relay state.
 > `AMPI{n};`
 
 Where `n` is the boolean state `0` (open) or `1` (closed)." =>
-    GetAmplifierInterface
+    GetAmplifierInterfaceRelayClosedState
 );
 
-define_command!("Set the amplifier interface relay state.
+define_cat_command!("Set the amplifier interface relay state (`AMPI`).
 
 # Command format
 
 > `AMPI{n};`
 
 Where `n` is the boolean state `0` (open) or `1` (closed)." =>
-    SetAmplifierInterface {
-        closed: bool
+    SetAmplifierInterfaceRelayClosedState {
+        state: AmplifierInterfaceRelayState
+    }
+);
+
+define_command_enum!(
+    "Amplifier interface relay state." =>
+    AmplifierInterfaceRelayState {
+        "Open" => Open = b'0',
+        "Closed" => Closed = b'1'
     }
 );
 
@@ -174,7 +175,7 @@ Where `n` is the boolean state `0` (open) or `1` (closed)." =>
 // Public Types: GetAntenna, SetAntenna
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the currently selected antenna port.
+define_cat_command!("Get the currently selected antenna port (`AN`).
 
 # Command format
 
@@ -185,18 +186,30 @@ define_command!("Get the currently selected antenna port.
 > `AN{n};`
 
 Where *n* is the antenna port number, between `1` and `6`." =>
-    GetAntenna
+    GetAntennaSelection
 );
 
-define_command!("Set the currently selected antenna port.
+define_cat_command!("Set the currently selected antenna port (`AN`).
 
 # Command format
 
 > `AN{n};`
 
 Where *n* is the antenna port number, between `1` and `6`." =>
-    SetAntenna {
-        antenna: u8
+    SetAntennaSelection {
+        antenna: SelectedAntenna
+    }
+);
+
+define_command_enum!(
+    "Antenna selection." =>
+    SelectedAntenna {
+        "Antenna Port 1" => Antenna1 = b'1',
+        "Antenna Port 2" => Antenna2 = b'2',
+        "Antenna Port 3" => Antenna3 = b'3',
+        "Antenna Port 4" => Antenna4 = b'4',
+        "Antenna Port 5" => Antenna5 = b'5',
+        "Antenna Port 6" => Antenna6 = b'6'
     }
 );
 
@@ -204,7 +217,7 @@ Where *n* is the antenna port number, between `1` and `6`." =>
 // Public Types: GetAtuPreset, SetAtuPreset
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the current ATU preset slot number.
+define_cat_command!("Get the current ATU preset slot number (`AP`).
 
 # Command format
 
@@ -215,18 +228,18 @@ define_command!("Get the current ATU preset slot number.
 > `AP{nnn};`
 
 Where *nnn* is the 3-digit preset slot number." =>
-    GetAtuPreset
+    GetPresetSlotNumber
 );
 
-define_command!("Set the current ATU preset slot number.
+define_cat_command!("Set the current ATU preset slot number (`AP`).
 
 # Command format
 
 > `AP{nnn};`
 
 Where *nnn* is the 3-digit preset slot number." =>
-    SetAtuPreset {
-        preset: u16
+    SetPresetSlotNumber {
+        slot_number: u16
     }
 );
 
@@ -234,7 +247,7 @@ Where *nnn* is the 3-digit preset slot number." =>
 // Public Types: GetAttenuatorState, SetAttenuatorState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get whether the built-in attenuator is enabled.
+define_cat_command!("Get whether the built-in attenuator is enabled (`ATTN`).
 
 # Command format
 
@@ -248,7 +261,7 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
     GetAttenuatorState
 );
 
-define_command!("Set whether the built-in attenuator is enabled.
+define_cat_command!("Set whether the built-in attenuator is enabled (`ATTN`).
 
 # Command format
 
@@ -262,7 +275,7 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
 // Public Types: GetBand, SetBand
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the current band number.
+define_cat_command!("Get the current band number (`BN`).
 
 # Command format
 
@@ -276,7 +289,7 @@ Where *nn* is the 2-digit band number, between `00` and `13`." =>
     GetBand
 );
 
-define_command!("Set the current band number.
+define_cat_command!("Set the current band number (`BN`).
 
 # Command format
 
@@ -292,7 +305,7 @@ Where *nn* is the 2-digit band number, between `00` and `13`." =>
 // Public Types: GetBaudRate, SetBaudRate
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the serial port baud rate.
+define_cat_command!("Get the serial port baud rate (`#BR`).
 
 Unlike every other command in this module, the baud-rate command identifier carries a leading
 `#`, i.e. `#BR` rather than `BR`.
@@ -314,7 +327,7 @@ Where *n* is one of:
     GetBaudRate
 );
 
-define_command!("Set the serial port baud rate.
+define_cat_command!("Set the serial port baud rate (`#BR`).
 
 Unlike every other command in this module, the baud-rate command identifier carries a leading
 `#`, i.e. `#BR` rather than `BR`. Only 4800, 9600, 19200 and 38400 baud are supported by this
@@ -335,25 +348,35 @@ Where *n* is one of:
     }
 );
 
+define_command_enum!(
+    "RS-232 baud rate (K3/K3S only)." =>
+    BaudRate {
+        "4,800 baud" => Rate4800 = b'0',
+        "9,600 baud" => Rate9600 = b'1',
+        "19,200 baud" => Rate19200 = b'2',
+        "38,400 baud" => Rate38400 = b'3'
+    }
+);
+
 // ------------------------------------------------------------------------------------------------
-// Public Types: Bypass
+// Public Types: ForceBypassMode
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Force the ATU into bypass mode immediately.
+define_cat_command!("Force the ATU into bypass mode immediately (`BYP`).
 
 This command takes effect immediately and has no query form.
 
 # Command format
 
 > `BYP;`" =>
-    Bypass
+    ForceBypassMode
 );
 
 // ------------------------------------------------------------------------------------------------
 // Public Types: GetCapacitorValue, SetCapacitorValue
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the tuning capacitor value.
+define_cat_command!("Get the tuning capacitor value (`C`).
 
 # Command format
 
@@ -367,7 +390,7 @@ Where *nnn* is the 3-digit capacitor value, between `000` and `255`." =>
     GetCapacitorValue
 );
 
-define_command!("Set the tuning capacitor value.
+define_cat_command!("Set the tuning capacitor value (`C`).
 
 # Command format
 
@@ -380,10 +403,10 @@ Where *nnn* is the 3-digit capacitor value, between `000` and `255`." =>
 );
 
 // ------------------------------------------------------------------------------------------------
-// Public Types: GetCapacitorTopology, SetCapacitorTopology
+// Public Types: GetCapacitorTopology, SetCapacitorTopology, CapacitorTopology
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the tuning capacitor topology (hi-Z or lo-Z).
+define_cat_command!("Get the tuning capacitor topology (hi-Z or lo-Z) (`CT`).
 
 # Command format
 
@@ -393,19 +416,29 @@ define_command!("Get the tuning capacitor topology (hi-Z or lo-Z).
 
 > `CT{n};`
 
-Where `n` is `0` (lo-Z, capacitor on the output side) or `1` (hi-Z, capacitor on the input side)." =>
+Where `n` is `0` (lo-Z, capacitor on the output side) or `1` (hi-Z, capacitor on the input side).
+See [`CapacitorTopology`] for details." =>
     GetCapacitorTopology
 );
 
-define_command!("Set the tuning capacitor topology (hi-Z or lo-Z).
+define_cat_command!("Set the tuning capacitor topology (hi-Z or lo-Z). (`CT`).
 
 # Command format
 
 > `CT{n};`
 
-Where `n` is `0` (lo-Z, capacitor on the output side) or `1` (hi-Z, capacitor on the input side)." =>
+Where `n` is `0` (lo-Z, capacitor on the output side) or `1` (hi-Z, capacitor on the input side).
+See [`CapacitorTopology`] for details." =>
     SetCapacitorTopology {
-        hi_z: bool
+        topology: CapacitorTopology
+    }
+);
+
+define_command_enum!(
+    "Tuning capacitor topology." =>
+    CapacitorTopology {
+        "Lo-Z; capacitor on the output side." => LowZ = b'0',
+        "Hi-Z; capacitor on the input side." => HighZ = b'1'
     }
 );
 
@@ -413,7 +446,7 @@ Where `n` is `0` (lo-Z, capacitor on the output side) or `1` (hi-Z, capacitor on
 // Public Types: GetDemoModeState, SetDemoModeState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the demo-mode state.
+define_cat_command!("Get the demo-mode state (`DM`).
 
 # Command format
 
@@ -427,7 +460,7 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
     GetDemoModeState
 );
 
-define_command!("Set the demo-mode state.
+define_cat_command!("Set the demo-mode state (`DM`).
 
 # Command format
 
@@ -438,24 +471,24 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
 );
 
 // ------------------------------------------------------------------------------------------------
-// Public Types: EepromInit
+// Public Types: ResetToFactoryDefaults
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Re-initialize EEPROM storage to factory defaults.
+define_cat_command!("Re-initialize EEPROM storage to factory defaults (`EEINIT`).
 
 This is destructive: it erases all stored antenna and band presets. There is no query form.
 
 # Command format
 
 > `EEINIT;`" =>
-    EepromInit
+    ResetToFactoryDefaults
 );
 
 // ------------------------------------------------------------------------------------------------
 // Public Types: GetErrorMessage
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the last error message string.
+define_cat_command!("Get the last error message string (`EM`).
 
 # Command format
 
@@ -473,7 +506,7 @@ The response is a variable-length ASCII text string, returned as raw bytes." =>
 // Public Types: GetFrequency, SetFrequency
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the operating frequency, in Hz.
+define_cat_command!("Get the operating frequency, in Hz. (`F`).
 
 # Command format
 
@@ -487,7 +520,7 @@ Where *nnnnnnnn* is the frequency, in Hz, as an 8-digit zero-padded decimal valu
     GetFrequency
 );
 
-define_command!("Set the operating frequency, in Hz.
+define_cat_command!("Set the operating frequency, in Hz. (`F`).
 
 # Command format
 
@@ -503,7 +536,7 @@ Where *nnnnnnnn* is the frequency, in Hz, as an 8-digit zero-padded decimal valu
 // Public Types: GetForwardPowerA, GetForwardPowerB
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the forward power reading on meter channel A.
+define_cat_command!("Get the forward power reading on meter channel A (`FA`).
 
 # Command format
 
@@ -514,10 +547,10 @@ define_command!("Get the forward power reading on meter channel A.
 > `FA{nnn};`
 
 Where *nnn* is the forward power, in deci-watts (tenths of a watt)." =>
-    GetForwardPowerA
+    GetMeterChannelAForwardPower
 );
 
-define_command!("Get the forward power reading on meter channel B.
+define_cat_command!("Get the forward power reading on meter channel B (`FB`).
 
 # Command format
 
@@ -528,14 +561,14 @@ define_command!("Get the forward power reading on meter channel B.
 > `FB{nnn};`
 
 Where *nnn* is the forward power, in deci-watts (tenths of a watt)." =>
-    GetForwardPowerB
+    GetMeterChannelBForwardPower
 );
 
 // ------------------------------------------------------------------------------------------------
 // Public Types: GetFanThreshold, SetFanThreshold
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the fan-on power threshold.
+define_cat_command!("Get the fan-on power threshold (`FC`).
 
 # Command format
 
@@ -549,7 +582,7 @@ Where *nnn* is the 3-digit threshold, in watts, above which the cooling fan turn
     GetFanThreshold
 );
 
-define_command!("Set the fan-on power threshold.
+define_cat_command!("Set the fan-on power threshold (`FC`).
 
 # Command format
 
@@ -565,7 +598,7 @@ Where *nnn* is the 3-digit threshold, in watts, above which the cooling fan turn
 // Public Types: GetFaultDelayTime, SetFaultDelayTime
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the fault delay time.
+define_cat_command!("Get the fault delay time (`FDT`).
 
 # Command format
 
@@ -579,7 +612,7 @@ Where *nnn* is the 3-digit fault delay time, in milliseconds." =>
     GetFaultDelayTime
 );
 
-define_command!("Set the fault delay time.
+define_cat_command!("Set the fault delay time (`FDT`).
 
 # Command format
 
@@ -592,10 +625,10 @@ Where *nnn* is the 3-digit fault delay time, in milliseconds." =>
 );
 
 // ------------------------------------------------------------------------------------------------
-// Public Types: GetFaultStatus
+// Public Types: GetFaultConditionCode
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the current fault status code.
+define_cat_command!("Get the current fault condition/status code (`FLT`).
 
 # Command format
 
@@ -606,28 +639,28 @@ define_command!("Get the current fault status code.
 > `FLT{nn};`
 
 Where *nn* is the 2-digit fault status code; `00` indicates no fault." =>
-    GetFaultStatus
+    GetFaultConditionCode
 );
 
 // ------------------------------------------------------------------------------------------------
-// Public Types: ClearCurrentFault
+// Public Types: ClearFaultCondition
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Clear the current fault condition.
+define_cat_command!("Clear the current fault condition (`FLTC`).
 
 There is no query form.
 
 # Command format
 
 > `FLTC;`" =>
-    ClearCurrentFault
+    ClearFaultCondition
 );
 
 // ------------------------------------------------------------------------------------------------
 // Public Types: GetTuneSatisfiedSwr, SetTuneSatisfiedSwr
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the SWR threshold below which a tune cycle is considered successful.
+define_cat_command!("Get the SWR threshold below which a tune cycle is considered successful (`FTNS`).
 
 # Command format
 
@@ -638,26 +671,26 @@ define_command!("Get the SWR threshold below which a tune cycle is considered su
 > `FTNS{nnn};`
 
 Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
-    GetTuneSatisfiedSwr
+    GetTuneSatisfiedSwrThreshold
 );
 
-define_command!("Set the SWR threshold below which a tune cycle is considered successful.
+define_cat_command!("Set the SWR threshold below which a tune cycle is considered successful (`FTNS`).
 
 # Command format
 
 > `FTNS{nnn};`
 
 Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
-    SetTuneSatisfiedSwr {
-        swr_d: u16
+    SetTuneSatisfiedSwrThreshold {
+        swr: u16
     }
 );
 
 // ------------------------------------------------------------------------------------------------
-// Public Types: GetFaultThresholdLow, SetFaultThresholdLow
+// Public Types: GetFaultSwrThresholdLow, SetFaultSwrThresholdLow
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the lower fault SWR threshold.
+define_cat_command!("Get the lower fault SWR threshold (`FT0`).
 
 # Command format
 
@@ -668,26 +701,26 @@ define_command!("Get the lower fault SWR threshold.
 > `FT0{nnn};`
 
 Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
-    GetFaultThresholdLow
+    GetFaultSwrThresholdLow
 );
 
-define_command!("Set the lower fault SWR threshold.
+define_cat_command!("Set the lower fault SWR threshold (`FT0`).
 
 # Command format
 
 > `FT0{nnn};`
 
 Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
-    SetFaultThresholdLow {
+    SetFaultSwrThresholdLow {
         swr_d: u16
     }
 );
 
 // ------------------------------------------------------------------------------------------------
-// Public Types: GetFaultThresholdHigh, SetFaultThresholdHigh
+// Public Types: GetFaultSwrThresholdHigh, SetFaultSwrThresholdHigh
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the upper fault SWR threshold.
+define_cat_command!("Get the upper fault SWR threshold (`FT1`).
 
 # Command format
 
@@ -698,17 +731,17 @@ define_command!("Get the upper fault SWR threshold.
 > `FT1{nnn};`
 
 Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
-    GetFaultThresholdHigh
+    GetFaultSwrThresholdHigh
 );
 
-define_command!("Set the upper fault SWR threshold.
+define_cat_command!("Set the upper fault SWR threshold (`FT1`).
 
 # Command format
 
 > `FT1{nnn};`
 
 Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
-    SetFaultThresholdHigh {
+    SetFaultSwrThresholdHigh {
         swr_d: u16
     }
 );
@@ -717,7 +750,7 @@ Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
 // Public Types: GetFixedLcState, SetFixedLcState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get whether fixed L/C mode is enabled.
+define_cat_command!("Get whether fixed L/C mode is enabled (`FX`).
 
 When fixed L/C mode is on, the tuner holds a fixed inductor/capacitor setting rather than
 re-tuning.
@@ -734,7 +767,7 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
     GetFixedLcState
 );
 
-define_command!("Set whether fixed L/C mode is enabled.
+define_cat_command!("Set whether fixed L/C mode is enabled (`FX`).
 
 # Command format
 
@@ -748,7 +781,7 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
 // Public Types: GetFixedBypassState, SetFixedBypassState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get whether fixed bypass mode is active.
+define_cat_command!("Get whether fixed bypass mode is active (`FY`).
 
 # Command format
 
@@ -762,7 +795,7 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
     GetFixedBypassState
 );
 
-define_command!("Set whether fixed bypass mode is active.
+define_cat_command!("Set whether fixed bypass mode is active (`FY`).
 
 # Command format
 
@@ -776,7 +809,7 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
 // Public Types: GetInductance, SetInductance
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the tuning inductance tap.
+define_cat_command!("Get the tuning inductance tap (`I`).
 
 # Command format
 
@@ -787,17 +820,17 @@ define_command!("Get the tuning inductance tap.
 > `I{nnn};`
 
 Where *nnn* is the 3-digit inductor tap value, between `000` and `063`." =>
-    GetInductance
+    GetInductanceTap
 );
 
-define_command!("Set the tuning inductance tap.
+define_cat_command!("Set the tuning inductance tap (`I`).
 
 # Command format
 
 > `I{nnn};`
 
 Where *nnn* is the 3-digit inductor tap value, between `000` and `063`." =>
-    SetInductance {
+    SetInductanceTap {
         tap: u8
     }
 );
@@ -806,7 +839,7 @@ Where *nnn* is the 3-digit inductor tap value, between `000` and `063`." =>
 // Public Types: GetInhibitFan, SetInhibitFan
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get whether the cooling fan is inhibited.
+define_cat_command!("Get whether the cooling fan is inhibited (`IF`).
 
 # Command format
 
@@ -820,7 +853,7 @@ Where `n` is `0` (fan enabled) or `1` (fan inhibited)." =>
     GetInhibitFan
 );
 
-define_command!("Set whether the cooling fan is inhibited.
+define_cat_command!("Set whether the cooling fan is inhibited (`IF`).
 
 # Command format
 
@@ -836,7 +869,7 @@ Where `n` is `0` (fan enabled) or `1` (fan inhibited)." =>
 // Public Types: GetInductorSwitch, SetInductorSwitch
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the inductor switch bitmask.
+define_cat_command!("Get the inductor switch bitmask (`L`).
 
 # Command format
 
@@ -850,7 +883,7 @@ Where *nnn* is the 3-digit inductor switch bitmask." =>
     GetInductorSwitch
 );
 
-define_command!("Set the inductor switch bitmask directly.
+define_cat_command!("Set the inductor switch bitmask directly (`L`).
 
 # Command format
 
@@ -866,7 +899,7 @@ Where *nnn* is the 3-digit inductor switch bitmask." =>
 // Public Types: GetOperatingMode, SetOperatingMode, OperatingMode
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the current ATU operating mode.
+define_cat_command!("Get the current ATU operating mode (`MD`).
 
 # Command format
 
@@ -880,11 +913,11 @@ Where *n* is one of:
 
 * `0`; automatic tuning.
 * `1`; semi-automatic tuning.
-* `2`; manual tuning." =>
+* `2`; manual tuning. See [`OperatingMode`] for details." =>
     GetOperatingMode
 );
 
-define_command!("Set the current ATU operating mode.
+define_cat_command!("Set the current ATU operating mode (`MD`).
 
 # Command format
 
@@ -894,7 +927,7 @@ Where *n* is one of:
 
 * `0`; automatic tuning.
 * `1`; semi-automatic tuning.
-* `2`; manual tuning." =>
+* `2`; manual tuning. See [`OperatingMode`] for details." =>
     SetOperatingMode {
         mode: OperatingMode
     }
@@ -912,7 +945,7 @@ define_command_enum!(
 // Public Types: GetMeterType, SetMeterType, MeterType
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the front-panel meter display type.
+define_cat_command!("Get the front-panel meter display type (`MT`).
 
 # Command format
 
@@ -926,11 +959,11 @@ Where *n* is one of:
 
 * `0`; SWR.
 * `1`; power.
-* `2`; reflected power." =>
+* `2`; reflected power. See [`MeterType`] for details." =>
     GetMeterType
 );
 
-define_command!("Set the front-panel meter display type.
+define_cat_command!("Set the front-panel meter display type (`MT`).
 
 # Command format
 
@@ -940,7 +973,7 @@ Where *n* is one of:
 
 * `0`; SWR.
 * `1`; power.
-* `2`; reflected power." =>
+* `2`; reflected power. See [`MeterType`] for details." =>
     SetMeterType {
         meter: MeterType
     }
@@ -958,7 +991,7 @@ define_command_enum!(
 // Public Types: GetPowerStatus
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the power-on status.
+define_cat_command!("Get the power-on status (`PS`).
 
 # Command format
 
@@ -976,7 +1009,7 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
 // Public Types: GetPowerSensorInput
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the forward power reading from the internal sensor.
+define_cat_command!("Get the forward power reading from the internal sensor (`PSI`).
 
 # Command format
 
@@ -994,7 +1027,7 @@ Where *nnn* is the forward power, in deci-watts (tenths of a watt)." =>
 // Public Types: ResetDevice
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Perform a soft reset of the KAT500, triggering a firmware restart.
+define_cat_command!("Perform a soft reset of the KAT500, triggering a firmware restart (`RSTX`).
 
 There is no query form.
 
@@ -1008,7 +1041,7 @@ There is no query form.
 // Public Types: GetFirmwareVersion
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the firmware version string.
+define_cat_command!("Get the firmware version string (`RV`).
 
 # Command format
 
@@ -1026,7 +1059,7 @@ The response is a variable-length ASCII text string, returned as raw bytes, e.g.
 // Public Types: GetAntennaSide, SetAntennaSide, AntennaSide
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the antenna side selection.
+define_cat_command!("Get the antenna side selection (`SIDE`).
 
 # Command format
 
@@ -1040,10 +1073,10 @@ Where *n* is one of:
 
 * `0`; left.
 * `1`; right." =>
-    GetAntennaSide
+    GetAntennaSideSelection
 );
 
-define_command!("Set the antenna side selection.
+define_cat_command!("Set the antenna side selection (`SIDE`).
 
 # Command format
 
@@ -1053,7 +1086,7 @@ Where *n* is one of:
 
 * `0`; left.
 * `1`; right." =>
-    SetAntennaSide {
+    SetAntennaSideSelection {
         side: AntennaSide
     }
 );
@@ -1069,7 +1102,7 @@ define_command_enum!(
 // Public Types: GetTuningSpeedLimit, SetTuningSpeedLimit
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the tuning speed limit setting.
+define_cat_command!("Get the tuning speed limit setting (`SL`).
 
 # Command format
 
@@ -1083,7 +1116,7 @@ Where *n* is the tuning speed limit, between `0` (fastest) and `9` (slowest)." =
     GetTuningSpeedLimit
 );
 
-define_command!("Set the tuning speed limit.
+define_cat_command!("Set the tuning speed limit (`SL`).
 
 # Command format
 
@@ -1099,7 +1132,7 @@ Where *n* is the tuning speed limit, between `0` (fastest) and `9` (slowest)." =
 // Public Types: GetSwrMeter
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the current SWR meter reading.
+define_cat_command!("Get the current SWR meter reading (`SM`).
 
 # Command format
 
@@ -1117,7 +1150,7 @@ Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
 // Public Types: GetSerialNumber
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the unit serial number.
+define_cat_command!("Get the unit serial number (`SN`).
 
 # Command format
 
@@ -1135,21 +1168,21 @@ The response is a variable-length decimal string, returned as raw bytes." =>
 // Public Types: StartTune
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Initiate a tuning cycle.
+define_cat_command!("Initiate a tuning cycle (`ST`).
 
-There is no query form; use [`GetTuneState`] to poll for completion.
+There is no query form; use [`GetTuningState`] to poll for completion.
 
 # Command format
 
 > `ST;`" =>
-    StartTune
+    StartTuningCycle
 );
 
 // ------------------------------------------------------------------------------------------------
 // Public Types: GetTuneState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get whether a tuning cycle is currently in progress.
+define_cat_command!("Get whether a tuning cycle is currently in progress (`T`).
 
 # Command format
 
@@ -1160,14 +1193,14 @@ define_command!("Get whether a tuning cycle is currently in progress.
 > `T{n};`
 
 Where `n` is the boolean state `0` (idle) or `1` (tuning)." =>
-    GetTuneState
+    GetTuningState
 );
 
 // ------------------------------------------------------------------------------------------------
 // Public Types: GetTunePower, SetTunePower
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the RF power level used during a tune cycle.
+define_cat_command!("Get the RF power level used during a tune cycle (`TP`).
 
 # Command format
 
@@ -1178,17 +1211,17 @@ define_command!("Get the RF power level used during a tune cycle.
 > `TP{nnn};`
 
 Where *nnn* is the tune power, in watts." =>
-    GetTunePower
+    GetTuningPower
 );
 
-define_command!("Set the RF power level used during a tune cycle.
+define_cat_command!("Set the RF power level used during a tune cycle (`TP`).
 
 # Command format
 
 > `TP{nnn};`
 
 Where *nnn* is the tune power, in watts." =>
-    SetTunePower {
+    SetTuningPower {
         power_w: u16
     }
 );
@@ -1197,7 +1230,7 @@ Where *nnn* is the tune power, in watts." =>
 // Public Types: GetForwardVoltage
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the ADC forward voltage reading.
+define_cat_command!("Get the ADC forward voltage reading (`VFWD`).
 
 # Command format
 
@@ -1215,7 +1248,7 @@ Where *nnn* is the raw ADC forward voltage reading, in counts." =>
 // Public Types: GetReflectedVoltage
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the ADC reflected voltage reading.
+define_cat_command!("Get the ADC reflected voltage reading (`VRFL`).
 
 # Command format
 
@@ -1233,7 +1266,7 @@ Where *nnn* is the raw ADC reflected voltage reading, in counts." =>
 // Public Types: GetSwr
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the computed standing wave ratio.
+define_cat_command!("Get the computed standing wave ratio (`VSWR`).
 
 # Command format
 
@@ -1251,7 +1284,7 @@ Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
 // Public Types: GetSwrBypassThreshold, SetSwrBypassThreshold
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the SWR threshold above which bypass is engaged.
+define_cat_command!("Get the SWR threshold above which bypass is engaged (`VSWRB`).
 
 # Command format
 
@@ -1265,7 +1298,7 @@ Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
     GetSwrBypassThreshold
 );
 
-define_command!("Set the SWR threshold above which bypass is engaged.
+define_cat_command!("Set the SWR threshold above which bypass is engaged (`VSWRB`).
 
 # Command format
 
@@ -1281,78 +1314,77 @@ Where *nnn* is SWR × 10, e.g. `150` represents an SWR of 1.5:1." =>
 // Implementations
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetAutoBypassState => b"AB");
-impl_command_with_response!(GetAutoBypassState => boolean);
+impl_cat_command!(GetAutoBypassState => b"AB");
+impl_cat_command_with_response!(GetAutoBypassState => boolean);
 
-impl_command!(SetAutoBypassState => b"AB" for state);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetAutoEnableState => b"AE");
-impl_command_with_response!(GetAutoEnableState => boolean);
-
-impl_command!(SetAutoEnableState => b"AE" for state);
+impl_cat_command!(SetAutoBypassState => b"AB" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetAtuFaultState => b"AFT");
-impl_command_with_response!(GetAtuFaultState => boolean);
+impl_cat_command!(GetAutoEnableState => b"AE");
+impl_cat_command_with_response!(GetAutoEnableState => boolean);
+
+impl_cat_command!(SetAutoEnableState => b"AE" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetAtuKeepInPlaceState => b"AKIP");
-impl_command_with_response!(GetAtuKeepInPlaceState => boolean);
+impl_cat_command!(GetKeepInPlaceState => b"AKIP");
+impl_cat_command_with_response!(GetKeepInPlaceState => boolean);
 
-impl_command!(SetAtuKeepInPlaceState => b"AKIP" for state);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetAmplifierInterface => b"AMPI");
-impl_command_with_response!(GetAmplifierInterface => boolean);
-
-impl_command!(SetAmplifierInterface => b"AMPI" for boolean closed);
+impl_cat_command!(SetKeepInPlaceState => b"AKIP" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetAntenna => b"AN");
-impl_command_with_response!(GetAntenna => 1, u8_from_ascii => u8);
+impl_cat_command!(GetAmplifierInterfaceRelayClosedState => b"AMPI");
+impl_cat_command_with_response!(
+    GetAmplifierInterfaceRelayClosedState => try_from enum AmplifierInterfaceRelayState
+);
 
-impl_command!(
-    SetAntenna => b"AN"
-    format antenna uint 1,
-    if |cmd: &SetAntenna| {
-        if (1..=6).contains(&cmd.antenna) {
-            Ok(())
-        } else {
-            Err(invalid_argument_value(
-                "antenna",
-                "u8",
-                cmd.antenna
-            ))
-        }
+impl_cat_command!(SetAmplifierInterfaceRelayClosedState => b"AMPI" for as byte state);
+impl_set_cat_command_from_enum!(
+    SetAmplifierInterfaceRelayClosedState, AmplifierInterfaceRelayState => state {
+        Open => open,
+        Closed => close
     }
 );
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetAtuPreset => b"AP");
-impl_command_with_response!(GetAtuPreset => 3, u16_from_ascii => u16);
+impl_cat_command!(GetAntennaSelection => b"AN");
+impl_cat_command_with_response!(GetAntennaSelection => try_from enum SelectedAntenna);
 
-impl_command!(SetAtuPreset => b"AP" format preset uint 3);
+impl_cat_command!(SetAntennaSelection => b"AN" for as byte antenna);
+impl_set_cat_command_from_enum!(
+    SetAntennaSelection, SelectedAntenna => antenna {
+        Antenna1 => select_antenna_1,
+        Antenna2 => select_antenna_2,
+        Antenna3 => select_antenna_3,
+        Antenna4 => select_antenna_4,
+        Antenna5 => select_antenna_5,
+        Antenna6 => select_antenna_6
+    }
+);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetAttenuatorState => b"ATTN");
-impl_command_with_response!(GetAttenuatorState => boolean);
+impl_cat_command!(GetPresetSlotNumber => b"AP");
+impl_cat_command_with_response!(GetPresetSlotNumber => 3, u16_from_ascii => u16);
 
-impl_command!(SetAttenuatorState => b"ATTN" for state);
+impl_cat_command!(SetPresetSlotNumber => b"AP" format slot_number uint 3);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetBand => b"BN");
-impl_command_with_response!(GetBand => 2, u8_from_ascii => u8);
+impl_cat_command!(GetAttenuatorState => b"ATTN");
+impl_cat_command_with_response!(GetAttenuatorState => boolean);
 
-impl_command!(
+impl_cat_command!(SetAttenuatorState => b"ATTN" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetBand => b"BN");
+impl_cat_command_with_response!(GetBand => 2, u8_from_ascii => u8);
+
+impl_cat_command!(
     SetBand => b"BN"
     format band uint 2,
     if |cmd: &SetBand| {
@@ -1370,151 +1402,146 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetBaudRate => b"#BR");
-impl_command_with_response!(GetBaudRate => 1, |bytes: &[u8]| {
-    match bytes[0] {
-        b'0' => Ok(BaudRate::Bd4800),
-        b'1' => Ok(BaudRate::Bd9600),
-        b'2' => Ok(BaudRate::Bd19200),
-        b'3' => Ok(BaudRate::Bd38400),
-        _ => Err(enum_parse(string_from_ascii(bytes)?, "BaudRate"))
-    }
-} => BaudRate);
+impl_cat_command!(GetBaudRate => b"#BR");
+impl_cat_command_with_response!(GetBaudRate => try_from enum BaudRate);
 
-impl_command!(SetBaudRate => b"#BR" with |s: &SetBaudRate| {
-    match s.baud_rate {
-        BaudRate::Bd4800 => Ok(Some(vec![b'0'])),
-        BaudRate::Bd9600 => Ok(Some(vec![b'1'])),
-        BaudRate::Bd19200 => Ok(Some(vec![b'2'])),
-        BaudRate::Bd38400 => Ok(Some(vec![b'3'])),
-        _ => Err(invalid_argument_value(
-            "baud_rate",
-            "BaudRate",
-            s.baud_rate
-        ))
-    }
+impl_cat_command!(SetBaudRate => b"#BR" for as byte baud_rate);
+impl_set_cat_command_from_enum!(SetBaudRate, BaudRate => baud_rate {
+    Rate4800 => to_4800,
+    Rate9600 => to_9600,
+    Rate19200 => to_19200,
+    Rate38400 => to_38400
 });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(Bypass => b"BYP");
+impl_cat_command!(ForceBypassMode => b"BYP");
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetCapacitorValue => b"C");
-impl_command_with_response!(GetCapacitorValue => 3, u8_from_ascii => u8);
+impl_cat_command!(GetCapacitorValue => b"C");
+impl_cat_command_with_response!(GetCapacitorValue => 3, u8_from_ascii => u8);
 
-impl_command!(SetCapacitorValue => b"C" format value uint 3);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetCapacitorTopology => b"CT");
-impl_command_with_response!(GetCapacitorTopology => boolean);
-
-impl_command!(SetCapacitorTopology => b"CT" for boolean hi_z);
+impl_cat_command!(SetCapacitorValue => b"C" format value uint 3);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetDemoModeState => b"DM");
-impl_command_with_response!(GetDemoModeState => boolean);
+impl_cat_command!(GetCapacitorTopology => b"CT");
+impl_cat_command_with_response!(GetCapacitorTopology => try_from enum CapacitorTopology);
 
-impl_command!(SetDemoModeState => b"DM" for state);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(EepromInit => b"EEINIT");
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetErrorMessage => b"EM");
-impl_command_with_response!(GetErrorMessage => 0, bytes_to_vec => Vec<u8>);
+impl_cat_command!(SetCapacitorTopology => b"CT" for as byte topology);
+impl_set_cat_command_from_enum!(SetCapacitorTopology, CapacitorTopology => topology {
+    LowZ => to_low_z,
+    HighZ => to_high_z
+});
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetFrequency => b"F");
-impl_command_with_response!(GetFrequency => 8, |bytes| {
+impl_cat_command!(GetDemoModeState => b"DM");
+impl_cat_command_with_response!(GetDemoModeState => boolean);
+
+impl_cat_command!(SetDemoModeState => b"DM" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(ResetToFactoryDefaults => b"EEINIT");
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetErrorMessage => b"EM");
+impl_cat_command_with_response!(GetErrorMessage => 0, bytes_to_vec => Vec<u8>);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetFrequency => b"F");
+impl_cat_command_with_response!(GetFrequency => 8, |bytes| {
     Ok(Frequency::from(u64::from(u32_from_ascii(bytes)?)))
 } => Frequency);
 
-impl_command!(SetFrequency => b"F" with Some |cmd: &SetFrequency| {
+impl_cat_command!(SetFrequency => b"F" with Some |cmd: &SetFrequency| {
     format!("{:08}", cmd.freq_hz.value()).into_bytes()
 });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetForwardPowerA => b"FA");
-impl_command_with_response!(GetForwardPowerA => 3, u16_from_ascii => u16);
+impl_cat_command!(GetMeterChannelAForwardPower => b"FA");
+impl_cat_command_with_response!(GetMeterChannelAForwardPower => 3, u16_from_ascii => u16);
 
-impl_command!(GetForwardPowerB => b"FB");
-impl_command_with_response!(GetForwardPowerB => 3, u16_from_ascii => u16);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetFanThreshold => b"FC");
-impl_command_with_response!(GetFanThreshold => 3, u16_from_ascii => u16);
-
-impl_command!(SetFanThreshold => b"FC" format threshold_w uint 3);
+impl_cat_command!(GetMeterChannelBForwardPower => b"FB");
+impl_cat_command_with_response!(GetMeterChannelBForwardPower => 3, u16_from_ascii => u16);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetFaultDelayTime => b"FDT");
-impl_command_with_response!(GetFaultDelayTime => 3, u16_from_ascii => u16);
+impl_cat_command!(GetFanThreshold => b"FC");
+impl_cat_command_with_response!(GetFanThreshold => 3, u16_from_ascii => u16);
 
-impl_command!(SetFaultDelayTime => b"FDT" format delay_ms uint 3);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetFaultStatus => b"FLT");
-impl_command_with_response!(GetFaultStatus => 2, u8_from_ascii => u8);
+impl_cat_command!(SetFanThreshold => b"FC" format threshold_w uint 3);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(ClearCurrentFault => b"FLTC");
+impl_cat_command!(GetFaultConditionState => b"AFT");
+impl_cat_command_with_response!(GetFaultConditionState => boolean);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetTuneSatisfiedSwr => b"FTNS");
-impl_command_with_response!(GetTuneSatisfiedSwr => 3, u16_from_ascii => u16);
+impl_cat_command!(GetFaultDelayTime => b"FDT");
+impl_cat_command_with_response!(GetFaultDelayTime => 3, u16_from_ascii => u16);
 
-impl_command!(SetTuneSatisfiedSwr => b"FTNS" format swr_d uint 3);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetFaultThresholdLow => b"FT0");
-impl_command_with_response!(GetFaultThresholdLow => 3, u16_from_ascii => u16);
-
-impl_command!(SetFaultThresholdLow => b"FT0" format swr_d uint 3);
+impl_cat_command!(SetFaultDelayTime => b"FDT" format delay_ms uint 3);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetFaultThresholdHigh => b"FT1");
-impl_command_with_response!(GetFaultThresholdHigh => 3, u16_from_ascii => u16);
-
-impl_command!(SetFaultThresholdHigh => b"FT1" format swr_d uint 3);
+impl_cat_command!(GetFaultConditionCode => b"FLT");
+impl_cat_command_with_response!(GetFaultConditionCode => 2, u8_from_ascii => u8);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetFixedLcState => b"FX");
-impl_command_with_response!(GetFixedLcState => boolean);
-
-impl_command!(SetFixedLcState => b"FX" for state);
+impl_cat_command!(ClearFaultCondition => b"FLTC");
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetFixedBypassState => b"FY");
-impl_command_with_response!(GetFixedBypassState => boolean);
+impl_cat_command!(GetTuneSatisfiedSwrThreshold => b"FTNS");
+impl_cat_command_with_response!(GetTuneSatisfiedSwrThreshold => 3, u16_from_ascii => u16);
 
-impl_command!(SetFixedBypassState => b"FY" for state);
+impl_cat_command!(SetTuneSatisfiedSwrThreshold => b"FTNS" format swr uint 3);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetInductance => b"I");
-impl_command_with_response!(GetInductance => 3, u8_from_ascii => u8);
+impl_cat_command!(GetFaultSwrThresholdLow => b"FT0");
+impl_cat_command_with_response!(GetFaultSwrThresholdLow => 3, u16_from_ascii => u16);
 
-impl_command!(
-    SetInductance => b"I"
+impl_cat_command!(SetFaultSwrThresholdLow => b"FT0" format swr_d uint 3);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetFaultSwrThresholdHigh => b"FT1");
+impl_cat_command_with_response!(GetFaultSwrThresholdHigh => 3, u16_from_ascii => u16);
+
+impl_cat_command!(SetFaultSwrThresholdHigh => b"FT1" format swr_d uint 3);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetFixedLcState => b"FX");
+impl_cat_command_with_response!(GetFixedLcState => boolean);
+
+impl_cat_command!(SetFixedLcState => b"FX" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetFixedBypassState => b"FY");
+impl_cat_command_with_response!(GetFixedBypassState => boolean);
+
+impl_cat_command!(SetFixedBypassState => b"FY" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetInductanceTap => b"I");
+impl_cat_command_with_response!(GetInductanceTap => 3, u8_from_ascii => u8);
+
+impl_cat_command!(
+    SetInductanceTap => b"I"
     format tap uint 3,
-    if |cmd: &SetInductance| {
+    if |cmd: &SetInductanceTap| {
         if cmd.tap <= 63 {
             Ok(())
         } else {
@@ -1529,64 +1556,78 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetInhibitFan => b"IF");
-impl_command_with_response!(GetInhibitFan => boolean);
+impl_cat_command!(GetInhibitFan => b"IF");
+impl_cat_command_with_response!(GetInhibitFan => boolean);
 
-impl_command!(SetInhibitFan => b"IF" for boolean inhibit);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetInductorSwitch => b"L");
-impl_command_with_response!(GetInductorSwitch => 3, u8_from_ascii => u8);
-
-impl_command!(SetInductorSwitch => b"L" format mask uint 3);
+impl_cat_command!(SetInhibitFan => b"IF" for boolean inhibit);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetOperatingMode => b"MD");
-impl_command_with_response!(GetOperatingMode => try_from enum OperatingMode);
+impl_cat_command!(GetInductorSwitch => b"L");
+impl_cat_command_with_response!(GetInductorSwitch => 3, u8_from_ascii => u8);
 
-impl_command!(SetOperatingMode => b"MD" for as byte mode);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetMeterType => b"MT");
-impl_command_with_response!(GetMeterType => try_from enum MeterType);
-
-impl_command!(SetMeterType => b"MT" for as byte meter);
+impl_cat_command!(SetInductorSwitch => b"L" format mask uint 3);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetPowerStatus => b"PS");
-impl_command_with_response!(GetPowerStatus => boolean);
+impl_cat_command!(GetOperatingMode => b"MD");
+impl_cat_command_with_response!(GetOperatingMode => try_from enum OperatingMode);
+
+impl_cat_command!(SetOperatingMode => b"MD" for as byte mode);
+impl_set_cat_command_from_enum!(SetOperatingMode, OperatingMode => mode {
+    Auto => to_auto,
+    SemiAuto => to_semi_auto,
+    Manual => to_manual
+});
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetPowerSensorInput => b"PSI");
-impl_command_with_response!(GetPowerSensorInput => 3, u16_from_ascii => u16);
+impl_cat_command!(GetMeterType => b"MT");
+impl_cat_command_with_response!(GetMeterType => try_from enum MeterType);
+
+impl_cat_command!(SetMeterType => b"MT" for as byte meter);
+impl_set_cat_command_from_enum!(SetMeterType, MeterType => meter {
+    Swr => to_swr,
+    Power => to_power,
+    Reflected => to_reflected
+});
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(ResetDevice => b"RSTX");
+impl_cat_command!(GetPowerStatus => b"PS");
+impl_cat_command_with_response!(GetPowerStatus => boolean);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetFirmwareVersion => b"RV");
-impl_command_with_response!(GetFirmwareVersion => 0, bytes_to_vec => Vec<u8>);
+impl_cat_command!(GetPowerSensorInput => b"PSI");
+impl_cat_command_with_response!(GetPowerSensorInput => 3, u16_from_ascii => u16);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetAntennaSide => b"SIDE");
-impl_command_with_response!(GetAntennaSide => try_from enum AntennaSide);
-
-impl_command!(SetAntennaSide => b"SIDE" for as byte side);
+impl_cat_command!(ResetDevice => b"RSTX");
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetTuningSpeedLimit => b"SL");
-impl_command_with_response!(GetTuningSpeedLimit => 1, u8_from_ascii => u8);
+impl_cat_command!(GetFirmwareVersion => b"RV");
+impl_cat_command_with_response!(GetFirmwareVersion => 0, bytes_to_vec => Vec<u8>);
 
-impl_command!(
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetAntennaSideSelection => b"SIDE");
+impl_cat_command_with_response!(GetAntennaSideSelection => try_from enum AntennaSide);
+
+impl_cat_command!(SetAntennaSideSelection => b"SIDE" for as byte side);
+impl_set_cat_command_from_enum!(SetAntennaSideSelection, AntennaSide => side {
+    Left => to_left,
+    Right => to_right
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetTuningSpeedLimit => b"SL");
+impl_cat_command_with_response!(GetTuningSpeedLimit => 1, u8_from_ascii => u8);
+
+impl_cat_command!(
     SetTuningSpeedLimit => b"SL"
     format level uint 1,
     if |cmd: &SetTuningSpeedLimit| {
@@ -1604,48 +1645,48 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetSwrMeter => b"SM");
-impl_command_with_response!(GetSwrMeter => 3, u16_from_ascii => u16);
+impl_cat_command!(GetSwrMeter => b"SM");
+impl_cat_command_with_response!(GetSwrMeter => 3, u16_from_ascii => u16);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetSerialNumber => b"SN");
-impl_command_with_response!(GetSerialNumber => 0, bytes_to_vec => Vec<u8>);
+impl_cat_command!(GetSerialNumber => b"SN");
+impl_cat_command_with_response!(GetSerialNumber => 0, bytes_to_vec => Vec<u8>);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(StartTune => b"ST");
+impl_cat_command!(StartTuningCycle => b"ST");
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetTuneState => b"T");
-impl_command_with_response!(GetTuneState => boolean);
+impl_cat_command!(GetTuningState => b"T");
+impl_cat_command_with_response!(GetTuningState => boolean);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetTunePower => b"TP");
-impl_command_with_response!(GetTunePower => 3, u16_from_ascii => u16);
+impl_cat_command!(GetTuningPower => b"TP");
+impl_cat_command_with_response!(GetTuningPower => 3, u16_from_ascii => u16);
 
-impl_command!(SetTunePower => b"TP" format power_w uint 3);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetForwardVoltage => b"VFWD");
-impl_command_with_response!(GetForwardVoltage => 3, u16_from_ascii => u16);
+impl_cat_command!(SetTuningPower => b"TP" format power_w uint 3);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetReflectedVoltage => b"VRFL");
-impl_command_with_response!(GetReflectedVoltage => 3, u16_from_ascii => u16);
+impl_cat_command!(GetForwardVoltage => b"VFWD");
+impl_cat_command_with_response!(GetForwardVoltage => 3, u16_from_ascii => u16);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetSwr => b"VSWR");
-impl_command_with_response!(GetSwr => 3, u16_from_ascii => u16);
+impl_cat_command!(GetReflectedVoltage => b"VRFL");
+impl_cat_command_with_response!(GetReflectedVoltage => 3, u16_from_ascii => u16);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetSwrBypassThreshold => b"VSWRB");
-impl_command_with_response!(GetSwrBypassThreshold => 3, u16_from_ascii => u16);
+impl_cat_command!(GetSwr => b"VSWR");
+impl_cat_command_with_response!(GetSwr => 3, u16_from_ascii => u16);
 
-impl_command!(SetSwrBypassThreshold => b"VSWRB" format swr_d uint 3);
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetSwrBypassThreshold => b"VSWRB");
+impl_cat_command_with_response!(GetSwrBypassThreshold => 3, u16_from_ascii => u16);
+
+impl_cat_command!(SetSwrBypassThreshold => b"VSWRB" format swr_d uint 3);

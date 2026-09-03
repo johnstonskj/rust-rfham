@@ -17,116 +17,19 @@ use core::{
 };
 use rfham_iri::UniversalRigName;
 use serde::{Deserialize, Serialize};
-use strum::{AsRefStr, Display as EnumDisplay, EnumIs, EnumString};
 use tracing::{error, trace};
-
-// ------------------------------------------------------------------------------------------------
-// Public Macros
-// ------------------------------------------------------------------------------------------------
-
-///
-/// ```rust
-/// define_command_enum!(
-/// "doc string" => CommandType, u8 {
-///    "variant doc string" => VariantName = 0x01
-/// });
-/// define_command_enum!(
-/// "doc string" => CommandType {
-///    "variant doc string" => VariantName = 0x01
-/// });
-/// ```
-///
-/// * `"doc string"` is the documentation string for the enum.
-/// * `CommandType` is the name of the command enum that will be generated.
-/// * `u8` is the underlying representation type for the enum, if not specified `u8` is the default.
-/// * `"variant doc string"` is the documentation string for the enum variant.
-/// * `VariantName` is the name of the enum variant.
-/// * `0x01` is the value of the enum variant.
-///
-macro_rules! define_command_enum {
-    //(
-    //    $doc:literal => $name:ident, $repr_name:ty {
-    //        $( $( $variant_doc:literal => )? $variant_name:ident = $value:literal),+
-    //    }
-    //) => {
-    //    #[doc = $doc]
-    //    #[derive(Clone, Copy, Debug, PartialEq, Eq, strum::EnumIs, strum::FromRepr, strum::AsRefStr)]
-    //    #[repr($repr_name)]
-    //    #[strum(serialize_all = "kebab-case")]
-    //    pub enum $name {
-    //        $(
-    //            $( #[doc = $variant_doc] )?
-    //            $variant_name = $value
-    //        ),+
-    //    }
-    //};
-    (
-        $doc:literal => $name:ident {
-            $( $( $variant_doc:literal => )? $variant_name:ident = $value:literal),+
-        }
-    ) => {
-        // TODO: define_command_enum!($doc, $name, u8 => $( $( $variant_doc, )? $variant_name = $value),+ );
-        #[doc = $doc]
-        #[derive(Clone, Copy, Debug, PartialEq, Eq, strum::EnumIs, strum::FromRepr, strum::AsRefStr)]
-        #[repr(u8)]
-        #[strum(serialize_all = "kebab-case")]
-        pub enum $name {
-            $(
-                $( #[doc = $variant_doc] )?
-                $variant_name = $value
-            ),+
-        }
-    };
-}
-
-macro_rules! define_command_struct {
-    (
-        $doc_str:literal => $cmd_type:ident no_copy {
-            $(
-                $( $field_doc:literal => )?
-                $field_name:ident : $field_type:ty
-            ),+
-        }
-    ) => {
-        #[doc = $doc_str]
-        #[derive(Clone, Debug, PartialEq, Eq)]
-        pub struct $cmd_type {
-            $(
-                $(
-                    #[doc = $field_doc]
-                )?
-                pub $field_name: $field_type
-            ),+
-        }
-    };
-    (
-        $doc_str:literal => $cmd_type:ident {
-            $(
-                $( $field_doc:literal => )?
-                $field_name:ident : $field_type:ty
-            ),+
-        }
-    ) => {
-        #[doc = $doc_str]
-        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-        pub struct $cmd_type {
-            $(
-                $(
-                    #[doc = $field_doc]
-                )?
-                pub $field_name: $field_type
-            ),+
-        }
-    };
-    // ($doc_str:literal, $cmd_type:ident => state) => {
-    //     define_command_struct!($doc_str => $cmd_type => on: bool);
-    // };
-}
 
 // ------------------------------------------------------------------------------------------------
 // Public Types
 // ------------------------------------------------------------------------------------------------
 
+///
+/// A command is a structure that represents a specific instruction or query sent to a connected
+/// device.
+///
+/// A command has an identifier and zero or more arguments. The command is serialized into a
+/// *message*, a byte vector, that is sent to the device.
+///
 pub trait Command: Debug {
     const MESSAGE_TERMINATOR: u8;
 
@@ -165,6 +68,10 @@ pub trait Command: Debug {
     fn to_message(&self) -> Result<Vec<u8>, RigError>;
 }
 
+///
+/// Some commands expect a response from the device, this trait is implemented for those commands
+/// and provides the necessary methods to handle the response.
+///
 pub trait CommandWithResponse: Command {
     type Response;
 
@@ -175,12 +82,15 @@ pub trait CommandWithResponse: Command {
     fn parse(&self, bytes: &[u8]) -> Result<Self::Response, RigError>;
 }
 
+///
+/// TBD
+///
 pub trait ProtocolHandler {
     ///
-    /// First send a message using the [`send`] method, and if this succeeds, return the
-    /// value of the [`response`] method. This method also uses the type signature to also
-    /// convert from the lower-level method's return type of `Vec<u8>` to a response object
-    /// that implements [`CommandWthResponse`].
+    /// First send a message using the [`send`](#tymethod.send) method, and if this succeeds, return
+    /// the value of the [`receive`](#tymethod.receive) method. This method also uses the type
+    /// signature to also convert from the lower-level method's return type of `Vec<u8>` to a
+    /// response object that implements [`CommandWithResponse`].
     ///
     fn send_and_receive<C>(&mut self, command: C) -> Result<Option<C::Response>, RigError>
     where
@@ -251,70 +161,32 @@ pub trait ProtocolHandler {
 // Public Types
 // ------------------------------------------------------------------------------------------------
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumDisplay, EnumIs, EnumString, AsRefStr)]
-pub enum Vfo {
-    #[strum(serialize = "A")]
-    A,
-    #[strum(serialize = "B")]
-    B,
-    #[strum(serialize = "C")]
-    C,
-    #[strum(serialize = "Sub-A")]
-    SubA,
-    #[strum(serialize = "Sub-B")]
-    SubB,
-    #[strum(serialize = "Sub-C")]
-    SubC,
-    #[strum(serialize = "Rcv-A")]
-    ReceiveA,
-    #[strum(serialize = "Rcv-B")]
-    ReceiveB,
-    #[strum(serialize = "Rcv-C")]
-    ReceiveC,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumDisplay, EnumIs, EnumString, AsRefStr)]
-pub enum Antenna {
-    #[strum(serialize = "1")]
-    One,
-    #[strum(serialize = "2")]
-    Two,
-    #[strum(serialize = "3")]
-    Three,
-    #[strum(serialize = "Rcv-1")]
-    ReceiveOne,
-    #[strum(serialize = "Rcv-2")]
-    ReceiveTwo,
-    #[strum(serialize = "Rcv-3")]
-    ReceiveThree,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumDisplay, EnumIs, EnumString, AsRefStr)]
-pub enum Filter {
-    #[strum(serialize = "1")]
-    One,
-    #[strum(serialize = "2")]
-    Two,
-    #[strum(serialize = "3")]
-    Three,
-}
-
+///
+/// In general protocols commands treat frequency values as unsigned integers in Hertz, there are no
+/// fractional component.
+///
+/// This type translates to/from the `rfham_core::Frequency` type, which is a  floating-point value
+/// in Hertz, loosing any fractional precision.
+///
 #[derive(
     Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize,
 )]
 pub struct Frequency(u64);
 
-// ------------------------------------------------------------------------------------------------
-// Public Functions
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Private Macros
-// ------------------------------------------------------------------------------------------------
-
-// ------------------------------------------------------------------------------------------------
-// Private Types
-// ------------------------------------------------------------------------------------------------
+///
+/// There are some protocol commands that treat frequency values as signed integers in Hertz,
+/// similar to the unsigned [`Frequency`] type, but with a sign bit.
+///
+/// One significant difference between [`SignedFrequency`] and the underlying [`i64`] is that the
+/// sign indicator is *always* expressed in the serialized form even for positive values.
+///
+/// Additionally, the Elecraft protocol allows a space character `' '` to be used as a sign
+/// indicator for positive values, which is not supported by the implementation of `FromStr`.
+///
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize,
+)]
+pub struct SignedFrequency(i64);
 
 // ------------------------------------------------------------------------------------------------
 // Implementations
@@ -430,10 +302,15 @@ impl From<Frequency> for Vec<u8> {
 }
 
 impl Frequency {
-    pub fn value(&self) -> u64 {
+    ///
+    /// Return the underlying value as an unsigned integer representing the frequency in Hertz.
+    ///
+    #[inline(always)]
+    pub const fn value(&self) -> u64 {
         self.0
     }
 
+    #[inline(always)]
     pub fn to_bytes(&self) -> Vec<u8> {
         self.to_bytes_with_floor(0)
     }
@@ -457,12 +334,138 @@ impl Frequency {
 }
 
 // ------------------------------------------------------------------------------------------------
-// Private Functions
-// ------------------------------------------------------------------------------------------------
+
+impl Display for SignedFrequency {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.0.is_negative() {
+            write!(f, "{}", self.0)
+        } else {
+            write!(f, "+{}", self.0)
+        }
+    }
+}
+
+impl From<rfham_core::Frequency> for SignedFrequency {
+    fn from(frequency: rfham_core::Frequency) -> Self {
+        let hertz = frequency.as_hertz();
+        Self(hertz as i64)
+    }
+}
+
+impl From<SignedFrequency> for rfham_core::Frequency {
+    fn from(frequency: SignedFrequency) -> Self {
+        rfham_core::Frequency::hertz(frequency.0 as f64)
+    }
+}
+
+impl From<i64> for SignedFrequency {
+    fn from(value: i64) -> Self {
+        Self(value)
+    }
+}
+
+impl From<SignedFrequency> for i64 {
+    fn from(frequency: SignedFrequency) -> i64 {
+        frequency.0
+    }
+}
+
+impl FromStr for SignedFrequency {
+    type Err = RigError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let value = i64::from_str(s).map_err(|e| RigError::ParseFrequency {
+            value: s.to_string(),
+            error: e,
+        })?;
+        Ok(Self(value))
+    }
+}
+
+impl TryFrom<&[u8]> for SignedFrequency {
+    type Error = RigError;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let string = cat::common::string_from_ascii(value)?;
+        let frequency = i64::from_str(&string).map_err(|e| RigError::ParseFrequency {
+            value: string,
+            error: e,
+        })?;
+        Ok(Self(frequency))
+    }
+}
+
+impl From<SignedFrequency> for Vec<u8> {
+    fn from(frequency: SignedFrequency) -> Vec<u8> {
+        format!("{:011}", frequency.0).into_bytes()
+    }
+}
+
+impl SignedFrequency {
+    ///
+    /// Return the underlying value as a signed integer representing the frequency in Hertz.
+    ///
+    #[inline(always)]
+    pub const fn value(&self) -> i64 {
+        self.0
+    }
+
+    #[inline(always)]
+    pub const fn is_negative(&self) -> bool {
+        self.0.is_negative()
+    }
+
+    #[inline(always)]
+    pub const fn is_positive(&self) -> bool {
+        self.0.is_positive()
+    }
+
+    #[inline(always)]
+    pub const fn abs(&self) -> i64 {
+        self.0.abs()
+    }
+
+    #[inline(always)]
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.to_bytes_with_floor(0)
+    }
+
+    pub fn to_string_with_floor(&self, floor: usize) -> String {
+        let string = self.to_string();
+        if floor > 0 {
+            assert!(floor <= string.len());
+            (string[0..string.len() - floor]).to_string()
+        } else {
+            string
+        }
+    }
+
+    pub fn to_bytes_with_floor(&self, floor: usize) -> Vec<u8> {
+        self.to_string_with_floor(floor)
+            .chars()
+            .map(|c| c as u8 - b'0')
+            .collect()
+    }
+
+    #[inline(always)]
+    pub fn as_frequency(&self) -> Option<rfham_core::Frequency> {
+        if self.0.is_negative() {
+            None
+        } else {
+            Some(rfham_core::Frequency::hertz(self.0 as f64))
+        }
+    }
+}
 
 // ------------------------------------------------------------------------------------------------
 // Sub-Modules
 // ------------------------------------------------------------------------------------------------
 
+#[macro_use]
+mod macros;
+
+#[cfg(feature = "proto-cat")]
 pub mod cat;
+
+#[cfg(feature = "proto-civ")]
 pub mod civ;

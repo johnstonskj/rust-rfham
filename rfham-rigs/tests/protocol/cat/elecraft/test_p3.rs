@@ -8,32 +8,31 @@ use pretty_assertions::assert_eq;
 use rfham_rigs::{
     error::RigError,
     protocol::{
-        Command, Frequency,
+        Command, SignedFrequency,
         cat::elecraft::p3::{
-            BitmapUpload, CenterFrequency, DisplayMode, FixedTuneAutoAdjustMode,
-            FixedTuneOrTrackingMode, FontSize, GetBaudRate, GetCenterFrequency,
-            GetDisplayAveraging, GetDisplayMode, GetFixedTuneAutoAdjustMode,
-            GetFixedTuneOrTrackingMode, GetFnLabelDisplay, GetFontSize,
-            GetFpgaImageFirmwareRevision, GetFunctionKeyLabel, GetMainFirmware,
-            GetMarkerAFrequency, GetMarkerAState, GetMarkerBFrequency, GetMarkerBState,
-            GetNoiseBlankerLevel, GetNoiseBlankerState, GetPeakModeState, GetPowerStatus,
-            GetProductId, GetReferenceLevel, GetRelativeCenterFrequency, GetScale, GetSpan,
-            GetSpanMode, GetSvgaDecodedDataDisplayState, GetSvgaDisplayResolution,
-            GetSvgaDisplayState, GetSvgaFirmwareRevision, GetSvgaFontSize,
-            GetSvgaSpectrumFillState, GetSvgaWaterfallBias, GetTransceiverConnected,
-            GetVfoBCursorState, GetWaterfallAveragingState, GetWaterfallColor,
-            GetWaterfallMarkersState, MarkerFrequency, QsyAction, RelativeCenterFrequencyOffset,
-            Reset, SetBaudRate, SetCenterFrequency, SetDisplayAveraging, SetDisplayMode,
-            SetFixedTuneAutoAdjustMode, SetFixedTuneOrTrackingMode, SetFnLabelDisplay, SetFontSize,
-            SetFunctionKeyExecute, SetMarkerAFrequency, SetMarkerAState, SetMarkerBFrequency,
-            SetMarkerBState, SetNoiseBlankerLevel, SetNoiseBlankerState, SetPassThroughModeState,
-            SetPeakModeState, SetPowerStatus, SetQsyToMarker, SetReferenceLevel,
-            SetRelativeCenterFrequency, SetScale, SetSpan, SetSpanMode,
-            SetSvgaDecodedDataDisplayState, SetSvgaDisplayResolution, SetSvgaDisplayState,
-            SetSvgaFontSize, SetSvgaSpectrumFillState, SetSvgaWaterfallBias,
+            DisplayMode, ExecuteFunctionKey, FixedTuneAutoAdjustMode, FixedTuneOrTrackingMode,
+            FontSize, GetBaudRate, GetCenterFrequency, GetDisplayAveragingTimeConstant,
+            GetDisplayFontSize, GetDisplayMode, GetFirmwareRevision, GetFixedTuneAutoAdjustMode,
+            GetFixedTuneOrTrackingMode, GetFpgaImageFirmwareRevision, GetFunctionKeyLabel,
+            GetFunctionKeyLabelDisplayState, GetMarkerAFrequency, GetMarkerAState,
+            GetMarkerBFrequency, GetMarkerBState, GetNoiseBlankerLevel, GetNoiseBlankerState,
+            GetPeakModeState, GetPowerStatus, GetProductId, GetReferenceLevel,
+            GetRelativeCenterFrequency, GetScale, GetSpan, GetSpanMode,
+            GetSvgaDecodedDataDisplayState, GetSvgaDisplayResolution, GetSvgaDisplayState,
+            GetSvgaFirmwareRevision, GetSvgaFontSize, GetSvgaSpectrumFillState,
+            GetSvgaWaterfallBias, GetTransceiverConnected, GetVfoBCursorState,
+            GetWaterfallAveragingState, GetWaterfallColor, GetWaterfallMarkersState, QsyAction,
+            Reset, SetBaudRate, SetCenterFrequency, SetDisplayAveragingTimeConstant,
+            SetDisplayFontSize, SetDisplayMode, SetFixedTuneAutoAdjustMode,
+            SetFixedTuneOrTrackingMode, SetFunctionKeyLabelDisplayState, SetMarkerAFrequency,
+            SetMarkerAState, SetMarkerBFrequency, SetMarkerBState, SetNoiseBlankerLevel,
+            SetNoiseBlankerState, SetPassThroughModeState, SetPeakModeState, SetPowerStatus,
+            SetQsyToMarker, SetReferenceLevel, SetRelativeCenterFrequency, SetScale, SetSpan,
+            SetSpanMode, SetSvgaDecodedDataDisplayState, SetSvgaDisplayResolution,
+            SetSvgaDisplayState, SetSvgaFontSize, SetSvgaSpectrumFillState, SetSvgaWaterfallBias,
             SetTransceiverConnected, SetVfoBCursorState, SetWaterfallAveragingState,
             SetWaterfallColor, SetWaterfallMarkersState, SpanMode, SvgaDisplayResolution,
-            SvgaFontSize, WaterfallColor,
+            SvgaFontSize, UploadScreenshotBitmap, WaterfallColor,
         },
     },
     transport::BaudRate,
@@ -50,23 +49,26 @@ fn get_product_id_encodes() {
 }
 
 // ------------------------------------------------------------------------------------------------
-// GetDisplayAveraging / SetDisplayAveraging
+// GetDisplayAveragingTimeConstant / SetDisplayAveragingTimeConstant
 // ------------------------------------------------------------------------------------------------
 
 #[test]
-fn get_display_averaging_encodes() {
-    assert_eq!(GetDisplayAveraging.to_message().unwrap(), b"#AVG;".to_vec());
+fn get_display_averaging_time_constant_encodes() {
+    assert_eq!(
+        GetDisplayAveragingTimeConstant.to_message().unwrap(),
+        b"#AVG;".to_vec()
+    );
 }
 
 #[test]
-fn set_display_averaging_encodes_off() {
-    let cmd = SetDisplayAveraging { level: 0 };
+fn set_display_averaging_time_constant_encodes_off() {
+    let cmd = SetDisplayAveragingTimeConstant { averaging_time: 0 };
     assert_eq!(cmd.to_message().unwrap(), b"#AVG00;".to_vec());
 }
 
 #[test]
-fn set_display_averaging_encodes_on() {
-    let cmd = SetDisplayAveraging { level: 20 };
+fn set_display_averaging_time_constant_encodes_on() {
+    let cmd = SetDisplayAveragingTimeConstant { averaging_time: 20 };
     assert_eq!(cmd.to_message().unwrap(), b"#AVG20;".to_vec());
 }
 
@@ -79,7 +81,10 @@ fn bitmap_upload_encodes() {
     // NOTE: unlike GetProductId, BitmapUpload's *request* encoding uses the standard
     // `impl_command!` macro (only its response parsing is hand-rolled to skip the command-id
     // echo/terminator), so this ends in `;` like any other P3 command.
-    assert_eq!(BitmapUpload.to_message().unwrap(), b"#BMP;".to_vec());
+    assert_eq!(
+        UploadScreenshotBitmap.to_message().unwrap(),
+        b"#BMP;".to_vec()
+    );
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -148,10 +153,7 @@ fn get_center_frequency_encodes() {
 #[test]
 fn set_center_frequency_encodes_positive() {
     let cmd = SetCenterFrequency {
-        center: CenterFrequency {
-            is_negative: false,
-            frequency: Frequency::from(14_060_000u64),
-        },
+        center: SignedFrequency::from(14_060_000),
     };
     assert_eq!(cmd.to_message().unwrap(), b"#CTF+00014060000;".to_vec());
 }
@@ -159,10 +161,7 @@ fn set_center_frequency_encodes_positive() {
 #[test]
 fn set_center_frequency_encodes_negative() {
     let cmd = SetCenterFrequency {
-        center: CenterFrequency {
-            is_negative: true,
-            frequency: Frequency::from(500u64),
-        },
+        center: SignedFrequency::from(-500),
     };
     assert_eq!(cmd.to_message().unwrap(), b"#CTF-00000000500;".to_vec());
 }
@@ -246,12 +245,12 @@ fn get_function_key_label_rejects_out_of_range_key() {
 
 #[test]
 fn get_font_size_encodes() {
-    assert_eq!(GetFontSize.to_message().unwrap(), b"#FON;".to_vec());
+    assert_eq!(GetDisplayFontSize.to_message().unwrap(), b"#FON;".to_vec());
 }
 
 #[test]
 fn set_font_size_encodes_small() {
-    let cmd = SetFontSize {
+    let cmd = SetDisplayFontSize {
         size: FontSize::Small,
     };
     assert_eq!(cmd.to_message().unwrap(), b"#FON0;".to_vec());
@@ -259,7 +258,7 @@ fn set_font_size_encodes_small() {
 
 #[test]
 fn set_font_size_encodes_medium() {
-    let cmd = SetFontSize {
+    let cmd = SetDisplayFontSize {
         size: FontSize::Medium,
     };
     assert_eq!(cmd.to_message().unwrap(), b"#FON1;".to_vec());
@@ -267,7 +266,7 @@ fn set_font_size_encodes_medium() {
 
 #[test]
 fn set_font_size_encodes_large() {
-    let cmd = SetFontSize {
+    let cmd = SetDisplayFontSize {
         size: FontSize::Large,
     };
     assert_eq!(cmd.to_message().unwrap(), b"#FON2;".to_vec());
@@ -279,19 +278,19 @@ fn set_font_size_encodes_large() {
 
 #[test]
 fn set_function_key_execute_encodes_key_one() {
-    let cmd = SetFunctionKeyExecute { function_key: 1 };
+    let cmd = ExecuteFunctionKey { function_key: 1 };
     assert_eq!(cmd.to_message().unwrap(), b"#FNX1;".to_vec());
 }
 
 #[test]
 fn set_function_key_execute_encodes_key_eight() {
-    let cmd = SetFunctionKeyExecute { function_key: 8 };
+    let cmd = ExecuteFunctionKey { function_key: 8 };
     assert_eq!(cmd.to_message().unwrap(), b"#FNX8;".to_vec());
 }
 
 #[test]
 fn set_function_key_execute_rejects_out_of_range_key() {
-    let cmd = SetFunctionKeyExecute { function_key: 9 };
+    let cmd = ExecuteFunctionKey { function_key: 9 };
     assert!(matches!(
         cmd.to_message(),
         Err(RigError::InvalidArgumentValue { .. })
@@ -376,18 +375,21 @@ fn set_fixed_tune_or_tracking_mode_encodes_fixed_tune() {
 
 #[test]
 fn get_fn_label_display_encodes() {
-    assert_eq!(GetFnLabelDisplay.to_message().unwrap(), b"#LBL;".to_vec());
+    assert_eq!(
+        GetFunctionKeyLabelDisplayState.to_message().unwrap(),
+        b"#LBL;".to_vec()
+    );
 }
 
 #[test]
 fn set_fn_label_display_encodes_on() {
-    let cmd = SetFnLabelDisplay { labels_on: true };
+    let cmd = SetFunctionKeyLabelDisplayState::turn_on();
     assert_eq!(cmd.to_message().unwrap(), b"#LBL1;".to_vec());
 }
 
 #[test]
 fn set_fn_label_display_encodes_off() {
-    let cmd = SetFnLabelDisplay { labels_on: false };
+    let cmd = SetFunctionKeyLabelDisplayState::turn_off();
     assert_eq!(cmd.to_message().unwrap(), b"#LBL0;".to_vec());
 }
 
@@ -403,10 +405,7 @@ fn get_marker_a_frequency_encodes() {
 #[test]
 fn set_marker_a_frequency_encodes_positive() {
     let cmd = SetMarkerAFrequency {
-        marker: MarkerFrequency {
-            is_negative: false,
-            frequency: Frequency::from(14_060_000u64),
-        },
+        marker: SignedFrequency::from(14_060_000),
     };
     assert_eq!(cmd.to_message().unwrap(), b"#MFA+00014060000;".to_vec());
 }
@@ -414,10 +413,7 @@ fn set_marker_a_frequency_encodes_positive() {
 #[test]
 fn set_marker_a_frequency_encodes_negative() {
     let cmd = SetMarkerAFrequency {
-        marker: MarkerFrequency {
-            is_negative: true,
-            frequency: Frequency::from(500u64),
-        },
+        marker: SignedFrequency::from(-500),
     };
     assert_eq!(cmd.to_message().unwrap(), b"#MFA-00000000500;".to_vec());
 }
@@ -434,10 +430,7 @@ fn get_marker_b_frequency_encodes() {
 #[test]
 fn set_marker_b_frequency_encodes_positive() {
     let cmd = SetMarkerBFrequency {
-        marker: MarkerFrequency {
-            is_negative: false,
-            frequency: Frequency::from(7_074_000u64),
-        },
+        marker: SignedFrequency::from(7_074_000),
     };
     assert_eq!(cmd.to_message().unwrap(), b"#MFB+00007074000;".to_vec());
 }
@@ -445,10 +438,7 @@ fn set_marker_b_frequency_encodes_positive() {
 #[test]
 fn set_marker_b_frequency_encodes_negative() {
     let cmd = SetMarkerBFrequency {
-        marker: MarkerFrequency {
-            is_negative: true,
-            frequency: Frequency::from(1_000u64),
-        },
+        marker: SignedFrequency::from(-1_000),
     };
     assert_eq!(cmd.to_message().unwrap(), b"#MFB-00000001000;".to_vec());
 }
@@ -656,10 +646,7 @@ fn get_relative_center_frequency_encodes() {
 fn set_relative_center_frequency_encodes_positive() {
     // Matches the doc's own worked example: `#RCF+025000;`.
     let cmd = SetRelativeCenterFrequency {
-        offset: RelativeCenterFrequencyOffset {
-            is_negative: false,
-            offset_hz: 25_000,
-        },
+        offset: SignedFrequency::from(25_000),
     };
     assert_eq!(cmd.to_message().unwrap(), b"#RCF+025000;".to_vec());
 }
@@ -667,10 +654,7 @@ fn set_relative_center_frequency_encodes_positive() {
 #[test]
 fn set_relative_center_frequency_encodes_negative() {
     let cmd = SetRelativeCenterFrequency {
-        offset: RelativeCenterFrequencyOffset {
-            is_negative: true,
-            offset_hz: 1_000,
-        },
+        offset: SignedFrequency::from(-1_000),
     };
     assert_eq!(cmd.to_message().unwrap(), b"#RCF-001000;".to_vec());
 }
@@ -751,7 +735,7 @@ fn get_fpga_image_firmware_revision_encodes() {
 
 #[test]
 fn get_main_firmware_encodes() {
-    assert_eq!(GetMainFirmware.to_message().unwrap(), b"#RVM;".to_vec());
+    assert_eq!(GetFirmwareRevision.to_message().unwrap(), b"#RVM;".to_vec());
 }
 
 // ------------------------------------------------------------------------------------------------

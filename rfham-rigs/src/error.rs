@@ -1,8 +1,12 @@
 //! Error and result types for `rfham-radios`.
 //!
 
-use crate::OperatingMode;
+#[cfg(feature = "entity-api")]
+use crate::api::modes::OperatingMode;
+
+#[cfg(feature = "entity-api")]
 use rfham_core::Name;
+
 use std::{fmt::Display, num::ParseIntError, sync::PoisonError};
 use thiserror::Error;
 
@@ -39,12 +43,14 @@ pub enum RigError {
     // --------------------------------------------------------------------------------------------
     // Inter-Layer Errors
     // --------------------------------------------------------------------------------------------
+    #[cfg(feature = "entity-api")]
     #[error("Function not supported by target rig; operation: {function_name}, rig: {rig_name}")]
     UnsupportedFunction {
         function_name: String,
         rig_name: String,
     },
 
+    #[cfg(feature = "entity-api")]
     #[error("Mode not supported by target rig; operation: {mode}, rig: {rig_name}")]
     UnsupportedMode { mode: OperatingMode, rig_name: Name },
 
@@ -164,6 +170,7 @@ pub fn lock_poisoned<T>(error: PoisonError<T>) -> RigError {
 // Public Functions ❯ Inter-Layer Errors
 // ------------------------------------------------------------------------------------------------
 
+#[cfg(feature = "entity-api")]
 #[inline(always)]
 pub fn unsupported_function<S1, S2>(function_name: S1, rig_name: S2) -> RigError
 where

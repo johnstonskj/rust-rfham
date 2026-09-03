@@ -4,8 +4,8 @@
 //! `src/protocol/cat/elecraft/`, so tests only compile (and only need to compile) when that
 //! feature is enabled.
 
-#[cfg(feature = "meta")]
-mod test_meta;
+#[cfg(feature = "k2-kio2")]
+mod test_k2;
 
 #[cfg(feature = "k3-kx")]
 mod test_k3_kx;

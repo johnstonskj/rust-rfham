@@ -1,29 +1,48 @@
+//!
+//! This example demonstrates how to use the `rfham-rigs` crate to query an Elecraft KX3
+//! transceiver for various information, such as its ID, command mode, installed options, and VFO
+//! frequencies and modes.
+//!
+//! It establishes a serial connection to the transceiver, sends commands, and prints the responses.
+//!
+
 use rfham_config::connections::{Connection, SerialConnection};
 use rfham_rigs::{
     protocol::{
         ProtocolHandler,
         cat::{
             CatWrapper,
-            common::{GetTransceiverId, GetVfoAFrequency, GetVfoBFrequency},
             elecraft::{
-                k3_kx::{
-                    GetInstalledOptions, GetK3IconsAndStatus, GetVfoAOperatingMode,
-                    GetVfoBOperatingMode, InstalledOptions,
+                k2::{
+                    GetK2CommandMode, GetTransceiverId, GetVfoAOperatingFrequency,
+                    GetVfoBOperatingFrequency,
                 },
-                meta::{GetK2CommandMode, GetK3CommandMode},
+                k3_kx::{
+                    GetInstalledOptions, GetK3CommandMode, GetK3IconsAndStatus,
+                    GetVfoAOperatingMode, GetVfoBOperatingMode, InstalledOptions,
+                },
             },
         },
     },
     rigs::elecraft::kx3,
     transport::ActiveConnectionKind,
 };
-use std::{io::Error as IoError, process::ExitCode, str::FromStr};
+use std::{env, io::Error as IoError, process::ExitCode, str::FromStr};
 
 fn main() -> Result<ExitCode, IoError> {
-    let conn: Connection =
-        SerialConnection::from_str("/dev/cu.usbserial-A10KMJZB:38400;stop-bits=Two")
-            .unwrap()
-            .into();
+    if env::args().len() < 2 {
+        eprintln!(
+            "Usage: {} <serial-port>; e.g. /dev/cu.usbserial-A10KMJZB",
+            env::args().next().unwrap_or_default()
+        );
+        return Ok(ExitCode::FAILURE);
+    }
+    let conn: Connection = SerialConnection::from_str(&format!(
+        "{}:38400;stop-bits=Two",
+        env::args().nth(1).unwrap_or_default()
+    ))
+    .unwrap()
+    .into();
     let port = ActiveConnectionKind::try_from(&conn).unwrap();
     println!("Connection active ({conn:?})");
 
@@ -85,26 +104,26 @@ fn main() -> Result<ExitCode, IoError> {
         Err(e) => eprintln!("Error: {e}"),
     }
 
-    match cat.send_and_receive(GetVfoAFrequency) {
+    match cat.send_and_receive(GetVfoAOperatingFrequency) {
         Ok(Some(frequency)) => println!("VFO A: {frequency:#} Hz"),
         Ok(None) => println!("GetVfoAFrequency command timed out"),
         Err(e) => eprintln!("Error: {e}"),
     }
 
     match cat.send_and_receive(GetVfoAOperatingMode) {
-        Ok(Some(mode)) => println!("VFO A: {mode}"),
+        Ok(Some(mode)) => println!("VFO A: {}", mode.as_ref()),
         Ok(None) => println!("GetOperatingMode command timed out"),
         Err(e) => eprintln!("Error: {e}"),
     }
 
-    match cat.send_and_receive(GetVfoBFrequency) {
+    match cat.send_and_receive(GetVfoBOperatingFrequency) {
         Ok(Some(frequency)) => println!("VFO B: {frequency:#} Hz"),
-        Ok(None) => println!("GetVfoBFrequency command timed out"),
+        Ok(None) => println!("GetVfoBOperatingFrequency command timed out"),
         Err(e) => eprintln!("Error: {e}"),
     }
 
     match cat.send_and_receive(GetVfoBOperatingMode) {
-        Ok(Some(mode)) => println!("VFO B: {mode}"),
+        Ok(Some(mode)) => println!("VFO B: {}", mode.as_ref()),
         Ok(None) => println!("GetOperatingMode command timed out"),
         Err(e) => eprintln!("Error: {e}"),
     }

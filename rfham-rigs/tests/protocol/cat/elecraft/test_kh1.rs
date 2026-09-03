@@ -14,11 +14,12 @@ use rfham_rigs::{
             EmulateHandKeyPress, Encoder, EncoderDirection, GetDisplayText, GetFirmwareRevision,
             GetHelpInformation, GetMenuParameter, GetTransceiverId, GetTransceiverSerialNumber,
             GetTransceiverStatus, GetTransmitLowerLimit, GetTransmitUpperLimit, HandKeyState,
-            LoadFirmware, LogAction, SelectMenuItem, SetAfGain, SetDisplayText, SetMenuParameter,
-            SetOperatingFrequency, SetOperatingMode, SetVfoOffset, TransmitBand,
+            LoadFirmware, LogAction, OperatingMode, SelectMenuItem, SetAfGain, SetDisplayText,
+            SetMenuParameter, SetOperatingFrequency, SetOperatingMode, SetVfoOffset, TransmitBand,
         },
     },
 };
+use strum::IntoEnumIterator;
 
 #[test]
 fn set_speaker_gain_encodes() {
@@ -43,39 +44,18 @@ fn set_speaker_gain_rejects_out_of_range() {
 #[test]
 fn get_display_text_encodes() {
     assert_eq!(
-        GetDisplayText { line: 1 }.to_message().unwrap(),
+        GetDisplayText::for_top_line().to_message().unwrap(),
         b"DS1;".to_vec()
     );
     assert_eq!(
-        GetDisplayText { line: 2 }.to_message().unwrap(),
+        GetDisplayText::for_bottom_line().to_message().unwrap(),
         b"DS2;".to_vec()
     );
 }
 
 #[test]
-fn get_display_text_accepts_boundary_values() {
-    assert!(GetDisplayText { line: 1 }.validate().is_ok());
-    assert!(GetDisplayText { line: 2 }.validate().is_ok());
-}
-
-#[test]
-fn get_display_text_rejects_out_of_range() {
-    assert!(matches!(
-        GetDisplayText { line: 0 }.validate(),
-        Err(RigError::InvalidArgumentValue { .. })
-    ));
-    assert!(matches!(
-        GetDisplayText { line: 3 }.validate(),
-        Err(RigError::InvalidArgumentValue { .. })
-    ));
-}
-
-#[test]
 fn set_display_text_encodes_and_pads_to_16_characters() {
-    let cmd = SetDisplayText {
-        line: 1,
-        text: b"HI".to_vec(),
-    };
+    let cmd = SetDisplayText::for_top_line(b"HI".to_vec());
     // "DS" + line digit + space + 16-byte, space-padded text field + ';'.
     let mut expected = b"DS1 HI".to_vec();
     expected.extend(std::iter::repeat_n(b' ', 14));
@@ -85,54 +65,11 @@ fn set_display_text_encodes_and_pads_to_16_characters() {
 
 #[test]
 fn set_display_text_truncates_text_longer_than_16_characters() {
-    let cmd = SetDisplayText {
-        line: 2,
-        text: b"0123456789ABCDEFGHIJ".to_vec(),
-    };
+    let cmd = SetDisplayText::for_bottom_line(b"0123456789ABCDEFGHIJ".to_vec());
     let mut expected = b"DS2 ".to_vec();
     expected.extend_from_slice(b"0123456789ABCDEF");
     expected.push(b';');
     assert_eq!(cmd.to_message().unwrap(), expected);
-}
-
-#[test]
-fn set_display_text_accepts_boundary_values() {
-    assert!(
-        SetDisplayText {
-            line: 1,
-            text: b"X".to_vec(),
-        }
-        .validate()
-        .is_ok()
-    );
-    assert!(
-        SetDisplayText {
-            line: 2,
-            text: b"X".to_vec(),
-        }
-        .validate()
-        .is_ok()
-    );
-}
-
-#[test]
-fn set_display_text_rejects_out_of_range() {
-    assert!(matches!(
-        SetDisplayText {
-            line: 0,
-            text: b"X".to_vec(),
-        }
-        .validate(),
-        Err(RigError::InvalidArgumentValue { .. })
-    ));
-    assert!(matches!(
-        SetDisplayText {
-            line: 3,
-            text: b"X".to_vec(),
-        }
-        .validate(),
-        Err(RigError::InvalidArgumentValue { .. })
-    ));
 }
 
 #[test]
@@ -200,21 +137,13 @@ fn emulate_hand_key_press_encodes() {
 }
 
 #[test]
-fn emulate_hand_key_press_accepts_boundary_values() {
-    assert!(
-        EmulateHandKeyPress {
-            state: HandKeyState::KeyDown
-        }
-        .validate()
-        .is_ok()
-    );
-    assert!(
-        EmulateHandKeyPress {
-            state: HandKeyState::KeyUp
-        }
-        .validate()
-        .is_ok()
-    );
+fn emulate_hand_key_press_accepts_all_values() {
+    for variant in HandKeyState::iter() {
+        assert!(
+            EmulateHandKeyPress { state: variant }.validate().is_ok(),
+            "HandKeyState::{variant:?} should be valid"
+        );
+    }
 }
 
 #[test]
@@ -237,55 +166,40 @@ fn send_cw_message_encodes() {
 }
 
 #[test]
-fn send_cw_message_accepts_boundary_values() {
-    assert!(
-        DumpLog {
-            action: LogAction::Dump
-        }
-        .validate()
-        .is_ok()
-    );
-    assert!(
-        DumpLog {
-            action: LogAction::Erase
-        }
-        .validate()
-        .is_ok()
-    );
+fn send_cw_message_accepts_all_values() {
+    for variant in LogAction::iter() {
+        assert!(
+            DumpLog { action: variant }.validate().is_ok(),
+            "LogAction::{variant:?} should be valid"
+        );
+    }
 }
 
 #[test]
 fn set_operating_mode_encodes() {
     assert_eq!(
-        SetOperatingMode { mode: 0 }.to_message().unwrap(),
+        SetOperatingMode {
+            mode: OperatingMode::LowerSideBand
+        }
+        .to_message()
+        .unwrap(),
         b"MD0;".to_vec()
     );
     assert_eq!(
-        SetOperatingMode { mode: 4 }.to_message().unwrap(),
+        SetOperatingMode {
+            mode: OperatingMode::Data
+        }
+        .to_message()
+        .unwrap(),
         b"MD4;".to_vec()
     );
 }
 
 #[test]
-fn set_operating_mode_accepts_documented_mode_digits() {
-    // The KH1 supports only mode digits 0, 1, 2, and 4 (LSB/USB/CW/DATA) -- this is a discrete
-    // set, not a contiguous range, so there is no single "boundary" pair to test.
-    assert!(SetOperatingMode { mode: 0 }.validate().is_ok());
-    assert!(SetOperatingMode { mode: 1 }.validate().is_ok());
-    assert!(SetOperatingMode { mode: 2 }.validate().is_ok());
-    assert!(SetOperatingMode { mode: 4 }.validate().is_ok());
-}
-
-#[test]
-fn set_operating_mode_rejects_undocumented_mode_digits() {
-    assert!(matches!(
-        SetOperatingMode { mode: 3 }.validate(),
-        Err(RigError::InvalidArgumentValue { .. })
-    ));
-    assert!(matches!(
-        SetOperatingMode { mode: 5 }.validate(),
-        Err(RigError::InvalidArgumentValue { .. })
-    ));
+fn set_operating_mode_accepts_all_values() {
+    for variant in OperatingMode::iter() {
+        assert!(SetOperatingMode { mode: variant }.validate().is_ok());
+    }
 }
 
 #[test]

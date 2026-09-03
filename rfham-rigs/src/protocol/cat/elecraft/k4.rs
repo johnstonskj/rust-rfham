@@ -5,7 +5,7 @@
 //! only commands that are unique to the K4, or that differ significantly in format or range from
 //! their K3/KX counterparts.
 //!
-//! The K4 meta-command mode (K41) is set via [`super::meta::SetK4CommandMode`]; many commands below
+//! The K4 meta-command mode (K41) is set via [`SetK4CommandMode`]; many commands below
 //! require K41 mode to be active.
 //!
 //! Where a command addresses a specific VFO, the wire protocol distinguishes VFO A and VFO B by
@@ -22,7 +22,7 @@
 //!
 
 use crate::{
-    error::RigError,
+    error::{RigError, invalid_response_length},
     protocol::cat::{
         Command, CommandWithResponse,
         common::{
@@ -31,16 +31,66 @@ use crate::{
         },
     },
 };
+use core::fmt::Display;
+use tracing::error;
 
 // ------------------------------------------------------------------------------------------------
 // Public Types
 // ------------------------------------------------------------------------------------------------
 
 // ------------------------------------------------------------------------------------------------
+// Public Types: GetK4CommandMode, SetK4CommandMode, K4CommandMode
+// ------------------------------------------------------------------------------------------------
+
+define_cat_command!("Get K4 meta-command mode.
+
+K41 mode is required to use many K4-specific commands and response fields.
+
+# Command format
+
+> `K4;`
+
+# Response format
+
+> `K4{n};`
+
+Where *n* is:
+
+* `0`; Normal, K3-compatible response format; default after power-on
+* `1`; Advanced, K4 extended response format — K41 mode" => 
+    GetK4CommandMode
+);
+
+define_cat_command!("Set K4 meta-command mode.
+
+K41 mode is required to use many K4-specific commands and response fields.
+
+# Command format
+
+> `K4{n};`
+
+Where *n* is:
+
+* `0`; Normal, K3-compatible response format; default after power-on
+* `1`; Advanced, K4 extended response format — K41 mode" => 
+    SetK4CommandMode {
+        mode: K4CommandMode
+    }
+);
+
+define_command_struct!(
+    "Represents the parsed K4 command-mode response." =>
+    K4CommandMode {
+        "`true` for advanced, `false` for normal." =>
+        advanced: bool
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
 // Public Types: CopyVfoAToB, SwapVfoAB
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Copy VFO A's frequency to VFO B (`AB0`).
+define_cat_command!("Copy VFO A's frequency to VFO B (`AB0`).
 
 # Command format
 
@@ -51,7 +101,7 @@ identifier." =>
     CopyVfoAtoVfoB
 );
 
-define_command!("Swap the frequencies of VFO A and VFO B (`AB1`).
+define_cat_command!("Swap the frequencies of VFO A and VFO B (`AB1`).
 
 # Command format
 
@@ -66,7 +116,7 @@ identifier." =>
 // Public Types: GetAtuMode, SetAtuMode
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the ATU (antenna tuner) mode (`AT`).
+define_cat_command!("Get the ATU (antenna tuner) mode (`AT`).
 
 # Command format
 
@@ -80,7 +130,7 @@ Where *n* is one of [`AtuMode`]." =>
     GetAtuMode
 );
 
-define_command!("Set the ATU (antenna tuner) mode (`AT`).
+define_cat_command!("Set the ATU (antenna tuner) mode (`AT`).
 
 # Command format
 
@@ -105,7 +155,7 @@ define_command_enum!(
 // Public Types: GetBandIndependence, SetBandIndependence
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the band independence state (`BI`).
+define_cat_command!("Get the band independence state (`BI`).
 
 # Command format
 
@@ -120,7 +170,7 @@ different band independently)." =>
     GetBandIndependenceState
 );
 
-define_command!("Set the band independence state (`BI`).
+define_cat_command!("Set the band independence state (`BI`).
 
 # Command format
 
@@ -135,7 +185,7 @@ different band independently)." =>
 // Public Types: SetCwSidetonePitch
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Set the CW sidetone pitch in Hz (`CW`).
+define_cat_command!("Set the CW sidetone pitch in Hz (`CW`).
 
 On the K4 this command also sets the received CW pitch offset used for zero-beat tuning; on K3/KX
 transceivers the equivalent command is GET only.
@@ -154,7 +204,7 @@ Where *nnn* is the pitch, between `300` and `800` Hz." =>
 // Public Types: GetDigitalAudio, SetDigitalAudio
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the digital audio routing mode (`DA`).
+define_cat_command!("Get the digital audio routing mode (`DA`).
 
 # Command format
 
@@ -168,7 +218,7 @@ Where *n* is one of [`DigitalAudioRoutingMode`]." =>
     GetDigitalAudioRoutingMode
 );
 
-define_command!("Set the digital audio routing mode (`DA`).
+define_cat_command!("Set the digital audio routing mode (`DA`).
 
 # Command format
 
@@ -194,7 +244,7 @@ define_command_enum!(
 // Public Types: GetDigOut1, SetDigOut1
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the DIGOUT1 (digital output pin 1) state (`DO`).
+define_cat_command!("Get the DIGOUT1 (digital output pin 1) state (`DO`).
 
 # Command format
 
@@ -208,7 +258,7 @@ Where `n` is the boolean state `0` (low) or `1` (high)." =>
     GetDigitalOutputPin1State
 );
 
-define_command!("Set the DIGOUT1 (digital output pin 1) state (`DO`).
+define_cat_command!("Set the DIGOUT1 (digital output pin 1) state (`DO`).
 
 # Command format
 
@@ -216,7 +266,15 @@ define_command!("Set the DIGOUT1 (digital output pin 1) state (`DO`).
 
 Where `n` is the boolean state `0` (low) or `1` (high)." =>
     SetDigitalOutputPin1State {
-        high: bool
+        state: DigitalPinState
+    }
+);
+
+define_command_enum!(
+    "Digital signal pin state, determines whether a signal pin is high or low." =>
+    DigitalPinState {
+        "Low, usually 0 V." => Low = b'0',
+        "High, depends on the board's logic level." => High = b'1'
     }
 );
 
@@ -224,7 +282,7 @@ Where `n` is the boolean state `0` (low) or `1` (high)." =>
 // Public Types: GetTxDataBandwidth, SetTxDataBandwidth
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the TX DATA (AFSK/FSK/PSK) bandwidth (`DW`).
+define_cat_command!("Get the TX DATA (AFSK/FSK/PSK) bandwidth (`DW`).
 
 # Command format
 
@@ -238,7 +296,7 @@ Where *nnnn* is the bandwidth, between `0000` and `9999`, in units of 10 Hz." =>
     GetTransmitDataBandwidth
 );
 
-define_command!("Set the TX DATA (AFSK/FSK/PSK) bandwidth (`DW`).
+define_cat_command!("Set the TX DATA (AFSK/FSK/PSK) bandwidth (`DW`).
 
 # Command format
 
@@ -254,7 +312,7 @@ Where *nnnn* is the bandwidth, between `0000` and `9999`, in units of 10 Hz." =>
 // Public Types: SetCommandEcho
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Set whether commands received on RS-232 are echoed back to the sender (`EC`).
+define_cat_command!("Set whether commands received on RS-232 are echoed back to the sender (`EC`).
 
 # Command format
 
@@ -268,7 +326,7 @@ Where `n` is the boolean state `0` off or `1` on, echo commands back to sender."
 // Public Types: GetErrorReporting, SetErrorReporting
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get whether unsolicited error reports are enabled (`ER`).
+define_cat_command!("Get whether unsolicited error reports are enabled (`ER`).
 
 # Command format
 
@@ -283,7 +341,7 @@ the serial port when command errors occur)." =>
     GetErrorReportingState
 );
 
-define_command!("Set whether unsolicited error reports are enabled (`ER`).
+define_cat_command!("Set whether unsolicited error reports are enabled (`ER`).
 
 # Command format
 
@@ -297,7 +355,7 @@ Where `n` is the boolean state `0` (disabled) or `1` (enabled)." =>
 // Public Types: CenterPanadapterA, CenterPanadapterB
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Center the panadapter on VFO A's current frequency (`FC`).
+define_cat_command!("Center the panadapter on VFO A's current frequency (`FC`).
 
 # Command format
 
@@ -305,7 +363,7 @@ define_command!("Center the panadapter on VFO A's current frequency (`FC`).
     CenterPanadapterOnVfoA
 );
 
-define_command!("Center the panadapter on VFO B's current frequency (`FC$`).
+define_cat_command!("Center the panadapter on VFO B's current frequency (`FC$`).
 
 # Command format
 
@@ -318,7 +376,7 @@ define_command!("Center the panadapter on VFO B's current frequency (`FC$`).
 //      SetVfoBFilterPresetSlot
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the active filter preset slot for VFO A (`FP`).
+define_cat_command!("Get the active filter preset slot for VFO A (`FP`).
 
 # Command format
 
@@ -332,7 +390,7 @@ Where *n* is the preset slot, between `1` and `8`." =>
     GetVfoAFilterPresetSlot
 );
 
-define_command!("Get the active filter preset slot for VFO B (`FP$`).
+define_cat_command!("Get the active filter preset slot for VFO B (`FP$`).
 
 # Command format
 
@@ -346,7 +404,7 @@ Where *n* is the preset slot, between `1` and `8`." =>
     GetVfoBFilterPresetSlot
 );
 
-define_command!("Set the active filter preset slot for VFO A (`FP`).
+define_cat_command!("Set the active filter preset slot for VFO A (`FP`).
 
 # Command format
 
@@ -358,7 +416,7 @@ Where *n* is the preset slot, between `1` and `8`." =>
     }
 );
 
-define_command!("Set the active filter preset slot for VFO B (`FP$`).
+define_cat_command!("Set the active filter preset slot for VFO B (`FP$`).
 
 # Command format
 
@@ -374,7 +432,7 @@ Where *n* is the preset slot, between `1` and `8`." =>
 // Public Types: GetVfoAAgcMode, GetVfoBAgcMode, SetVfoAAgcMode, SetVfoBAgcMode
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the AGC mode for VFO A via the K4-extended command (`GT`).
+define_cat_command!("Get the AGC mode for VFO A via the K4-extended command (`GT`).
 
 K4 extended command; K41 mode required.
 
@@ -390,7 +448,7 @@ Where *nn* is one of [`AgcMode`]." =>
     GetVfoAAgcMode
 );
 
-define_command!("Get the AGC mode for VFO B via the K4-extended command (`GT$`).
+define_cat_command!("Get the AGC mode for VFO B via the K4-extended command (`GT$`).
 
 K4 extended command; K41 mode required.
 
@@ -406,7 +464,7 @@ Where *nn* is one of [`AgcMode`]." =>
     GetVfoBAgcMode
 );
 
-define_command!("Set the AGC mode for VFO A via the K4-extended command (`GT`).
+define_cat_command!("Set the AGC mode for VFO A via the K4-extended command (`GT`).
 
 K4 extended command; K41 mode required.
 
@@ -420,7 +478,7 @@ Where *nn* is one of [`AgcMode`]." =>
     }
 );
 
-define_command!("Set the AGC mode for VFO B via the K4-extended command (`GT$`).
+define_cat_command!("Set the AGC mode for VFO B via the K4-extended command (`GT$`).
 
 K4 extended command; K41 mode required.
 
@@ -447,7 +505,7 @@ define_command_enum!("AGC mode for [`GetVfoAAgcMode`], [`GetVfoBAgcMode`], [`Set
 // Public Types: GetTransceiverId
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the radio identification string (`ID`).
+define_cat_command!("Get the radio identification string (`ID`).
 
 K4 extended command; K41 mode required.
 
@@ -467,7 +525,7 @@ Where *nnn* is a numeric model ID; the K4 returns `018`, the K3 returns `017`." 
 // Public Types: GetK4IfCenterPitchA, GeGetVfoAIfCenterPitch
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the IF center pitch for VFO A (`IS`).
+define_cat_command!("Get the IF center pitch for VFO A (`IS`).
 
 K4 extended command; K41 mode required.
 
@@ -483,7 +541,7 @@ Where *±nnnn* is the sign-prefixed pitch offset, in Hz, from the IF center freq
     GetVfoAIfCenterPitch
 );
 
-define_command!("Get the IF center pitch for VFO B (`IS$`).
+define_cat_command!("Get the IF center pitch for VFO B (`IS$`).
 
 K4 extended command; K41 mode required.
 
@@ -503,7 +561,7 @@ Where *±nnnn* is the sign-prefixed pitch offset, in Hz, from the IF center freq
 // Public Types: GetKeyerPaddleEmulationMode, SetKeyerPaddleEmulationMode, KeyerPaddleEmulationMode
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the keyer paddle emulation mode (`KP`).
+define_cat_command!("Get the keyer paddle emulation mode (`KP`).
 
 # Command format
 
@@ -517,7 +575,7 @@ Where *n* is the keyer paddle mode; see [`KeyerPaddleEmulationMode`]." =>
     GetKeyerPaddleEmulationMode
 );
 
-define_command!("Set the keyer paddle emulation mode (`KP`) .
+define_cat_command!("Set the keyer paddle emulation mode (`KP`) .
 
 # Command format
 
@@ -541,7 +599,7 @@ define_command_enum!("Keyer paddle emulation mode (K4 only)." =>
 // Public Types: SetK4KeyerSpeed
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Set the keyer speed in WPM (`KS`).
+define_cat_command!("Set the keyer speed in WPM (`KS`).
 
 K4 extended command; K41 mode required.
 
@@ -562,7 +620,7 @@ Where *nnn* is the speed, between `008` and `100` WPM." =>
 // Public Types: GetAudioLineInputLevel, SetAudioLineInputLevel
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the line audio input level (`LI`).
+define_cat_command!("Get the line audio input level (`LI`).
 
 # Command format
 
@@ -576,7 +634,7 @@ Where *nnn* is the level, between `000` and `060`." =>
     GetAudioLineInputLevel
 );
 
-define_command!("Set the line audio input level (`LI`).
+define_cat_command!("Set the line audio input level (`LI`).
 
 # Command format
 
@@ -592,7 +650,7 @@ Where *nnn* is the level, between `000` and `060`." =>
 // Public Types: GetAudioLineOutputLevel, SetAudioLineOutputLevel
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the line audio output level (`LO`).
+define_cat_command!("Get the line audio output level (`LO`).
 
 # Command format
 
@@ -606,7 +664,7 @@ Where *nnn* is the level, between `000` and `060`." =>
     GetAudioLineOutputLevel
 );
 
-define_command!("Set the line audio output level (`LO`).
+define_cat_command!("Set the line audio output level (`LO`).
 
 # Command format
 
@@ -622,7 +680,7 @@ Where *nnn* is the level, between `000` and `060`." =>
 // Public Types: GetVfoAModeAlternates, GetVfoBModeAlternatesGetVfoAModeAlternates
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the list of mode alternates available on the current band, for VFO A (`MA`).
+define_cat_command!("Get the list of mode alternates available on the current band, for VFO A (`MA`).
 
 # Command format
 
@@ -637,7 +695,7 @@ available on the current band, returned as raw bytes." =>
     GetVfoAModeAlternates
 );
 
-define_command!("Get the list of mode alternates available on the current band, for VFO B (`MA$`).
+define_cat_command!("Get the list of mode alternates available on the current band, for VFO B (`MA$`).
 
 # Command format
 
@@ -656,7 +714,7 @@ available on the current band, returned as raw bytes." =>
 // Public Types: GetMicInputSource, SetMicInputSource, MicInputSource
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the microphone input source (`MI`).
+define_cat_command!("Get the microphone input source (`MI`).
 
 # Command format
 
@@ -670,7 +728,7 @@ Where *n* is the microphone input source; see [`MicInputSource`]." =>
     GetMicInputSource
 );
 
-define_command!("Set the microphone input source (`MI`) (K4 only).
+define_cat_command!("Set the microphone input source (`MI`) (K4 only).
 
 # Command format
 
@@ -695,7 +753,7 @@ define_command_enum!("Microphone input source." =>
 // Public Types: GetAudioMixRatio, SetAudioMixRatio
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the main/sub receiver audio mix ratio (`MX`).
+define_cat_command!("Get the main/sub receiver audio mix ratio (`MX`).
 
 # Command format
 
@@ -709,7 +767,7 @@ Where *nn* is the mix ratio, between `00` (all main) and `99` (all sub)." =>
     GetAudioMixRatio
 );
 
-define_command!("Set the main/sub receiver audio mix ratio (`MX`).
+define_cat_command!("Set the main/sub receiver audio mix ratio (`MX`).
 
 # Command format
 
@@ -726,7 +784,7 @@ Where *nn* is the mix ratio, between `00` (all main) and `99` (all sub)." =>
 //      SetVfoBAutoNotchState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the auto notch state for VFO A (`NA`).
+define_cat_command!("Get the auto notch state for VFO A (`NA`).
 
 # Command format
 
@@ -740,7 +798,7 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
     GetVfoAAutoNotchState
 );
 
-define_command!("Get the auto notch state for VFO B (`NA$`).
+define_cat_command!("Get the auto notch state for VFO B (`NA$`).
 
 # Command format
 
@@ -754,7 +812,7 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
     GetVfoBAutoNotchState
 );
 
-define_command!("Set the auto notch state for VFO A (`NA`).
+define_cat_command!("Set the auto notch state for VFO A (`NA`).
 
 # Command format
 
@@ -764,7 +822,7 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
     SetVfoAAutoNotchState { state }
 );
 
-define_command!("Set the auto notch state for VFO B (`NA$`).
+define_cat_command!("Set the auto notch state for VFO B (`NA$`).
 
 # Command format
 
@@ -778,7 +836,7 @@ Where `n` is the boolean state `0` (off) or `1` (on)." =>
 // Public Types: GetManualNotchA, GetManualNotchB, SetManualNotchA, SetManualNotchB, ManualNotch
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the manual notch frequency and state for VFO A (`NM`).
+define_cat_command!("Get the manual notch frequency and state for VFO A (`NM`).
 
 # Command format
 
@@ -796,7 +854,7 @@ Where:
     GetVfoAManualNotchSettings
 );
 
-define_command!("Get the manual notch frequency and state for VFO B (`NM$`).
+define_cat_command!("Get the manual notch frequency and state for VFO B (`NM$`).
 
 # Command format
 
@@ -814,7 +872,7 @@ Where:
     GetVfoBManualNotchSettings
 );
 
-define_command!("Set the manual notch frequency and state for VFO A (`NM`).
+define_cat_command!("Set the manual notch frequency and state for VFO A (`NM`).
 
 # Command format
 
@@ -831,7 +889,7 @@ Where:
     }
 );
 
-define_command!("Set the manual notch frequency and state for VFO B (`NM$`).
+define_cat_command!("Set the manual notch frequency and state for VFO B (`NM$`).
 
 # Command format
 
@@ -863,7 +921,7 @@ pub struct ManualNotch {
 //      SetVfoANoiseReductionSettings, SetVfoBNoiseReductionSettings, NoiseReduction
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the noise reduction (LMS) state and level for VFO A (`NR`).
+define_cat_command!("Get the noise reduction (LMS) state and level for VFO A (`NR`).
 
 # Command format
 
@@ -880,7 +938,7 @@ Where:
     GetVfoANoiseReductionSettings
 );
 
-define_command!("Get the noise reduction (LMS) state and level for VFO B (`NR$`).
+define_cat_command!("Get the noise reduction (LMS) state and level for VFO B (`NR$`).
 
 # Command format
 
@@ -897,7 +955,7 @@ Where:
     GetVfoBNoiseReductionSettings
 );
 
-define_command!("Set the noise reduction (LMS) state and level for VFO A (`NR`).
+define_cat_command!("Set the noise reduction (LMS) state and level for VFO A (`NR`).
 
 # Command format
 
@@ -913,7 +971,7 @@ Where:
     }
 );
 
-define_command!("Set the noise reduction (LMS) state and level for VFO B (`NR$`).
+define_cat_command!("Set the noise reduction (LMS) state and level for VFO B (`NR$`).
 
 # Command format
 
@@ -941,7 +999,7 @@ define_command_struct!(
 // Public Types: PlayDvrMessage
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Play a DVR (digital voice recorder) message (`PB`).
+define_cat_command!("Play a DVR (digital voice recorder) message (`PB`).
 
 # Command format
 
@@ -957,7 +1015,7 @@ Where *n* is the message number, between `1` and `8`; `0` stops playback." =>
 // Public Types: GetVfoACtssTone, GetVfoBCtssTone, SetVfoACtssTone, SetVfoBCtssTone
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the CTCSS (PL) tone code for VFO A (`PL`).
+define_cat_command!("Get the CTCSS (PL) tone code for VFO A (`PL`).
 
 FM mode only.
 
@@ -973,7 +1031,7 @@ Where *nnn* is the tone code, between `000` (no tone) and `038`." =>
     GetVfoACtssTone
 );
 
-define_command!("Get the CTCSS (PL) tone code for VFO B (`PL$`).
+define_cat_command!("Get the CTCSS (PL) tone code for VFO B (`PL$`).
 
 FM mode only.
 
@@ -989,7 +1047,7 @@ Where *nnn* is the tone code, between `000` (no tone) and `038`." =>
     GetVfoBCtssTone
 );
 
-define_command!("Set the CTCSS (PL) tone code for VFO A (`PL`).
+define_cat_command!("Set the CTCSS (PL) tone code for VFO A (`PL`).
 
 FM mode only.
 
@@ -1005,7 +1063,7 @@ Where *nnn* is the tone code, between `000` (no tone) and `038`.
     }
 );
 
-define_command!("Set the CTCSS (PL) tone code for VFO B (`PL$`).
+define_cat_command!("Set the CTCSS (PL) tone code for VFO B (`PL$`).
 
 FM mode only.
 
@@ -1025,7 +1083,7 @@ Where *nnn* is the tone code, between `000` (no tone) and `038`.
 // Public Types: GetCurrentBandPowerLimit
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the per-band power limit setting for the current band (`PP`).
+define_cat_command!("Get the per-band power limit setting for the current band (`PP`).
 
 # Command format
 
@@ -1043,7 +1101,7 @@ Where *nnn* is the stored power limit for the current band, in watts, between `0
 // Public Types: GetPowerStatus, SetPowerStatus, PowerStatus
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the transceiver power state (`PS`).
+define_cat_command!("Get the transceiver power state (`PS`).
 
 K4 extended command; K41 mode required.
 
@@ -1059,7 +1117,7 @@ Where *n* is the power state; see [`PowerStatus`]." =>
     GetPowerStatus
 );
 
-define_command!("Set the transceiver power state (`PS`).
+define_cat_command!("Set the transceiver power state (`PS`).
 
 K4 extended command; K41 mode required.
 
@@ -1078,8 +1136,8 @@ restart." =>
 
 define_command_enum!("Transceiver power state." =>
     PowerStatus {
-        "Power off." => PowerOff = b'0',
-        "Power on." => PowerOn = b'1',
+        "Power off." => Off = b'0',
+        "Power on." => On = b'1',
         "Trigger a controlled firmware restart." => FirmwareRestart = b'2'
     }
 );
@@ -1089,7 +1147,7 @@ define_command_enum!("Transceiver power state." =>
 //      SoftwareReleaseChannel
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the active software release channel (`RL`).
+define_cat_command!("Get the active software release channel (`RL`).
 
 # Command format
 
@@ -1103,7 +1161,7 @@ Where *n* is the release channel; see [`SoftwareReleaseChannel`]." =>
     GetActiveSoftwareReleaseChannel
 );
 
-define_command!("Set the active software release channel (`RL`).
+define_cat_command!("Set the active software release channel (`RL`).
 
 # Command format
 
@@ -1127,7 +1185,7 @@ define_command_enum!("Software release channel." =>
 // Public Types: GetRepeaterOffset, SetRepeaterOffset, RepeaterOffset
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the repeater offset direction and frequency (`RP`).
+define_cat_command!("Get the repeater offset direction and frequency (`RP`).
 
 FM mode only.
 
@@ -1147,7 +1205,7 @@ Where:
     GetRepeaterOffset
 );
 
-define_command!("Set the repeater offset direction and frequency (`RP`).
+define_cat_command!("Set the repeater offset direction and frequency (`RP`).
 
 FM mode only.
 
@@ -1187,7 +1245,7 @@ define_command_enum!("Repeater offset direction for [`GetRepeaterOffset`] and [`
 // Public Types: GetScreenCount
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the number of display screens available (`SC`).
+define_cat_command!("Get the number of display screens available (`SC`).
 
 # Command format
 
@@ -1205,7 +1263,7 @@ Where *nn* is the number of VFO-screen combinations available, between `00` and 
 // Public Types: SetK4Delay
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Set the QSK or VOX delay, in milliseconds (`SD`).
+define_cat_command!("Set the QSK or VOX delay, in milliseconds (`SD`).
 
 K4 extended command; K41 mode required.
 
@@ -1214,7 +1272,7 @@ K4 extended command; K41 mode required.
 > `SD{nnnn};`
 
 Where *nnnn* is the delay, between `0000` (full QSK / instant VOX) and `2000` ms." =>
-    SetK4QskOrVoxDelay {
+    SetQskOrVoxDelay {
         delay_ms: u16
     }
 );
@@ -1223,7 +1281,7 @@ Where *nnnn* is the delay, between `0000` (full QSK / instant VOX) and `2000` ms
 // Public Types: SetSystemAutoInfo
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Configure the system auto-info interval (`SI`).
+define_cat_command!("Configure the system auto-info interval (`SI`).
 
 # Command format
 
@@ -1240,7 +1298,7 @@ Where *nnnn* is the interval, in ms, between unsolicited periodic status reports
 // Public Types: GetStreamingLatency, SetStreamingLatency
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the remote audio streaming latency setting (`SL`).
+define_cat_command!("Get the remote audio streaming latency setting (`SL`).
 
 # Command format
 
@@ -1254,7 +1312,7 @@ Where *nn* is the latency class, between `00` (lowest latency) and `99`." =>
     GetStreamingLatencyClass
 );
 
-define_command!("Set the remote audio streaming latency setting (`SL`).
+define_cat_command!("Set the remote audio streaming latency setting (`SL`).
 
 # Command format
 
@@ -1270,7 +1328,7 @@ Where *nn* is the latency class, between `00` (lowest latency) and `99`." =>
 // Public Types: GetSerialNumber
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the transceiver serial number (`SN`).
+define_cat_command!("Get the transceiver serial number (`SN`).
 
 # Command format
 
@@ -1288,7 +1346,7 @@ Where *nnnnn* is the 5-digit serial number." =>
 // Public Types: CaptureScreenshot
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Capture a screenshot to the SD card (`SS`).
+define_cat_command!("Capture a screenshot to the SD card (`SS`).
 
 # Command format
 
@@ -1303,7 +1361,7 @@ beyond the usual acknowledgement." =>
 // Public Types: GetTxGainConstant
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the transmit gain constant used for calibration (`TA`).
+define_cat_command!("Get the transmit gain constant used for calibration (`TA`).
 
 # Command format
 
@@ -1322,7 +1380,7 @@ Where *nnn* is the internal DAC calibration value, between `000` and `255`." =>
 //      SetVfoBTextDecodeMode, TextDecodeMode
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the text decode/encode mode for VFO A (`TD`).
+define_cat_command!("Get the text decode/encode mode for VFO A (`TD`).
 
 # Command format
 
@@ -1336,7 +1394,7 @@ Where *n* is the text decode/encode mode; see [`TextDecodeMode`]." =>
     GetVfoATextDecodeMode
 );
 
-define_command!("Get the text decode/encode mode for VFO B (`TD$`).
+define_cat_command!("Get the text decode/encode mode for VFO B (`TD$`).
 
 # Command format
 
@@ -1350,7 +1408,7 @@ Where *n* is text decode/encode mode; see [`TextDecodeMode`]." =>
     GetVfoBTextDecodeMode
 );
 
-define_command!("Set the text decode/encode mode for VFO A (`TD`).
+define_cat_command!("Set the text decode/encode mode for VFO A (`TD`).
 
 # Command format
 
@@ -1362,7 +1420,7 @@ Where *n* is text decode/encode mode; see [`TextDecodeMode`]." =>
     }
 );
 
-define_command!("Set the text decode/encode mode for VFO B (`TD$`).
+define_cat_command!("Set the text decode/encode mode for VFO B (`TD$`).
 
 # Command format
 
@@ -1387,7 +1445,7 @@ define_command_enum!("Text decode/encode mode." =>
 // Public Types: GetTransmitGain
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the current transmit gain setting (`TG`).
+define_cat_command!("Get the current transmit gain setting (`TG`).
 
 # Command format
 
@@ -1405,7 +1463,7 @@ Where *nnn* is the internal DAC value, between `000` and `255`." =>
 // Public Types: GetTransmitTestModeState, SetTransmitTestModeState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the TX test mode state (`TS`).
+define_cat_command!("Get the TX test mode state (`TS`).
 
 # Command format
 
@@ -1419,7 +1477,7 @@ Where `n` is the boolean state `0` (normal TX) or `1` (transmit test mode; conti
     GetTransmitTestModeState
 );
 
-define_command!("Set the TX test mode state (`TS`).
+define_cat_command!("Set the TX test mode state (`TS`).
 
 Transmits a continuous carrier when enabled; intended for calibration and test use only.
 
@@ -1435,7 +1493,7 @@ Where `n` is the boolean state `0` (normal TX) or `1` (transmit test mode; conti
 // Public Types: SetTune
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Start or stop the ATU tuning sequence (K4 only, SET only).
+define_cat_command!("Start or stop the ATU tuning sequence (K4 only, SET only).
 
 # Command format
 
@@ -1449,7 +1507,7 @@ Where `n` is the boolean state `0` (stop tuning) or `1` (start ATU tune)." =>
 // Public Types: GetUtcTimestamp
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the current UTC date and time from the K4 real-time clock (`UT`).
+define_cat_command!("Get the current UTC date and time from the K4 real-time clock (`UT`).
 
 # Command format
 
@@ -1468,7 +1526,7 @@ the year, returned as raw bytes." =>
 // Public Types: GetCoarseTuningStep, SetCoarseTuningStep
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the coarse VFO tune step size (`VC`).
+define_cat_command!("Get the coarse VFO tune step size (`VC`).
 
 # Command format
 
@@ -1482,7 +1540,7 @@ Where *nn* is the coarse tuning step multiplier, between `00` and `99`." =>
     GetCoarseTuningStep
 );
 
-define_command!("Set the coarse VFO tune step size (`VC`).
+define_cat_command!("Set the coarse VFO tune step size (`VC`).
 
 # Command format
 
@@ -1498,7 +1556,7 @@ Where *nn* is the coarse tuning step multiplier, between `00` and `99`." =>
 // Public Types: GetVoxGain, SetVoxGain
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the VOX gain (`VG`).
+define_cat_command!("Get the VOX gain (`VG`).
 
 # Command format
 
@@ -1512,7 +1570,7 @@ Where *nnn* is the gain, between `000` (off / minimum sensitivity) and `009` (ma
     GetVoxGain
 );
 
-define_command!("Set the VOX gain (`VG`).
+define_cat_command!("Set the VOX gain (`VG`).
 
 # Command format
 
@@ -1528,7 +1586,7 @@ Where *nnn* is the gain, between `000` (off / minimum sensitivity) and `009` (ma
 // Public Types: GetVoxInhibit, SetVoxInhibit
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the VOX inhibit state (`VI`).
+define_cat_command!("Get the VOX inhibit state (`VI`).
 
 # Command format
 
@@ -1542,7 +1600,7 @@ Where `n` is the boolean state `0` (VOX enabled) or `1` (VOX inhibited / muted).
     GetVoxInhibitState
 );
 
-define_command!("Set the VOX inhibit state (`VI`).
+define_cat_command!("Set the VOX inhibit state (`VI`).
 
 # Command format
 
@@ -1556,7 +1614,7 @@ Where `n` is the boolean state `0` (VOX enabled) or `1` (VOX inhibited / muted).
 // Public Types: GetVfoATransverterOffset, GetVfoBTransverterOffset
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the VFO frequency offset used for transverter operation, for VFO A (`VO`).
+define_cat_command!("Get the VFO frequency offset used for transverter operation, for VFO A (`VO`).
 
 # Command format
 
@@ -1571,7 +1629,7 @@ interpret; the value may be signed ASCII." =>
     GetVfoATransverterOffset
 );
 
-define_command!("Get the VFO frequency offset used for transverter operation, for VFO B (`VO$`).
+define_cat_command!("Get the VFO frequency offset used for transverter operation, for VFO B (`VO$`).
 
 # Command format
 
@@ -1590,7 +1648,7 @@ interpret; the value may be signed ASCII." =>
 // Public Types: GetVfoTuningStepA, GetVfoTuningStepB, SetVfoTuningStepA, SetVfoTuningStepB
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the VFO tuning step size, in Hz, for VFO A (`VT`).
+define_cat_command!("Get the VFO tuning step size, in Hz, for VFO A (`VT`).
 
 # Command format
 
@@ -1604,7 +1662,7 @@ Where *nnnnnn* is the step size in Hz, e.g. `000001` for 1 Hz or `001000` for 1 
     GetVfoATuningStep
 );
 
-define_command!("Get the VFO tuning step size, in Hz, for VFO B (`VT$`).
+define_cat_command!("Get the VFO tuning step size, in Hz, for VFO B (`VT$`).
 
 # Command format
 
@@ -1618,7 +1676,7 @@ Where *nnnnnn* is the step size in Hz, e.g. `000001` for 1 Hz or `001000` for 1 
     GetVfoBTuningStep
 );
 
-define_command!("Set the VFO tuning step size, in Hz, for VFO A (`VT`).
+define_cat_command!("Set the VFO tuning step size, in Hz, for VFO A (`VT`).
 
 # Command format
 
@@ -1630,7 +1688,7 @@ Where *nnnnnn* is the step size in Hz, between `000000` and `999999`." =>
     }
 );
 
-define_command!("Set the VFO tuning step size, in Hz, for VFO B (`VT$`).
+define_cat_command!("Set the VFO tuning step size, in Hz, for VFO B (`VT$`).
 
 # Command format
 
@@ -1646,7 +1704,7 @@ Where *nnnnnn* is the step size in Hz, between `000000` and `999999`." =>
 // Public Types: GetWattmeterCalibrationConstant, SetWattmeterCalibrationConstant
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the wattmeter calibration value (`WM`).
+define_cat_command!("Get the wattmeter calibration value (`WM`).
 
 # Command format
 
@@ -1660,7 +1718,7 @@ Where *nnn* is the internal calibration constant, between `000` and `255`." =>
     GetWattmeterCalibrationConstant
 );
 
-define_command!("Set the wattmeter calibration value (`WM`).
+define_cat_command!("Set the wattmeter calibration value (`WM`).
 
 # Command format
 
@@ -1677,7 +1735,7 @@ Where *nnn* is the internal calibration constant, between `000` and `255`." =>
 //      SetVfoATransverterActiveBandSlot, SetVfoBTransverterActiveBandSlot
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the active transverter band slot for VFO A (`XV`).
+define_cat_command!("Get the active transverter band slot for VFO A (`XV`).
 
 # Command format
 
@@ -1691,7 +1749,7 @@ Where *nn* is the transverter band slot, between `00` and `08`." =>
     GetVfoATransverterActiveBandSlot
 );
 
-define_command!("Get the active transverter band slot for VFO B (`XV$`).
+define_cat_command!("Get the active transverter band slot for VFO B (`XV$`).
 
 # Command format
 
@@ -1705,7 +1763,7 @@ Where *nn* is the transverter band slot, between `00` and `08`." =>
     GetVfoBTransverterActiveBandSlot
 );
 
-define_command!("Set the active transverter band slot for VFO A (`XV`).
+define_cat_command!("Set the active transverter band slot for VFO A (`XV`).
 
 # Command format
 
@@ -1717,7 +1775,7 @@ Where *nn* is the transverter band slot, between `00` and `08`." =>
     }
 );
 
-define_command!("Set the active transverter band slot for VFO B (`XV$`).
+define_cat_command!("Set the active transverter band slot for VFO B (`XV$`).
 
 # Command format
 
@@ -1733,33 +1791,104 @@ Where *nn* is the transverter band slot, between `00` and `08`." =>
 // Implementations
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(CopyVfoAtoVfoB => b"AB" with Some |_cmd: &CopyVfoAtoVfoB| {
+impl_cat_command!(GetK4CommandMode => b"K4");
+impl_cat_command_with_response!(GetK4CommandMode => try_from 1 K4CommandMode);
+
+impl_cat_command!(SetK4CommandMode => b"K4" with Some |cmd: &SetK4CommandMode| {
+    vec![if cmd.mode.advanced { b'1' } else { b'0' }]
+});
+
+impl Display for K4CommandMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.advanced {
+            "K4 Advanced Mode"
+        } else {
+            "K4 Normal Mode"
+        }
+        .fmt(f)
+    }
+}
+
+impl SetK4CommandMode {
+    #[inline(always)]
+    pub const fn to_advanced() -> Self {
+        Self {
+            mode: K4CommandMode::to_advanced(),
+        }
+    }
+
+    #[inline(always)]
+    pub const fn to_normal() -> Self {
+        Self {
+            mode: K4CommandMode::to_normal(),
+        }
+    }
+}
+
+impl K4CommandMode {
+    #[inline(always)]
+    pub const fn to_advanced() -> Self {
+        Self { advanced: true }
+    }
+
+    #[inline(always)]
+    pub const fn to_normal() -> Self {
+        Self { advanced: false }
+    }
+}
+
+impl TryFrom<&[u8]> for K4CommandMode {
+    type Error = RigError;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        if value.len() != 1 {
+            error!("K4CommandMode: expecting 1 byte, given {}", value.len());
+            Err(invalid_response_length(1, value.len()))
+        } else {
+            Ok(Self {
+                advanced: value[0] == b'1',
+            })
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(CopyVfoAtoVfoB => b"AB" with Some |_cmd: &CopyVfoAtoVfoB| {
     vec![b'0']
 });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SwapVfoAandVfoB => b"AB" with Some |_cmd: &SwapVfoAandVfoB| {
+impl_cat_command!(SwapVfoAandVfoB => b"AB" with Some |_cmd: &SwapVfoAandVfoB| {
     vec![b'1']
 });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetAtuMode => b"AT");
-impl_command_with_response!(GetAtuMode => try_from enum AtuMode);
+impl_cat_command!(GetAtuMode => b"AT");
+impl_cat_command_with_response!(GetAtuMode => try_from enum AtuMode);
 
-impl_command!(SetAtuMode => b"AT" for as byte mode);
+impl_cat_command!(SetAtuMode => b"AT" for as byte mode);
+
+impl_set_cat_command_from_enum!(
+    SetAtuMode, AtuMode => mode {
+        Bypassed => "Turn the ATU into bypass mode, no tuning will be active.", to_bypassed,
+        Inline => "Turn the ATU into inline mode, tuning will be active.", to_inline,
+        Tuning => "Instruct the ATU to begin tuning.", to_tuning
+    }
+);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetBandIndependenceState => b"BI");
-impl_command_with_response!(GetBandIndependenceState => boolean);
+impl_cat_command!(GetBandIndependenceState => b"BI");
+impl_cat_command_with_response!(GetBandIndependenceState => boolean);
 
-impl_command!(SetBandIndependenceState => b"BI" for state);
+impl_cat_command!(SetBandIndependenceState => b"BI" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetCwSidetonePitch => b"CW"
+impl_cat_command!(SetCwSidetonePitch => b"CW"
     format pitch_hz uint 3, if |cmd: &SetCwSidetonePitch| {
     if (300..=800).contains(&cmd.pitch_hz) {
         Ok(())
@@ -1774,24 +1903,53 @@ impl_command!(SetCwSidetonePitch => b"CW"
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetDigitalAudioRoutingMode => b"DA");
-impl_command_with_response!(GetDigitalAudioRoutingMode => try_from enum DigitalAudioRoutingMode);
+impl_cat_command!(GetDigitalAudioRoutingMode => b"DA");
+impl_cat_command_with_response!(GetDigitalAudioRoutingMode => try_from enum DigitalAudioRoutingMode);
 
-impl_command!(SetDigitalAudioRoutingMode => b"DA" for as byte mode);
+impl_cat_command!(SetDigitalAudioRoutingMode => b"DA" for as byte mode);
+
+impl_set_cat_command_from_enum!(
+    SetDigitalAudioRoutingMode, DigitalAudioRoutingMode => mode {
+        Analog => to_analog,
+        DigitalOut => to_digital_out,
+        DigitalIn => to_digital_in,
+        FullDigital => to_full_digital
+    }
+);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetDigitalOutputPin1State => b"DO");
-impl_command_with_response!(GetDigitalOutputPin1State => boolean);
+impl_cat_command!(GetDigitalOutputPin1State => b"DO");
+impl_cat_command_with_response!(GetDigitalOutputPin1State => try_from enum DigitalPinState);
 
-impl_command!(SetDigitalOutputPin1State => b"DO" for boolean high);
+impl_cat_command!(SetDigitalOutputPin1State => b"DO" for as byte state);
+
+impl_set_cat_command_from_enum!(
+    SetDigitalOutputPin1State, DigitalPinState => state {
+        High => "Set the digital output pin-1 to high.", set_high,
+        Low => "Set the digital output pin-1 to low.", set_low
+    }
+);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetTransmitDataBandwidth => b"DW");
-impl_command_with_response!(GetTransmitDataBandwidth => 4, u16_from_ascii => u16);
+impl DigitalPinState {
+    /// Set the digital output pin-1 to high.
+    pub const fn set_high() -> Self {
+        Self::High
+    }
 
-impl_command!(SetTransmitDataBandwidth => b"DW" with Some |cmd: &SetTransmitDataBandwidth| {
+    /// Set the digital output pin-1 to low.
+    pub const fn set_low() -> Self {
+        Self::Low
+    }
+}
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetTransmitDataBandwidth => b"DW");
+impl_cat_command_with_response!(GetTransmitDataBandwidth => 4, u16_from_ascii => u16);
+
+impl_cat_command!(SetTransmitDataBandwidth => b"DW" with Some |cmd: &SetTransmitDataBandwidth| {
     format_u16_ascii_4(cmd.bandwidth_10hz)
 }, if |cmd: &SetTransmitDataBandwidth| {
     if cmd.bandwidth_10hz <= 9999 {
@@ -1807,36 +1965,36 @@ impl_command!(SetTransmitDataBandwidth => b"DW" with Some |cmd: &SetTransmitData
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetCommandEchoState => b"EC" for state);
+impl_cat_command!(SetCommandEchoState => b"EC" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetErrorReportingState => b"ER");
-impl_command_with_response!(GetErrorReportingState => boolean);
+impl_cat_command!(GetErrorReportingState => b"ER");
+impl_cat_command_with_response!(GetErrorReportingState => boolean);
 
-impl_command!(SetErrorReportingState => b"ER" for state);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(CenterPanadapterOnVfoA => b"FC");
+impl_cat_command!(SetErrorReportingState => b"ER" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(CenterPanadapterOnVfoB => b"FC$");
+impl_cat_command!(CenterPanadapterOnVfoA => b"FC");
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoAFilterPresetSlot => b"FP");
-impl_command_with_response!(GetVfoAFilterPresetSlot => 1, u8_from_ascii => u8);
+impl_cat_command!(CenterPanadapterOnVfoB => b"FC$");
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoBFilterPresetSlot => b"FP$");
-impl_command_with_response!(GetVfoBFilterPresetSlot => 1, u8_from_ascii => u8);
+impl_cat_command!(GetVfoAFilterPresetSlot => b"FP");
+impl_cat_command_with_response!(GetVfoAFilterPresetSlot => 1, u8_from_ascii => u8);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(
+impl_cat_command!(GetVfoBFilterPresetSlot => b"FP$");
+impl_cat_command_with_response!(GetVfoBFilterPresetSlot => 1, u8_from_ascii => u8);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(
     SetVfoAFilterPresetSlot => b"FP"
     format preset uint 1,
     if |cmd: &SetVfoAFilterPresetSlot| {
@@ -1854,7 +2012,7 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(
+impl_cat_command!(
     SetVfoBFilterPresetSlot => b"FP$"
     format preset uint 1,
     if |cmd: &SetVfoBFilterPresetSlot| {
@@ -1872,17 +2030,17 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoAAgcMode => b"GT");
-impl_command_with_response!(GetVfoAAgcMode => 2, u8_from_ascii => u8);
+impl_cat_command!(GetVfoAAgcMode => b"GT");
+impl_cat_command_with_response!(GetVfoAAgcMode => 2, u8_from_ascii => u8);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoBAgcMode => b"GT$");
-impl_command_with_response!(GetVfoBAgcMode => 2, u8_from_ascii => u8);
+impl_cat_command!(GetVfoBAgcMode => b"GT$");
+impl_cat_command_with_response!(GetVfoBAgcMode => 2, u8_from_ascii => u8);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(
+impl_cat_command!(
     SetVfoAAgcMode => b"GT"
     format mode uint 2,
     if |cmd: &SetVfoAAgcMode| {
@@ -1900,7 +2058,7 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(
+impl_cat_command!(
     SetVfoBAgcMode => b"GT$"
     format mode uint 2,
     if |cmd: &SetVfoBAgcMode| {
@@ -1918,29 +2076,37 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetTransceiverId => b"ID");
-impl_command_with_response!(GetTransceiverId => 3, u16_from_ascii => u16);
+impl_cat_command!(GetTransceiverId => b"ID");
+impl_cat_command_with_response!(GetTransceiverId => 3, u16_from_ascii => u16);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoAIfCenterPitch => b"IS");
-impl_command_with_response!(GetVfoAIfCenterPitch => 5, parse_signed_hz_4 => i16);
+impl_cat_command!(GetVfoAIfCenterPitch => b"IS");
+impl_cat_command_with_response!(GetVfoAIfCenterPitch => 5, parse_signed_hz_4 => i16);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoBIfCenterPitch => b"IS$");
-impl_command_with_response!(GetVfoBIfCenterPitch => 5, parse_signed_hz_4 => i16);
+impl_cat_command!(GetVfoBIfCenterPitch => b"IS$");
+impl_cat_command_with_response!(GetVfoBIfCenterPitch => 5, parse_signed_hz_4 => i16);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetKeyerPaddleEmulationMode => b"KP");
-impl_command_with_response!(GetKeyerPaddleEmulationMode => try_from enum KeyerPaddleEmulationMode);
+impl_cat_command!(GetKeyerPaddleEmulationMode => b"KP");
+impl_cat_command_with_response!(GetKeyerPaddleEmulationMode => try_from enum KeyerPaddleEmulationMode);
 
-impl_command!(SetKeyerPaddleEmulationMode => b"KP" for as byte mode);
+impl_cat_command!(SetKeyerPaddleEmulationMode => b"KP" for as byte mode);
+
+impl_set_cat_command_from_enum!(
+    SetKeyerPaddleEmulationMode, KeyerPaddleEmulationMode => mode {
+        Normal => to_normal,
+        DitOnly => to_dit_only,
+        DahOnly => to_dah_only
+    }
+);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(
+impl_cat_command!(
     SetKeyerSpeed => b"KS"
     format wpm uint 3,
     if |cmd: &SetKeyerSpeed| {
@@ -1958,10 +2124,10 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetAudioLineInputLevel => b"LI");
-impl_command_with_response!(GetAudioLineInputLevel => 3, u8_from_ascii => u8);
+impl_cat_command!(GetAudioLineInputLevel => b"LI");
+impl_cat_command_with_response!(GetAudioLineInputLevel => 3, u8_from_ascii => u8);
 
-impl_command!(
+impl_cat_command!(
     SetAudioLineInputLevel => b"LI"
     format level uint 3,
     if |cmd: &SetAudioLineInputLevel| {
@@ -1979,10 +2145,10 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetAudioLineOutputLevel => b"LO");
-impl_command_with_response!(GetAudioLineOutputLevel => 3, u8_from_ascii => u8);
+impl_cat_command!(GetAudioLineOutputLevel => b"LO");
+impl_cat_command_with_response!(GetAudioLineOutputLevel => 3, u8_from_ascii => u8);
 
-impl_command!(
+impl_cat_command!(
     SetAudioLineOutputLevel => b"LO"
     format level uint 3,
     if |cmd: &SetAudioLineOutputLevel| {
@@ -2000,7 +2166,7 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoAModeAlternates => b"MA");
+impl_cat_command!(GetVfoAModeAlternates => b"MA");
 
 impl CommandWithResponse for GetVfoAModeAlternates {
     type Response = Vec<u8>;
@@ -2017,7 +2183,7 @@ impl CommandWithResponse for GetVfoAModeAlternates {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoBModeAlternates => b"MA$");
+impl_cat_command!(GetVfoBModeAlternates => b"MA$");
 
 impl CommandWithResponse for GetVfoBModeAlternates {
     type Response = Vec<u8>;
@@ -2034,17 +2200,26 @@ impl CommandWithResponse for GetVfoBModeAlternates {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetMicInputSource => b"MI");
-impl_command_with_response!(GetMicInputSource => try_from enum MicInputSource);
+impl_cat_command!(GetMicInputSource => b"MI");
+impl_cat_command_with_response!(GetMicInputSource => try_from enum MicInputSource);
 
-impl_command!(SetMicInputSource => b"MI" for as byte input);
+impl_cat_command!(SetMicInputSource => b"MI" for as byte input);
+
+impl_set_cat_command_from_enum!(
+    SetMicInputSource, MicInputSource => input {
+        Front => "Set the microphone input to the front panel.", to_front_panel,
+        Rear => "Set the microphone input to the rear panel.", to_rear_panel,
+        Usb => "Set the microphone input to USB.", to_usb,
+        Bluetooth => "Set the microphone input to Bluetooth.", to_bluetooth
+    }
+);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetAudioMixRatio => b"MX");
-impl_command_with_response!(GetAudioMixRatio => 2, u8_from_ascii => u8);
+impl_cat_command!(GetAudioMixRatio => b"MX");
+impl_cat_command_with_response!(GetAudioMixRatio => 2, u8_from_ascii => u8);
 
-impl_command!(
+impl_cat_command!(
     SetAudioMixRatio => b"MX"
     format ratio uint 2,
     if |cmd: &SetAudioMixRatio| {
@@ -2062,21 +2237,21 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoAAutoNotchState => b"NA");
-impl_command_with_response!(GetVfoAAutoNotchState => boolean);
+impl_cat_command!(GetVfoAAutoNotchState => b"NA");
+impl_cat_command_with_response!(GetVfoAAutoNotchState => boolean);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoBAutoNotchState => b"NA$");
-impl_command_with_response!(GetVfoBAutoNotchState => boolean);
+impl_cat_command!(GetVfoBAutoNotchState => b"NA$");
+impl_cat_command_with_response!(GetVfoBAutoNotchState => boolean);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetVfoAAutoNotchState => b"NA" for state);
+impl_cat_command!(SetVfoAAutoNotchState => b"NA" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetVfoBAutoNotchState => b"NA$" for state);
+impl_cat_command!(SetVfoBAutoNotchState => b"NA$" for state);
 
 // ------------------------------------------------------------------------------------------------
 // NM/NM$ pack the on/off flag, an ignored step digit, and a sign-prefixed 4-digit Hz offset into a
@@ -2084,7 +2259,7 @@ impl_command!(SetVfoBAutoNotchState => b"NA$" for state);
 // implementations below are hand-rolled.
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoAManualNotchSettings => b"NM");
+impl_cat_command!(GetVfoAManualNotchSettings => b"NM");
 
 impl CommandWithResponse for GetVfoAManualNotchSettings {
     type Response = ManualNotch;
@@ -2104,7 +2279,7 @@ impl CommandWithResponse for GetVfoAManualNotchSettings {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoBManualNotchSettings => b"NM$");
+impl_cat_command!(GetVfoBManualNotchSettings => b"NM$");
 
 impl CommandWithResponse for GetVfoBManualNotchSettings {
     type Response = ManualNotch;
@@ -2124,13 +2299,13 @@ impl CommandWithResponse for GetVfoBManualNotchSettings {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetVfoAManualNotchSettings => b"NM" with |cmd: &SetVfoAManualNotchSettings| {
+impl_cat_command!(SetVfoAManualNotchSettings => b"NM" with |cmd: &SetVfoAManualNotchSettings| {
     Ok(Some(manual_k4_notch_argument_bytes(cmd.state, cmd.offset_hz)))
 }, if |cmd: &SetVfoAManualNotchSettings| { validate_k4_manual_notch_offset(cmd.offset_hz) });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetVfoBManualNotchSettings => b"NM$" with |cmd: &SetVfoBManualNotchSettings| {
+impl_cat_command!(SetVfoBManualNotchSettings => b"NM$" with |cmd: &SetVfoBManualNotchSettings| {
     Ok(Some(manual_k4_notch_argument_bytes(cmd.state, cmd.offset_hz)))
 }, if |cmd: &SetVfoBManualNotchSettings| { validate_k4_manual_notch_offset(cmd.offset_hz) });
 
@@ -2140,7 +2315,7 @@ impl_command!(SetVfoBManualNotchSettings => b"NM$" with |cmd: &SetVfoBManualNotc
 // hand-rolled.
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoANoiseReductionSettings => b"NR");
+impl_cat_command!(GetVfoANoiseReductionSettings => b"NR");
 
 impl CommandWithResponse for GetVfoANoiseReductionSettings {
     type Response = NoiseReduction;
@@ -2160,7 +2335,7 @@ impl CommandWithResponse for GetVfoANoiseReductionSettings {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoBNoiseReductionSettings => b"NR$");
+impl_cat_command!(GetVfoBNoiseReductionSettings => b"NR$");
 
 impl CommandWithResponse for GetVfoBNoiseReductionSettings {
     type Response = NoiseReduction;
@@ -2180,19 +2355,19 @@ impl CommandWithResponse for GetVfoBNoiseReductionSettings {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetVfoANoiseReductionSettings => b"NR" with Some |cmd: &SetVfoANoiseReductionSettings| {
+impl_cat_command!(SetVfoANoiseReductionSettings => b"NR" with Some |cmd: &SetVfoANoiseReductionSettings| {
     vec![if cmd.state { b'1' } else { b'0' }, b'0' + cmd.level]
 }, if |cmd: &SetVfoANoiseReductionSettings| { validate_k4_noise_reduction_level(cmd.level) });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetVfoBNoiseReductionSettings => b"NR$" with Some |cmd: &SetVfoBNoiseReductionSettings| {
+impl_cat_command!(SetVfoBNoiseReductionSettings => b"NR$" with Some |cmd: &SetVfoBNoiseReductionSettings| {
     vec![if cmd.state { b'1' } else { b'0' }, b'0' + cmd.level]
 }, if |cmd: &SetVfoBNoiseReductionSettings| { validate_k4_noise_reduction_level(cmd.level) });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(
+impl_cat_command!(
     PlayDvrMessage => b"PB"
     format message uint 1,
     if |cmd: &PlayDvrMessage| {
@@ -2210,17 +2385,17 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoACtssTone => b"PL");
-impl_command_with_response!(GetVfoACtssTone => 3, u8_from_ascii => u8);
+impl_cat_command!(GetVfoACtssTone => b"PL");
+impl_cat_command_with_response!(GetVfoACtssTone => 3, u8_from_ascii => u8);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoBCtssTone => b"PL$");
-impl_command_with_response!(GetVfoBCtssTone => 3, u8_from_ascii => u8);
+impl_cat_command!(GetVfoBCtssTone => b"PL$");
+impl_cat_command_with_response!(GetVfoBCtssTone => 3, u8_from_ascii => u8);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(
+impl_cat_command!(
     SetVfoACtssTone => b"PL"
     format tone_code uint 3,
     if |cmd: &SetVfoACtssTone| { validate_k4_pl_tone_code(cmd.tone_code) }
@@ -2228,7 +2403,7 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(
+impl_cat_command!(
     SetVfoBCtssTone => b"PL$"
     format tone_code uint 3,
     if |cmd: &SetVfoBCtssTone| { validate_k4_pl_tone_code(cmd.tone_code) }
@@ -2236,22 +2411,37 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetCurrentBandPowerLimit => b"PP");
-impl_command_with_response!(GetCurrentBandPowerLimit => 3, u8_from_ascii => u8);
+impl_cat_command!(GetCurrentBandPowerLimit => b"PP");
+impl_cat_command_with_response!(GetCurrentBandPowerLimit => 3, u8_from_ascii => u8);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetPowerStatus => b"PS");
-impl_command_with_response!(GetPowerStatus => try_from enum PowerStatus);
+impl_cat_command!(GetPowerStatus => b"PS");
+impl_cat_command_with_response!(GetPowerStatus => try_from enum PowerStatus);
 
-impl_command!(SetPowerStatus => b"PS" for as byte state);
+impl_cat_command!(SetPowerStatus => b"PS" for as byte state);
 
+impl_set_cat_command_from_enum!(
+    SetPowerStatus, PowerStatus => state {
+        Off => turn_off,
+        On => turn_on,
+        FirmwareRestart => trigger_firmware_restart
+    }
+);
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetActiveSoftwareReleaseChannel => b"RL");
-impl_command_with_response!(GetActiveSoftwareReleaseChannel => try_from enum SoftwareReleaseChannel);
+impl_cat_command!(GetActiveSoftwareReleaseChannel => b"RL");
+impl_cat_command_with_response!(GetActiveSoftwareReleaseChannel => try_from enum SoftwareReleaseChannel);
 
-impl_command!(SetActiveSoftwareReleaseChannel => b"RL" for as byte channel);
+impl_cat_command!(SetActiveSoftwareReleaseChannel => b"RL" for as byte channel);
+
+impl_set_cat_command_from_enum!(
+    SetActiveSoftwareReleaseChannel, SoftwareReleaseChannel => channel {
+        Stable => "Set the active software release channel to Stable.", to_stable,
+        Beta => "Set the active software release channel to Beta.", to_beta,
+        Alpha => "Set the active software release channel to Alpha.", to_alpha
+    }
+);
 
 // ------------------------------------------------------------------------------------------------
 // RP packs the offset direction, an ignored split flag, and a 6-digit Hz offset into a single
@@ -2259,7 +2449,7 @@ impl_command!(SetActiveSoftwareReleaseChannel => b"RL" for as byte channel);
 // below are hand-rolled.
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetRepeaterOffset => b"RP");
+impl_cat_command!(GetRepeaterOffset => b"RP");
 
 impl CommandWithResponse for GetRepeaterOffset {
     type Response = RepeaterOffset;
@@ -2283,7 +2473,7 @@ impl CommandWithResponse for GetRepeaterOffset {
     }
 }
 
-impl_command!(SetRepeaterOffset => b"RP" with Some |cmd: &SetRepeaterOffset| {
+impl_cat_command!(SetRepeaterOffset => b"RP" with Some |cmd: &SetRepeaterOffset| {
     let mut v = vec![cmd.direction as u8];
     v.extend_from_slice(&format_u32_ascii_6(cmd.offset_hz));
     v
@@ -2301,14 +2491,14 @@ impl_command!(SetRepeaterOffset => b"RP" with Some |cmd: &SetRepeaterOffset| {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetScreenCount => b"SC");
-impl_command_with_response!(GetScreenCount => 2, u8_from_ascii => u8);
+impl_cat_command!(GetScreenCount => b"SC");
+impl_cat_command_with_response!(GetScreenCount => 2, u8_from_ascii => u8);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetK4QskOrVoxDelay => b"SD" with Some |cmd: &SetK4QskOrVoxDelay| {
+impl_cat_command!(SetQskOrVoxDelay => b"SD" with Some |cmd: &SetQskOrVoxDelay| {
     format_u16_ascii_4(cmd.delay_ms)
-}, if |cmd: &SetK4QskOrVoxDelay| {
+}, if |cmd: &SetQskOrVoxDelay| {
     if cmd.delay_ms <= 2000 {
         Ok(())
     } else {
@@ -2322,7 +2512,7 @@ impl_command!(SetK4QskOrVoxDelay => b"SD" with Some |cmd: &SetK4QskOrVoxDelay| {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetSystemAutoInfoInterval => b"SI" with Some |cmd: &SetSystemAutoInfoInterval| {
+impl_cat_command!(SetSystemAutoInfoInterval => b"SI" with Some |cmd: &SetSystemAutoInfoInterval| {
     format_u16_ascii_4(cmd.interval_ms)
 }, if |cmd: &SetSystemAutoInfoInterval| {
     if cmd.interval_ms <= 9999 {
@@ -2338,10 +2528,10 @@ impl_command!(SetSystemAutoInfoInterval => b"SI" with Some |cmd: &SetSystemAutoI
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetStreamingLatencyClass => b"SL");
-impl_command_with_response!(GetStreamingLatencyClass => 2, u8_from_ascii => u8);
+impl_cat_command!(GetStreamingLatencyClass => b"SL");
+impl_cat_command_with_response!(GetStreamingLatencyClass => 2, u8_from_ascii => u8);
 
-impl_command!(
+impl_cat_command!(
     SetStreamingLatencyClass => b"SL"
     format latency uint 2,
     if |cmd: &SetStreamingLatencyClass| {
@@ -2359,63 +2549,81 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetTransceiverSerialNumber => b"SN");
-impl_command_with_response!(GetTransceiverSerialNumber => 5, u32_from_ascii => u32);
+impl_cat_command!(GetTransceiverSerialNumber => b"SN");
+impl_cat_command_with_response!(GetTransceiverSerialNumber => 5, u32_from_ascii => u32);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(CaptureScreenshot => b"SS");
+impl_cat_command!(CaptureScreenshot => b"SS");
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetTransmitGainConstant => b"TA");
-impl_command_with_response!(GetTransmitGainConstant => 3, u8_from_ascii => u8);
+impl_cat_command!(GetTransmitGainConstant => b"TA");
+impl_cat_command_with_response!(GetTransmitGainConstant => 3, u8_from_ascii => u8);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoATextDecodeMode => b"TD");
-impl_command_with_response!(GetVfoATextDecodeMode => try_from enum TextDecodeMode);
+impl_cat_command!(GetVfoATextDecodeMode => b"TD");
+impl_cat_command_with_response!(GetVfoATextDecodeMode => try_from enum TextDecodeMode);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoBTextDecodeMode => b"TD$");
-impl_command_with_response!(GetVfoBTextDecodeMode => try_from enum TextDecodeMode);
+impl_cat_command!(GetVfoBTextDecodeMode => b"TD$");
+impl_cat_command_with_response!(GetVfoBTextDecodeMode => try_from enum TextDecodeMode);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetVfoATextDecodeMode => b"TD" for as byte mode);
+impl_cat_command!(SetVfoATextDecodeMode => b"TD" for as byte mode);
+
+impl_set_cat_command_from_enum!(
+    SetVfoATextDecodeMode, TextDecodeMode => mode {
+        Off => "Turn off text decoding.", turn_off,
+        Cw => "Set text decoding to CW mode.", to_cw,
+        Rtty => "Set text decoding to RTTY mode.", to_rtty,
+        Psk => "Set text decoding to PSK mode.", to_psk
+    }
+);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetVfoBTextDecodeMode => b"TD$" for as byte mode);
+impl_cat_command!(SetVfoBTextDecodeMode => b"TD$" for as byte mode);
+
+impl_set_cat_command_from_enum!(
+    SetVfoBTextDecodeMode, TextDecodeMode => mode {
+        Off => "Turn off text decoding.", turn_off,
+        Cw => "Set text decoding to CW mode.", to_cw,
+        Rtty => "Set text decoding to RTTY mode.", to_rtty,
+        Psk => "Set text decoding to PSK mode.", to_psk
+    }
+);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetTransmitGain => b"TG");
-impl_command_with_response!(GetTransmitGain => 3, u8_from_ascii => u8);
+impl_cat_command!(GetTransmitGain => b"TG");
+impl_cat_command_with_response!(GetTransmitGain => 3, u8_from_ascii => u8);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetTransmitTestModeState => b"TS");
-impl_command_with_response!(GetTransmitTestModeState => boolean);
+impl_cat_command!(GetTransmitTestModeState => b"TS");
+impl_cat_command_with_response!(GetTransmitTestModeState => boolean);
 
-impl_command!(SetTransmitTestModeState => b"TS" for state);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(SetAtuTuningState => b"TU" for state);
+impl_cat_command!(SetTransmitTestModeState => b"TS" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetUtcTimestamp => b"UT");
-impl_command_with_response!(GetUtcTimestamp => 14, bytes_to_vec => Vec<u8>);
+impl_cat_command!(SetAtuTuningState => b"TU" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetCoarseTuningStep => b"VC");
-impl_command_with_response!(GetCoarseTuningStep => 2, u8_from_ascii => u8);
+impl_cat_command!(GetUtcTimestamp => b"UT");
+impl_cat_command_with_response!(GetUtcTimestamp => 14, bytes_to_vec => Vec<u8>);
 
-impl_command!(
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetCoarseTuningStep => b"VC");
+impl_cat_command_with_response!(GetCoarseTuningStep => 2, u8_from_ascii => u8);
+
+impl_cat_command!(
     SetCoarseTuningStep => b"VC"
     format step uint 2,
     if |cmd: &SetCoarseTuningStep| {
@@ -2433,10 +2641,10 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVoxGain => b"VG");
-impl_command_with_response!(GetVoxGain => 3, u8_from_ascii => u8);
+impl_cat_command!(GetVoxGain => b"VG");
+impl_cat_command_with_response!(GetVoxGain => 3, u8_from_ascii => u8);
 
-impl_command!(
+impl_cat_command!(
     SetVoxGain => b"VG"
     format gain uint 3,
     if |cmd: &SetVoxGain| {
@@ -2454,63 +2662,63 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVoxInhibitState => b"VI");
-impl_command_with_response!(GetVoxInhibitState => boolean);
+impl_cat_command!(GetVoxInhibitState => b"VI");
+impl_cat_command_with_response!(GetVoxInhibitState => boolean);
 
-impl_command!(SetVoxInhibitState => b"VI" for state);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetVfoATransverterOffset => b"VO");
-impl_command_with_response!(GetVfoATransverterOffset => 10, bytes_to_vec => Vec<u8>);
+impl_cat_command!(SetVoxInhibitState => b"VI" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoBTransverterOffset => b"VO$");
-impl_command_with_response!(GetVfoBTransverterOffset => 10, bytes_to_vec => Vec<u8>);
+impl_cat_command!(GetVfoATransverterOffset => b"VO");
+impl_cat_command_with_response!(GetVfoATransverterOffset => 10, bytes_to_vec => Vec<u8>);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoATuningStep => b"VT");
-impl_command_with_response!(GetVfoATuningStep => 6, u32_from_ascii => u32);
+impl_cat_command!(GetVfoBTransverterOffset => b"VO$");
+impl_cat_command_with_response!(GetVfoBTransverterOffset => 10, bytes_to_vec => Vec<u8>);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoBTuningStep => b"VT$");
-impl_command_with_response!(GetVfoBTuningStep => 6, u32_from_ascii => u32);
+impl_cat_command!(GetVfoATuningStep => b"VT");
+impl_cat_command_with_response!(GetVfoATuningStep => 6, u32_from_ascii => u32);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetVfoATuningStep => b"VT" with Some |cmd: &SetVfoATuningStep| {
+impl_cat_command!(GetVfoBTuningStep => b"VT$");
+impl_cat_command_with_response!(GetVfoBTuningStep => 6, u32_from_ascii => u32);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(SetVfoATuningStep => b"VT" with Some |cmd: &SetVfoATuningStep| {
     format_u32_ascii_6(cmd.step_hz)
 }, if |cmd: &SetVfoATuningStep| { validate_k4_vfo_tuning_step(cmd.step_hz) });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetVfoBTuningStep => b"VT$" with Some |cmd: &SetVfoBTuningStep| {
+impl_cat_command!(SetVfoBTuningStep => b"VT$" with Some |cmd: &SetVfoBTuningStep| {
     format_u32_ascii_6(cmd.step_hz)
 }, if |cmd: &SetVfoBTuningStep| { validate_k4_vfo_tuning_step(cmd.step_hz) });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetWattmeterCalibrationConstant => b"WM");
-impl_command_with_response!(GetWattmeterCalibrationConstant => 3, u8_from_ascii => u8);
+impl_cat_command!(GetWattmeterCalibrationConstant => b"WM");
+impl_cat_command_with_response!(GetWattmeterCalibrationConstant => 3, u8_from_ascii => u8);
 
-impl_command!(SetWattmeterCalibrationConstant => b"WM" format value uint 3);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetVfoATransverterActiveBandSlot => b"XV");
-impl_command_with_response!(GetVfoATransverterActiveBandSlot => 2, u8_from_ascii => u8);
+impl_cat_command!(SetWattmeterCalibrationConstant => b"WM" format value uint 3);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoBTransverterActiveBandSlot => b"XV$");
-impl_command_with_response!(GetVfoBTransverterActiveBandSlot => 2, u8_from_ascii => u8);
+impl_cat_command!(GetVfoATransverterActiveBandSlot => b"XV");
+impl_cat_command_with_response!(GetVfoATransverterActiveBandSlot => 2, u8_from_ascii => u8);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(
+impl_cat_command!(GetVfoBTransverterActiveBandSlot => b"XV$");
+impl_cat_command_with_response!(GetVfoBTransverterActiveBandSlot => 2, u8_from_ascii => u8);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(
     SetVfoATransverterActiveBandSlot => b"XV"
     format band_slot uint 2,
     if |cmd: &SetVfoATransverterActiveBandSlot| { validate_k4_transverter_band_slot(cmd.band_slot) }
@@ -2518,7 +2726,7 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(
+impl_cat_command!(
     SetVfoBTransverterActiveBandSlot => b"XV$"
     format band_slot uint 2,
     if |cmd: &SetVfoBTransverterActiveBandSlot| { validate_k4_transverter_band_slot(cmd.band_slot) }
@@ -2594,19 +2802,6 @@ fn validate_k4_pl_tone_code(tone_code: u8) -> Result<(), RigError> {
             argument_name: "tone_code",
             type_name: "u8",
             value: tone_code.to_string(),
-        })
-    }
-}
-
-/// Validate the text decode/encode mode used by `SetTextDecodeModeA`/`SetTextDecodeModeB`.
-fn validate_k4_text_decode_mode(mode: u8) -> Result<(), RigError> {
-    if mode <= 3 {
-        Ok(())
-    } else {
-        Err(RigError::InvalidArgumentValue {
-            argument_name: "mode",
-            type_name: "u8",
-            value: mode.to_string(),
         })
     }
 }

@@ -1,8 +1,21 @@
 //!
 //! CAT commands for the Elecraft KH1 portable transceiver.
 //!
+//! The KH1 supports 100% remote control. This feature is primarily intended for updating firmware,
+//! sending internal log information to a PC, and automated factory testing (see the Elecraft KH1
+//! Alignment Manual for manual procedures). It can also be used to operate the radio using custom
+//! software, in applications ranging from *HF-Pack Lite* (radio in a pack), to SOTA self-ID via
+//! FT8, to putting the KH1 at an  antenna feedpoint.
+//!
+//! KH1 commands consist of one or two letters followed by zero or more parameters. There is some
+//! overlap with the command sets from other Elecraft transceivers, but the KH1 command set is more
+//! limited.
+//!
+//! # Notes
+//!
 //! The KH1 is a minimalist QRP CW/DATA transceiver. Its command set is much smaller than the
-//! K3/K4, and most commands are SET-only; the radio instead pushes state changes via AI mode.
+//! K3/KX/K4, and most commands are SET-only; the radio instead pushes state changes via AI mode.
+//!
 //! Notable differences from the K3/K4 command set:
 //!
 //! * The `FA` command uses 10 Hz resolution in an 8-digit field, not the 11-digit 1 Hz resolution
@@ -22,16 +35,12 @@ use crate::{
     error::RigError,
     protocol::{
         Frequency,
-        cat::{
-            Command,
-            common::{
-                bool_from_ascii_1_0, bytes_to_vec, u8_from_ascii, u32_from_ascii,
-                validate_integer_in_range, validate_response,
-            },
+        cat::common::{
+            bool_from_ascii_1_0, bytes_to_vec, u8_from_ascii, u32_from_ascii,
+            validate_integer_in_range,
         },
     },
 };
-use tracing::error;
 
 // ------------------------------------------------------------------------------------------------
 // Public Types
@@ -41,7 +50,7 @@ use tracing::error;
 // Public Types: SetAfGain
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Set AF gain (`AG`).
+define_cat_command!("Set AF gain (`AG`).
 
 AF gain can also be incremented/decremented using the ENAU/ENAD commands.
 
@@ -59,7 +68,7 @@ Where *nn* is the AF gain level, between `00` and `30`." =>
 // Public Types: GetDisplayText, SetDisplayText
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the contents of a display line (`DS`).
+define_cat_command!("Get the contents of a display line (`DS`).
 
 The LCD supports 8 special characters, some of which change depending on the radio's
 operational context. For a GET, the host app must translate these to suitable characters within the
@@ -78,14 +87,14 @@ Where *l* is the display line number, `1` for the top line, or `2` for the botto
 
 Where:
 
-* *l* is the display line number, `1` for the top line, or `2` for the bottom line
+* *l* is the display line number, `1` for the top line, or `2` for the bottom line, See [`DisplayLine`].
 * *ssssssssssssssss* is the 16-character line content, space-padded." =>
     GetDisplayText {
-        line: u8
+        line: DisplayLine
     }
 );
 
-define_command!("Set the contents of a display line (`DS`).
+define_cat_command!("Set the contents of a display line (`DS`).
 
 The LCD supports 8 special characters, some of which change depending on the radio's
 operational context. For a GET, the host app must translate these to suitable characters within the
@@ -98,16 +107,23 @@ characters that make sense in the KH1's context. List of characters and contexts
 
 Where:
 
-* *l* is the display line number, `1` for the top line, or `2` for the bottom line
+* *l* is the display line number, `1` for the top line, or `2` for the bottom line, See [`DisplayLine`].
 * *ssssssssssssssss* is the text content, truncated or space-padded to exactly 16 characters
 
 **Note**: The DS SET string is flashed for about 1.5 seconds. Use subsequent DS SETs to keep the
 flashed string on the display longer." =>
     SetDisplayText no_copy {
-        "Display line, `1` or `2`."
-        line: u8,
+        "The display line to update."
+        line: DisplayLine,
         "Text content (truncated and padded to 16 characters)."
         text: Vec<u8>
+    }
+);
+
+define_command_enum!(
+    "Constants for the display lines on the KH1" => DisplayLine {
+        "Top line" => Top = b'1',
+        "Bottom line" => Bottom = b'2'
     }
 );
 
@@ -115,7 +131,7 @@ flashed string on the display longer." =>
 // Public Types: EmulateEncoderRotation, Encoder, Direction
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Emulate encoder rotation (`EN`).
+define_cat_command!("Emulate encoder rotation (`EN`).
 
 # Command format
 
@@ -150,7 +166,7 @@ define_command_enum!(
 // Public Types: SetOperatingFrequency
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Set the VFO A operating frequency (`FA`).
+define_cat_command!("Set the VFO A operating frequency (`FA`).
 
 Unlike the K3/K4 `FA` command, which uses 11-digit 1 Hz resolution, the KH1 `FA` command uses
 8-digit **10 Hz** resolution.
@@ -169,7 +185,7 @@ Where *ffffffff* is the frequency,  is in 10 Hz units e.g. 1400000 = 14000.00 kH
 // Public Types: SetVfoOffset
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Set the VFO offset (`FO`).
+define_cat_command!("Set the VFO offset (`FO`).
 
 # Command format
 
@@ -190,7 +206,7 @@ to the original format." =>
 // Public Types: GetHelpInformation
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get Help Information (`H`).
+define_cat_command!("Get Help Information (`H`).
 
 Responds with terse help information.
 
@@ -210,7 +226,7 @@ Where *s..* is an undefined number of characters." =>
 // Public Types: EmulateHandKeyPress, HandKeyState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Emulate a hand-key press. (`HK`)
+define_cat_command!("Emulate a hand-key press. (`HK`)
 
 This command is especially useful for starting and stopping transmit when sending FT8 messages.
 
@@ -239,7 +255,7 @@ define_command_enum!(
 // Public Types: GetTransceiverId
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get transceiver identification (`I`).
+define_cat_command!("Get transceiver identification (`I`).
 
 # Command format
 
@@ -261,7 +277,7 @@ pub const KH1_ID_IN_BOOT_LOADER: &str = "kh1";
 // Public Types: LoadFirmware
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Load Firmware (`LD`).
+define_cat_command!("Load Firmware (`LD`).
 
 Jump to the boot loader.
 
@@ -276,7 +292,7 @@ Jump to the boot loader.
 // Public Types: DumpLog, LogAction
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Dump Logs (`LG`).
+define_cat_command!("Dump Logs (`LG`).
 
 # Command format
 
@@ -310,7 +326,7 @@ define_command_enum!(
 // Public Types: SetOperatingMode
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Set the operating mode (`MD`).
+define_cat_command!("Set the operating mode (`MD`).
 
 # Command format
 
@@ -328,7 +344,17 @@ Where *n* is one of:
 **Note**: In SSB modes, the KH1 operates cross-mode (CW transmit, SSB receive). SSB receiving
 operarators hear the KH1's CW at a 700 Hz pitch." =>
     SetOperatingMode {
-        mode: u8
+        mode: OperatingMode
+    }
+);
+
+define_command_enum!(
+    "Operating mode for [`SetOperatingMode`]." =>
+    OperatingMode {
+        LowerSideBand = b'0',
+        UpperSideBand = b'1',
+        ContinuousWave = b'2',
+        Data = b'4'
     }
 );
 
@@ -336,7 +362,7 @@ operarators hear the KH1's CW at a 700 Hz pitch." =>
 // Public Types: SelectMenuItem
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Select a menu item by its 3-character ID (`MN`).
+define_cat_command!("Select a menu item by its 3-character ID (`MN`).
 
 # Command format
 
@@ -354,7 +380,7 @@ for keyer speed). See the B2 reference for the full menu ID list." =>
 // Public Types: GetMenuParameter, SetMenuParameter
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the current menu parameter value (`MP`).
+define_cat_command!("Get the current menu parameter value (`MP`).
 
 # Command format
 
@@ -368,7 +394,7 @@ Where *nnn* is the value for the currently selected menu item, between `000` and
     GetMenuParameter
 );
 
-define_command!("Set the current menu parameter value (`MP`).
+define_cat_command!("Set the current menu parameter value (`MP`).
 
 # Command format
 
@@ -384,7 +410,7 @@ Where *nnn* is the value for the currently selected menu item, between `000` and
 // Public Types: GetFirmwareRevision
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the firmware revision string (`RV`).
+define_cat_command!("Get the firmware revision string (`RV`).
 
 # Command format
 
@@ -402,7 +428,7 @@ Where *xx.xx* is the firmware version string, e.g. `01.08`." =>
 // Public Types: GetTransceiverSerialNumber
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the transceiver serial number (`SN`).
+define_cat_command!("Get the transceiver serial number (`SN`).
 
 # Command format
 
@@ -420,7 +446,7 @@ Where *nnnnn* is the 5-digit serial number." =>
 // Public Types: GetTransceiverStatus, TransceiverStatus
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get combined transceiver status (`ST`).
+define_cat_command!("Get combined transceiver status (`ST`).
 
 # Command format
 
@@ -456,7 +482,7 @@ define_command_struct!(
 // Public Types: EmulateButtonTap, EmulateButtonHold
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Emulate a button tap (`SW`).
+define_cat_command!("Emulate a button tap (`SW`).
 
 # Command format
 
@@ -471,7 +497,7 @@ shares the same `SW` command identifier." =>
     }
 );
 
-define_command!("Emulate a button hold (`SW`).
+define_cat_command!("Emulate a button hold (`SW`).
 
 # Command format
 
@@ -491,7 +517,7 @@ shares the same `SW` command identifier." =>
 // Public Types: GetTransmitLowLimit, GetTransmitHighLimit
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Get the lower transmit frequency limit for the current band (`TXL`).
+define_cat_command!("Get the lower transmit frequency limit for the current band (`TXL`).
 
 # Command format
 
@@ -511,7 +537,7 @@ Where *fffff* is the lower limit, in kHz.
     }
 );
 
-define_command!("Get the upper transmit frequency limit for the current band (`TXH`).
+define_cat_command!("Get the upper transmit frequency limit for the current band (`TXH`).
 
 # Command format
 
@@ -546,7 +572,7 @@ define_command_enum!(
 // Implementations
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(
+impl_cat_command!(
     SetAfGain => b"AG"
     format level uint 2,
     if |cmd: &SetAfGain| validate_integer_in_range("level", "u8", cmd.level, 0, 30)
@@ -554,39 +580,85 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetDisplayText => b"DS" with Some |cmd: &GetDisplayText| {
-    vec![b'0' + cmd.line]
-}, if |cmd: &GetDisplayText| validate_integer_in_range("line", "u8", cmd.line, 1, 2));
+impl_cat_command!(GetDisplayText => b"DS" for as byte line);
 
-impl_command_with_response!(GetDisplayText => 18, |bytes: &[u8]| {
+impl_cat_command_with_response!(GetDisplayText => 18, |bytes: &[u8]| {
     Ok(bytes[2..].to_vec())
 } => Vec<u8>);
 
-impl_command!(SetDisplayText => b"DS" with Some |cmd: &SetDisplayText| {
-    let mut bytes = vec![b'0' + cmd.line, b' '];
+impl GetDisplayText {
+    #[inline]
+    pub const fn for_line(line: DisplayLine) -> Self {
+        Self { line }
+    }
+    #[inline]
+    pub const fn for_top_line() -> Self {
+        Self::for_line(DisplayLine::Top)
+    }
+    #[inline]
+    pub const fn for_bottom_line() -> Self {
+        Self::for_line(DisplayLine::Bottom)
+    }
+}
+
+impl_cat_command!(SetDisplayText => b"DS" with Some |cmd: &SetDisplayText| {
+    let mut bytes = vec![cmd.line as u8, b' '];
     let len = cmd.text.len().min(16);
     bytes.extend_from_slice(&cmd.text[..len]);
     while bytes.len() < 18 {
         bytes.push(b' ');
     }
     bytes
-}, if |cmd: &SetDisplayText| validate_integer_in_range("line", "u8", cmd.line, 1, 2));
+});
+
+impl SetDisplayText {
+    #[inline]
+    pub const fn for_line(line: DisplayLine, text: Vec<u8>) -> Self {
+        Self { line, text }
+    }
+    #[inline]
+    pub const fn for_top_line(text: Vec<u8>) -> Self {
+        Self::for_line(DisplayLine::Top, text)
+    }
+    #[inline]
+    pub const fn for_bottom_line(text: Vec<u8>) -> Self {
+        Self::for_line(DisplayLine::Bottom, text)
+    }
+}
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(EmulateEncoderRotation => b"EN" with Some |cmd: &EmulateEncoderRotation| {
+impl_cat_command!(EmulateEncoderRotation => b"EN" with Some |cmd: &EmulateEncoderRotation| {
     vec![cmd.encoder as u8, cmd.direction as u8]
 });
 
+impl EmulateEncoderRotation {
+    #[inline]
+    pub const fn rotate_af_gain(direction: EncoderDirection) -> Self {
+        Self {
+            encoder: Encoder::AfGain,
+            direction,
+        }
+    }
+
+    #[inline]
+    pub const fn rotate_vfo(direction: EncoderDirection) -> Self {
+        Self {
+            encoder: Encoder::Vfo,
+            direction,
+        }
+    }
+}
+
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetOperatingFrequency => b"FA" with Some |cmd: &SetOperatingFrequency| {
+impl_cat_command!(SetOperatingFrequency => b"FA" with Some |cmd: &SetOperatingFrequency| {
     format!("{:08}", cmd.freq_10hz).into_bytes()
 });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(
+impl_cat_command!(
     SetVfoOffset => b"FO"
     format offset_hz uint 2,
     if |cmd: &SetVfoOffset| validate_integer_in_range("offset_hz", "u8", cmd.offset_hz, 0, 99)
@@ -594,60 +666,74 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetHelpInformation => b"H");
+impl_cat_command!(GetHelpInformation => b"H");
 
-impl_command_with_response!(GetHelpInformation => string);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(EmulateHandKeyPress => b"HK" for as byte state);
+impl_cat_command_with_response!(GetHelpInformation => string);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetTransceiverId => b"I");
-impl_command_with_response!(GetTransceiverId => string);
+impl_cat_command!(EmulateHandKeyPress => b"HK" for as byte state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(LoadFirmware => b"LD");
+impl_cat_command!(GetTransceiverId => b"I");
+impl_cat_command_with_response!(GetTransceiverId => string);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(DumpLog => b"LG" for as byte action);
+impl_cat_command!(LoadFirmware => b"LD");
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetOperatingMode => b"MD" with Some |cmd: &SetOperatingMode| {
-    vec![b'0' + cmd.mode]
-}, if |cmd: &SetOperatingMode| validate_kh1_operating_mode_digit(cmd.mode));
+impl_cat_command!(DumpLog => b"LG" for as byte action);
+
+impl_set_cat_command_from_enum!(
+    DumpLog, LogAction => action {
+        Dump => dump,
+        Stop => stop,
+        Continue => continue_dump,
+        Erase => erase
+    }
+);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SelectMenuItem => b"MN" with Some |cmd: &SelectMenuItem| {
+impl_cat_command!(SetOperatingMode => b"MD" for as byte mode);
+
+impl_set_cat_command_from_enum!(SetOperatingMode, OperatingMode => mode {
+    LowerSideBand => to_lower_sideband,
+    UpperSideBand => to_upper_sideband,
+    ContinuousWave => to_cw,
+    Data => to_data
+});
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(SelectMenuItem => b"MN" with Some |cmd: &SelectMenuItem| {
     cmd.item_id.to_vec()
 });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetMenuParameter => b"MP");
-impl_command_with_response!(GetMenuParameter => 3, u8_from_ascii => u8);
+impl_cat_command!(GetMenuParameter => b"MP");
+impl_cat_command_with_response!(GetMenuParameter => 3, u8_from_ascii => u8);
 
-impl_command!(SetMenuParameter => b"MP" format value uint 3);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetFirmwareRevision => b"RV");
-impl_command_with_response!(GetFirmwareRevision => 4, bytes_to_vec => Vec<u8>);
+impl_cat_command!(SetMenuParameter => b"MP" format value uint 3);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetTransceiverSerialNumber => b"SN");
-impl_command_with_response!(GetTransceiverSerialNumber => 5, u32_from_ascii => u32);
+impl_cat_command!(GetFirmwareRevision => b"RV");
+impl_cat_command_with_response!(GetFirmwareRevision => 4, bytes_to_vec => Vec<u8>);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetTransceiverStatus => b"ST");
-impl_command_with_response!(GetTransceiverStatus => 3, |bytes: &[u8]| {
+impl_cat_command!(GetTransceiverSerialNumber => b"SN");
+impl_cat_command_with_response!(GetTransceiverSerialNumber => 5, u32_from_ascii => u32);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetTransceiverStatus => b"ST");
+impl_cat_command_with_response!(GetTransceiverStatus => 3, |bytes: &[u8]| {
     Ok(TransceiverStatus {
         self_test_errors: bytes[0],
         serial_numer_assigned: bool_from_ascii_1_0(bytes[1])?,
@@ -657,37 +743,22 @@ impl_command_with_response!(GetTransceiverStatus => 3, |bytes: &[u8]| {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(EmulateButtonTap => b"SW" with Some |cmd: &EmulateButtonTap| {
+impl_cat_command!(EmulateButtonTap => b"SW" with Some |cmd: &EmulateButtonTap| {
     vec![b'0' + cmd.button, b'T']
 }, if |cmd: &EmulateButtonTap| validate_integer_in_range("button", "u8", cmd.button, 1, 6));
 
-impl_command!(EmulateButtonHold => b"SW" with Some |cmd: &EmulateButtonHold| {
+impl_cat_command!(EmulateButtonHold => b"SW" with Some |cmd: &EmulateButtonHold| {
     vec![b'0' + cmd.button, b'H']
 }, if |cmd: &EmulateButtonHold| validate_integer_in_range("button", "u8", cmd.button, 1, 6));
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetTransmitLowerLimit => b"TXL" for as byte band);
-impl_command_with_response!(GetTransmitLowerLimit => try_from 5 Frequency);
+impl_cat_command!(GetTransmitLowerLimit => b"TXL" for as byte band);
+impl_cat_command_with_response!(GetTransmitLowerLimit => try_from 5 Frequency);
 
-impl_command!(GetTransmitUpperLimit => b"TXH" for as byte band);
-impl_command_with_response!(GetTransmitUpperLimit => try_from 5 Frequency);
+impl_cat_command!(GetTransmitUpperLimit => b"TXH" for as byte band);
+impl_cat_command_with_response!(GetTransmitUpperLimit => try_from 5 Frequency);
 
 // ------------------------------------------------------------------------------------------------
 // Private Functions
 // ------------------------------------------------------------------------------------------------
-
-/// Validate that a mode digit is one of the documented `MD` values (`0`, `1`, `2`, or `4`); the
-/// KH1 does not support the full K3/K4 mode set.
-pub(crate) fn validate_kh1_operating_mode_digit(mode: u8) -> Result<(), RigError> {
-    if matches!(mode, 0 | 1 | 2 | 4) {
-        Ok(())
-    } else {
-        error!("mode value {mode} is not a documented KH1 MD mode digit");
-        Err(RigError::InvalidArgumentValue {
-            argument_name: "mode",
-            type_name: "u8",
-            value: mode.to_string(),
-        })
-    }
-}

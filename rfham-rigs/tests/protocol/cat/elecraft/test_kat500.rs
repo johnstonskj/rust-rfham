@@ -10,28 +10,30 @@ use rfham_rigs::{
     protocol::{
         Command, Frequency,
         cat::elecraft::kat500::{
-            AntennaSide, Bypass, ClearCurrentFault, EepromInit, GetAmplifierInterface, GetAntenna,
-            GetAntennaSide, GetAttenuatorState, GetAtuFaultState, GetAtuKeepInPlaceState,
-            GetAtuPreset, GetAutoBypassState, GetAutoEnableState, GetBand, GetBaudRate,
+            AntennaSide, BaudRate, ClearFaultCondition, ForceBypassMode,
+            GetAmplifierInterfaceRelayClosedState, GetAntennaSelection, GetAntennaSideSelection,
+            GetAttenuatorState, GetAutoBypassState, GetAutoEnableState, GetBand, GetBaudRate,
             GetCapacitorTopology, GetCapacitorValue, GetDemoModeState, GetErrorMessage,
-            GetFanThreshold, GetFaultDelayTime, GetFaultStatus, GetFaultThresholdHigh,
-            GetFaultThresholdLow, GetFirmwareVersion, GetFixedBypassState, GetFixedLcState,
-            GetForwardPowerA, GetForwardPowerB, GetForwardVoltage, GetFrequency, GetInductance,
-            GetInductorSwitch, GetInhibitFan, GetMeterType, GetOperatingMode, GetPowerSensorInput,
-            GetPowerStatus, GetReflectedVoltage, GetSerialNumber, GetSwr, GetSwrBypassThreshold,
-            GetSwrMeter, GetTunePower, GetTuneSatisfiedSwr, GetTuneState, GetTuningSpeedLimit,
-            MeterType, OperatingMode, ResetDevice, SetAmplifierInterface, SetAntenna,
-            SetAntennaSide, SetAttenuatorState, SetAtuKeepInPlaceState, SetAtuPreset,
-            SetAutoBypassState, SetAutoEnableState, SetBand, SetBaudRate, SetCapacitorTopology,
-            SetCapacitorValue, SetDemoModeState, SetFanThreshold, SetFaultDelayTime,
-            SetFaultThresholdHigh, SetFaultThresholdLow, SetFixedBypassState, SetFixedLcState,
-            SetFrequency, SetInductance, SetInductorSwitch, SetInhibitFan, SetMeterType,
-            SetOperatingMode, SetSwrBypassThreshold, SetTunePower, SetTuneSatisfiedSwr,
-            SetTuningSpeedLimit, StartTune,
+            GetFanThreshold, GetFaultConditionState, GetFaultDelayTime, GetFaultSwrThresholdHigh,
+            GetFaultSwrThresholdLow, GetFirmwareVersion, GetFixedBypassState, GetFixedLcState,
+            GetForwardVoltage, GetFrequency, GetInductanceTap, GetInductorSwitch, GetInhibitFan,
+            GetKeepInPlaceState, GetMeterChannelAForwardPower, GetMeterChannelBForwardPower,
+            GetMeterType, GetOperatingMode, GetPowerSensorInput, GetPowerStatus,
+            GetPresetSlotNumber, GetReflectedVoltage, GetSerialNumber, GetSwr,
+            GetSwrBypassThreshold, GetSwrMeter, GetTuneSatisfiedSwrThreshold, GetTuningPower,
+            GetTuningSpeedLimit, GetTuningState, MeterType, OperatingMode, ResetDevice,
+            ResetToFactoryDefaults, SelectedAntenna, SetAmplifierInterfaceRelayClosedState,
+            SetAntennaSelection, SetAntennaSideSelection, SetAttenuatorState, SetAutoBypassState,
+            SetAutoEnableState, SetBand, SetBaudRate, SetCapacitorTopology, SetCapacitorValue,
+            SetDemoModeState, SetFanThreshold, SetFaultDelayTime, SetFaultSwrThresholdHigh,
+            SetFaultSwrThresholdLow, SetFixedBypassState, SetFixedLcState, SetFrequency,
+            SetInductanceTap, SetInductorSwitch, SetInhibitFan, SetKeepInPlaceState, SetMeterType,
+            SetOperatingMode, SetPresetSlotNumber, SetSwrBypassThreshold,
+            SetTuneSatisfiedSwrThreshold, SetTuningPower, SetTuningSpeedLimit, StartTuningCycle,
         },
     },
-    transport::BaudRate,
 };
+use strum::IntoEnumIterator;
 
 // ------------------------------------------------------------------------------------------------
 // GET-only / action-only commands (bare command_id + ';')
@@ -49,33 +51,33 @@ fn get_auto_enable_state_encodes() {
 
 #[test]
 fn get_atu_fault_state_encodes() {
-    assert_eq!(GetAtuFaultState.to_message().unwrap(), b"AFT;".to_vec());
+    assert_eq!(
+        GetFaultConditionState.to_message().unwrap(),
+        b"AFT;".to_vec()
+    );
 }
 
 #[test]
 fn get_atu_keep_in_place_state_encodes() {
-    assert_eq!(
-        GetAtuKeepInPlaceState.to_message().unwrap(),
-        b"AKIP;".to_vec()
-    );
+    assert_eq!(GetKeepInPlaceState.to_message().unwrap(), b"AKIP;".to_vec());
 }
 
 #[test]
 fn get_amplifier_interface_encodes() {
     assert_eq!(
-        GetAmplifierInterface.to_message().unwrap(),
+        GetAmplifierInterfaceRelayClosedState.to_message().unwrap(),
         b"AMPI;".to_vec()
     );
 }
 
 #[test]
 fn get_antenna_encodes() {
-    assert_eq!(GetAntenna.to_message().unwrap(), b"AN;".to_vec());
+    assert_eq!(GetAntennaSelection.to_message().unwrap(), b"AN;".to_vec());
 }
 
 #[test]
 fn get_atu_preset_encodes() {
-    assert_eq!(GetAtuPreset.to_message().unwrap(), b"AP;".to_vec());
+    assert_eq!(GetPresetSlotNumber.to_message().unwrap(), b"AP;".to_vec());
 }
 
 #[test]
@@ -97,7 +99,7 @@ fn get_baud_rate_encodes() {
 
 #[test]
 fn bypass_encodes() {
-    assert_eq!(Bypass.to_message().unwrap(), b"BYP;".to_vec());
+    assert_eq!(ForceBypassMode.to_message().unwrap(), b"BYP;".to_vec());
 }
 
 #[test]
@@ -117,7 +119,10 @@ fn get_demo_mode_state_encodes() {
 
 #[test]
 fn eeprom_init_encodes() {
-    assert_eq!(EepromInit.to_message().unwrap(), b"EEINIT;".to_vec());
+    assert_eq!(
+        ResetToFactoryDefaults.to_message().unwrap(),
+        b"EEINIT;".to_vec()
+    );
 }
 
 #[test]
@@ -132,12 +137,18 @@ fn get_frequency_encodes() {
 
 #[test]
 fn get_forward_power_a_encodes() {
-    assert_eq!(GetForwardPowerA.to_message().unwrap(), b"FA;".to_vec());
+    assert_eq!(
+        GetMeterChannelAForwardPower.to_message().unwrap(),
+        b"FA;".to_vec()
+    );
 }
 
 #[test]
 fn get_forward_power_b_encodes() {
-    assert_eq!(GetForwardPowerB.to_message().unwrap(), b"FB;".to_vec());
+    assert_eq!(
+        GetMeterChannelBForwardPower.to_message().unwrap(),
+        b"FB;".to_vec()
+    );
 }
 
 #[test]
@@ -152,28 +163,37 @@ fn get_fault_delay_time_encodes() {
 
 #[test]
 fn get_fault_status_encodes() {
-    assert_eq!(GetFaultStatus.to_message().unwrap(), b"FLT;".to_vec());
+    assert_eq!(
+        GetFaultConditionState.to_message().unwrap(),
+        b"FLT;".to_vec()
+    );
 }
 
 #[test]
 fn clear_current_fault_encodes() {
-    assert_eq!(ClearCurrentFault.to_message().unwrap(), b"FLTC;".to_vec());
+    assert_eq!(ClearFaultCondition.to_message().unwrap(), b"FLTC;".to_vec());
 }
 
 #[test]
 fn get_tune_satisfied_swr_encodes() {
-    assert_eq!(GetTuneSatisfiedSwr.to_message().unwrap(), b"FTNS;".to_vec());
+    assert_eq!(
+        GetTuneSatisfiedSwrThreshold.to_message().unwrap(),
+        b"FTNS;".to_vec()
+    );
 }
 
 #[test]
 fn get_fault_threshold_low_encodes() {
-    assert_eq!(GetFaultThresholdLow.to_message().unwrap(), b"FT0;".to_vec());
+    assert_eq!(
+        GetFaultSwrThresholdLow.to_message().unwrap(),
+        b"FT0;".to_vec()
+    );
 }
 
 #[test]
 fn get_fault_threshold_high_encodes() {
     assert_eq!(
-        GetFaultThresholdHigh.to_message().unwrap(),
+        GetFaultSwrThresholdHigh.to_message().unwrap(),
         b"FT1;".to_vec()
     );
 }
@@ -190,7 +210,7 @@ fn get_fixed_bypass_state_encodes() {
 
 #[test]
 fn get_inductance_encodes() {
-    assert_eq!(GetInductance.to_message().unwrap(), b"I;".to_vec());
+    assert_eq!(GetInductanceTap.to_message().unwrap(), b"I;".to_vec());
 }
 
 #[test]
@@ -235,7 +255,10 @@ fn get_firmware_version_encodes() {
 
 #[test]
 fn get_antenna_side_encodes() {
-    assert_eq!(GetAntennaSide.to_message().unwrap(), b"SIDE;".to_vec());
+    assert_eq!(
+        GetAntennaSideSelection.to_message().unwrap(),
+        b"SIDE;".to_vec()
+    );
 }
 
 #[test]
@@ -255,17 +278,17 @@ fn get_serial_number_encodes() {
 
 #[test]
 fn start_tune_encodes() {
-    assert_eq!(StartTune.to_message().unwrap(), b"ST;".to_vec());
+    assert_eq!(StartTuningCycle.to_message().unwrap(), b"ST;".to_vec());
 }
 
 #[test]
 fn get_tune_state_encodes() {
-    assert_eq!(GetTuneState.to_message().unwrap(), b"T;".to_vec());
+    assert_eq!(GetTuningState.to_message().unwrap(), b"T;".to_vec());
 }
 
 #[test]
 fn get_tune_power_encodes() {
-    assert_eq!(GetTunePower.to_message().unwrap(), b"TP;".to_vec());
+    assert_eq!(GetTuningPower.to_message().unwrap(), b"TP;".to_vec());
 }
 
 #[test]
@@ -314,7 +337,7 @@ fn set_auto_enable_state_encodes() {
 #[test]
 fn set_atu_keep_in_place_state_encodes() {
     assert_eq!(
-        SetAtuKeepInPlaceState { on: true }.to_message().unwrap(),
+        SetKeepInPlaceState { on: true }.to_message().unwrap(),
         b"AKIP1;".to_vec()
     );
 }
@@ -358,7 +381,9 @@ fn set_fixed_bypass_state_encodes() {
 #[test]
 fn set_amplifier_interface_encodes() {
     assert_eq!(
-        SetAmplifierInterface { closed: true }.to_message().unwrap(),
+        SetAmplifierInterfaceRelayClosedState::close()
+            .to_message()
+            .unwrap(),
         b"AMPI1;".to_vec()
     );
 }
@@ -366,7 +391,7 @@ fn set_amplifier_interface_encodes() {
 #[test]
 fn set_capacitor_topology_encodes() {
     assert_eq!(
-        SetCapacitorTopology { hi_z: true }.to_message().unwrap(),
+        SetCapacitorTopology::to_high_z().to_message().unwrap(),
         b"CT1;".to_vec()
     );
 }
@@ -386,7 +411,9 @@ fn set_inhibit_fan_encodes() {
 #[test]
 fn set_atu_preset_encodes() {
     assert_eq!(
-        SetAtuPreset { preset: 42 }.to_message().unwrap(),
+        SetPresetSlotNumber { slot_number: 42 }
+            .to_message()
+            .unwrap(),
         b"AP042;".to_vec()
     );
 }
@@ -426,7 +453,9 @@ fn set_fault_delay_time_encodes() {
 #[test]
 fn set_tune_satisfied_swr_encodes() {
     assert_eq!(
-        SetTuneSatisfiedSwr { swr_d: 15 }.to_message().unwrap(),
+        SetTuneSatisfiedSwrThreshold { swr: 15 }
+            .to_message()
+            .unwrap(),
         b"FTNS015;".to_vec()
     );
 }
@@ -434,7 +463,7 @@ fn set_tune_satisfied_swr_encodes() {
 #[test]
 fn set_fault_threshold_low_encodes() {
     assert_eq!(
-        SetFaultThresholdLow { swr_d: 20 }.to_message().unwrap(),
+        SetFaultSwrThresholdLow { swr_d: 20 }.to_message().unwrap(),
         b"FT0020;".to_vec()
     );
 }
@@ -442,7 +471,7 @@ fn set_fault_threshold_low_encodes() {
 #[test]
 fn set_fault_threshold_high_encodes() {
     assert_eq!(
-        SetFaultThresholdHigh { swr_d: 30 }.to_message().unwrap(),
+        SetFaultSwrThresholdHigh { swr_d: 30 }.to_message().unwrap(),
         b"FT1030;".to_vec()
     );
 }
@@ -458,7 +487,7 @@ fn set_inductor_switch_encodes() {
 #[test]
 fn set_tune_power_encodes() {
     assert_eq!(
-        SetTunePower { power_w: 100 }.to_message().unwrap(),
+        SetTuningPower { power_w: 100 }.to_message().unwrap(),
         b"TP100;".to_vec()
     );
 }
@@ -478,27 +507,20 @@ fn set_swr_bypass_threshold_encodes() {
 #[test]
 fn set_antenna_encodes() {
     assert_eq!(
-        SetAntenna { antenna: 3 }.to_message().unwrap(),
+        SetAntennaSelection {
+            antenna: SelectedAntenna::Antenna3
+        }
+        .to_message()
+        .unwrap(),
         b"AN3;".to_vec()
     );
 }
 
 #[test]
-fn set_antenna_accepts_boundary_values() {
-    assert!(SetAntenna { antenna: 1 }.validate().is_ok());
-    assert!(SetAntenna { antenna: 6 }.validate().is_ok());
-}
-
-#[test]
-fn set_antenna_rejects_out_of_range() {
-    assert!(matches!(
-        SetAntenna { antenna: 0 }.validate(),
-        Err(RigError::InvalidArgumentValue { .. })
-    ));
-    assert!(matches!(
-        SetAntenna { antenna: 7 }.validate(),
-        Err(RigError::InvalidArgumentValue { .. })
-    ));
+fn set_antenna_assert_accepts_all_values() {
+    for variant in SelectedAntenna::iter() {
+        assert!(SetAntennaSelection { antenna: variant }.validate().is_ok());
+    }
 }
 
 #[test]
@@ -523,21 +545,21 @@ fn set_band_rejects_out_of_range() {
 #[test]
 fn set_inductance_encodes() {
     assert_eq!(
-        SetInductance { tap: 63 }.to_message().unwrap(),
+        SetInductanceTap { tap: 63 }.to_message().unwrap(),
         b"I063;".to_vec()
     );
 }
 
 #[test]
 fn set_inductance_accepts_boundary_values() {
-    assert!(SetInductance { tap: 0 }.validate().is_ok());
-    assert!(SetInductance { tap: 63 }.validate().is_ok());
+    assert!(SetInductanceTap { tap: 0 }.validate().is_ok());
+    assert!(SetInductanceTap { tap: 63 }.validate().is_ok());
 }
 
 #[test]
 fn set_inductance_rejects_out_of_range() {
     assert!(matches!(
-        SetInductance { tap: 64 }.validate(),
+        SetInductanceTap { tap: 64 }.validate(),
         Err(RigError::InvalidArgumentValue { .. })
     ));
 }
@@ -643,7 +665,7 @@ fn set_meter_type_encodes_reflected() {
 #[test]
 fn set_antenna_side_encodes_left() {
     assert_eq!(
-        SetAntennaSide {
+        SetAntennaSideSelection {
             side: AntennaSide::Left
         }
         .to_message()
@@ -655,7 +677,7 @@ fn set_antenna_side_encodes_left() {
 #[test]
 fn set_antenna_side_encodes_right() {
     assert_eq!(
-        SetAntennaSide {
+        SetAntennaSideSelection {
             side: AntennaSide::Right
         }
         .to_message()
@@ -672,7 +694,7 @@ fn set_antenna_side_encodes_right() {
 #[test]
 fn set_baud_rate_encodes_4800() {
     let cmd = SetBaudRate {
-        baud_rate: BaudRate::Bd4800,
+        baud_rate: BaudRate::Rate4800,
     };
     assert_eq!(cmd.to_message().unwrap(), b"#BR0;".to_vec());
 }
@@ -680,7 +702,7 @@ fn set_baud_rate_encodes_4800() {
 #[test]
 fn set_baud_rate_encodes_9600() {
     let cmd = SetBaudRate {
-        baud_rate: BaudRate::Bd9600,
+        baud_rate: BaudRate::Rate9600,
     };
     assert_eq!(cmd.to_message().unwrap(), b"#BR1;".to_vec());
 }
@@ -688,7 +710,7 @@ fn set_baud_rate_encodes_9600() {
 #[test]
 fn set_baud_rate_encodes_19200() {
     let cmd = SetBaudRate {
-        baud_rate: BaudRate::Bd19200,
+        baud_rate: BaudRate::Rate19200,
     };
     assert_eq!(cmd.to_message().unwrap(), b"#BR2;".to_vec());
 }
@@ -696,21 +718,7 @@ fn set_baud_rate_encodes_19200() {
 #[test]
 fn set_baud_rate_encodes_38400() {
     let cmd = SetBaudRate {
-        baud_rate: BaudRate::Bd38400,
+        baud_rate: BaudRate::Rate38400,
     };
     assert_eq!(cmd.to_message().unwrap(), b"#BR3;".to_vec());
-}
-
-#[test]
-fn set_baud_rate_rejects_unsupported_rate() {
-    // Unlike the other range-checked commands in this module, this rejection happens inside
-    // `argument_bytes` (there is no separate `validate`/`if valid_fn` on `SetBaudRate`), so it
-    // surfaces through `to_message` itself rather than through `Command::validate`.
-    let cmd = SetBaudRate {
-        baud_rate: BaudRate::Bd300,
-    };
-    assert!(matches!(
-        cmd.to_message(),
-        Err(RigError::InvalidArgumentValue { .. })
-    ));
 }

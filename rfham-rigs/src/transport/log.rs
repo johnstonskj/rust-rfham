@@ -5,9 +5,6 @@
 //!
 //! # Examples
 //!
-//! ```rust
-//! ```
-//!
 
 use chrono::{DateTime, Utc};
 use std::{

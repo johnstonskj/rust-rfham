@@ -6,8 +6,8 @@
 //!
 //! Two commands break this convention and are hand-implemented rather than using the usual
 //! command macros: [`GetProductId`] (`=`) uses no `#` prefix and no `;` terminator on either the
-//! query or the response, and [`BitmapUpload`] (`#BMP`) omits the command-id echo and terminator
-//! on its response only.
+//! query or the response, and [`UploadScreenshotBitmap`] (`#BMP`) omits the command-id echo and
+//! terminator on its response only.
 //!
 //! Commands follow the specification in reference **1** unless otherwise noted.
 //!
@@ -19,13 +19,12 @@
 use crate::{
     error::{RigError, invalid_response_command_id, invalid_response_length},
     protocol::{
-        Frequency,
+        SignedFrequency,
         cat::{
             Command, CommandWithResponse,
             common::{
                 ASCII_DIGIT_ZERO, ASCII_SIGN_NEGATIVE, ASCII_SIGN_POSITIVE, sign_from_ascii_loose,
                 string_from_ascii, u8_from_ascii, u16_from_ascii, u32_from_ascii,
-                validate_response,
             },
         },
     },
@@ -41,7 +40,7 @@ use strum::EnumIs;
 // Public Types: GetProductId, ProductId
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the P3 product identification.
+define_cat_command!("Get the P3 product identification (`=`).
 
 # Command format
 
@@ -68,10 +67,10 @@ pub enum ProductId {
 }
 
 // ------------------------------------------------------------------------------------------------
-// Public Types: GetDisplayAveraging, SetDisplayAveraging
+// Public Types: GetDisplayAveragingTimeConstant, SetDisplayAveragingTimeConstant
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the spectrum display averaging time.
+define_cat_command!("Get the spectrum display averaging time constant (`#AVG`).
 
 # Command format
 
@@ -79,14 +78,14 @@ define_command!("Query the spectrum display averaging time.
 
 # Response format
 
-> `#AVGnn;`
+> `#AVG{nn};`
 
 Where *nn* is `00` (averaging off) or the averaging time constant, between `02` and `20`
 (averaging on)." =>
-    GetDisplayAveraging
+    GetDisplayAveragingTimeConstant
 );
 
-define_command!("Set the spectrum display averaging time.
+define_cat_command!("Set the spectrum display averaging time constant (`#AVG`).
 
 # Command format
 
@@ -94,16 +93,16 @@ define_command!("Set the spectrum display averaging time.
 
 Where *nn* is `00` (averaging off) or the averaging time constant, between `02` and `20`
 (averaging on)." =>
-    SetDisplayAveraging {
-        level: u8
+    SetDisplayAveragingTimeConstant {
+        averaging_time: u8
     }
 );
 
 // ------------------------------------------------------------------------------------------------
-// Public Types: BitmapUpload, BitmapData
+// Public Types: UploadScreenshotBitmap, BitmapData
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Trigger a bitmap screenshot transfer from the P3 display.
+define_cat_command!("Trigger a bitmap screenshot transfer from the P3 display (`#BMP`).
 
 # Command format
 
@@ -111,7 +110,7 @@ define_command!("Trigger a bitmap screenshot transfer from the P3 display.
 
 # Response format
 
-> `[bmp]cc`
+> `{bmp}{cc}`
 
 Where `[bmp]` is 131,638 bytes of binary image data in standard .BMP file format and `cc` is a
 two-byte checksum, the modulo-65,536 sum of all 131,638 image bytes, sent least-significant byte
@@ -119,7 +118,7 @@ first.
 
 Unlike other P3 responses, this response does not echo the command id and has no terminating
 `;`." =>
-    BitmapUpload
+    UploadScreenshotBitmap
 );
 
 define_command_struct!(
@@ -136,7 +135,7 @@ define_command_struct!(
 // Public Types: GetBaudRate, SetBaudRate
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the baud rate of the P3's PC-facing RS232 port.
+define_cat_command!("Get the baud rate of the P3's PC-facing RS232 port (`#BR`).
 
 # Command format
 
@@ -144,7 +143,7 @@ define_command!("Query the baud rate of the P3's PC-facing RS232 port.
 
 # Response format
 
-> `#BRn;`
+> `#BR{n};`
 
 Where *n* is one of:
 
@@ -155,11 +154,11 @@ Where *n* is one of:
     GetBaudRate
 );
 
-define_command!("Set the baud rate of the P3's PC-facing RS232 port.
+define_cat_command!("Set the baud rate of the P3's PC-facing RS232 port (`#BR`).
 
 # Command format
 
-> `#BRn;`
+> `#BR{n};`
 
 Where *n* is one of:
 
@@ -179,10 +178,10 @@ setting; this command affects only the P3's PC-facing port, not the K3." =>
 );
 
 // ------------------------------------------------------------------------------------------------
-// Public Types: GetCenterFrequency, SetCenterFrequency, CenterFrequency
+// Public Types: GetCenterFrequency, SetCenterFrequency
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the panadapter center frequency.
+define_cat_command!("Get the panadapter center frequency (`#CTF`).
 
 # Command format
 
@@ -190,18 +189,18 @@ define_command!("Query the panadapter center frequency.
 
 # Response format
 
-> `#CTFsxxxxxxxxxxx;`
+> `#CTF{s}{xxxxxxxxxxx};`
 
 Where *s* is `+`, `-`, or a space (meaning `+`), and *xxxxxxxxxxx* is the center frequency in
 Hz." =>
     GetCenterFrequency
 );
 
-define_command!("Set the panadapter center frequency.
+define_cat_command!("Set the panadapter center frequency (`#CTF`).
 
 # Command format
 
-> `#CTFsxxxxxxxxxxx;`
+> `#CTF{s}{xxxxxxxxxxx};`
 
 Where *s* is `+` or `-`, and *xxxxxxxxxxx* is the center frequency in Hz.
 
@@ -212,17 +211,7 @@ is undefined. A value of zero sets the center frequency to the main VFO frequenc
 transceiver. For transceivers other than the K3, the center frequency is interpreted relative to
 the frequency the transceiver is tuned to and may be positive or negative." =>
     SetCenterFrequency {
-        center: CenterFrequency
-    }
-);
-
-define_command_struct!(
-    "A parsed signed frequency value, as used by `#CTF`, `#MFA` and `#MFB`." =>
-    CenterFrequency {
-        "`true` if the value is negative." =>
-        is_negative: bool,
-        "The magnitude of the frequency, in Hz." =>
-        frequency: Frequency
+        center: SignedFrequency
     }
 );
 
@@ -230,7 +219,7 @@ define_command_struct!(
 // Public Types: GetDisplayMode, SetDisplayMode, DisplayMode
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the P3 display mode.
+define_cat_command!("Get the P3 display mode (`#DSM`).
 
 # Command format
 
@@ -238,7 +227,7 @@ define_command!("Query the P3 display mode.
 
 # Response format
 
-> `#DSMn;`
+> `#DSM{n};`
 
 Where *n* is one of:
 
@@ -249,11 +238,11 @@ Where *n* is one of:
     GetDisplayMode
 );
 
-define_command!("Set the P3 display mode.
+define_cat_command!("Set the P3 display mode (`#DSM`).
 
 # Command format
 
-> `#DSMn;`
+> `#DSM{n};`
 
 Where *n* is one of:
 
@@ -279,17 +268,17 @@ define_command_enum!(
 // Public Types: GetFunctionKeyLabel, FunctionKeyLabel
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query a function key's label.
+define_cat_command!("Get a function key's label (`#FNL`).
 
 # Command format
 
-> `#FNLn;`
+> `#FNL{n};`
 
 Where *n* is the function key number, `1` to `8`.
 
 # Response format
 
-> `#FNLnccccccccc;`
+> `#FNL{n}{ccccccccc};`
 
 Where *n* is the function key number and *ccccccccc* are the 9 ASCII characters of the label for
 `FN`*n*." =>
@@ -312,7 +301,7 @@ define_command_struct!(
 // Public Types: GetFontSize, SetFontSize, FontSize
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the display font size.
+define_cat_command!("Get the display font size (`#FON`).
 
 # Command format
 
@@ -320,28 +309,28 @@ define_command!("Query the display font size.
 
 # Response format
 
-> `#FONn;`
+> `#FON{n};`
 
 Where *n* is one of:
 
 * `0`; 5 x 7 pixels.
 * `1`; 7 x 11 pixels.
 * `2`; 9 x 14 pixels." =>
-    GetFontSize
+    GetDisplayFontSize
 );
 
-define_command!("Set the display font size.
+define_cat_command!("Set the display font size (`#FON`).
 
 # Command format
 
-> `#FONn;`
+> `#FON{n};`
 
 Where *n* is one of:
 
 * `0`; 5 x 7 pixels.
 * `1`; 7 x 11 pixels.
 * `2`; 9 x 14 pixels." =>
-    SetFontSize {
+    SetDisplayFontSize {
         size: FontSize
     }
 );
@@ -355,18 +344,18 @@ define_command_enum!(
 );
 
 // ------------------------------------------------------------------------------------------------
-// Public Types: SetFunctionKeyExecute
+// Public Types: ExecuteFunctionKey
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Execute a function key.
+define_cat_command!("Execute a function key (`#FNX`).
 
 # Command format
 
-> `#FNXn;`
+> `#FNX{n};`
 
 Where *n* is the function key number, `1` to `8`, for keys `FN1`-`FN8`. Executes the function
 assigned to the key, if any." =>
-    SetFunctionKeyExecute {
+    ExecuteFunctionKey {
         function_key: u8
     }
 );
@@ -375,7 +364,7 @@ assigned to the key, if any." =>
 // Public Types: GetFixedTuneAutoAdjustMode, SetFixedTuneAutoAdjustMode, FixedTuneAutoAdjustMode
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the fixed-tune auto-adjust mode.
+define_cat_command!("Get the fixed-tune auto-adjust mode (`#FXA`).
 
 # Command format
 
@@ -383,7 +372,7 @@ define_command!("Query the fixed-tune auto-adjust mode.
 
 # Response format
 
-> `#FXAn;`
+> `#FXA{n};`
 
 Where *n* is one of:
 
@@ -397,11 +386,11 @@ fixed-tune mode." =>
     GetFixedTuneAutoAdjustMode
 );
 
-define_command!("Set the fixed-tune auto-adjust mode.
+define_cat_command!("Set the fixed-tune auto-adjust mode (`#FXA`).
 
 # Command format
 
-> `#FXAn;`
+> `#FXA{n};`
 
 Where *n* is one of:
 
@@ -430,7 +419,7 @@ define_command_enum!(
 // Public Types: GetFixedTuneOrTrackingMode, SetFixedTuneOrTrackingMode, FixedTuneOrTrackingMode
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the fixed-tune or tracking select mode.
+define_cat_command!("Get the fixed-tune or tracking select mode (`#FXT`).
 
 # Command format
 
@@ -438,7 +427,7 @@ define_command!("Query the fixed-tune or tracking select mode.
 
 # Response format
 
-> `#FXTn;`
+> `#FXT{n};`
 
 Where *n* is one of:
 
@@ -447,11 +436,11 @@ Where *n* is one of:
     GetFixedTuneOrTrackingMode
 );
 
-define_command!("Set the fixed-tune or tracking select mode.
+define_cat_command!("Set the fixed-tune or tracking select mode (`#FXT`).
 
 # Command format
 
-> `#FXTn;`
+> `#FXT{n};`
 
 Where *n* is one of:
 
@@ -470,10 +459,10 @@ define_command_enum!(
 );
 
 // ------------------------------------------------------------------------------------------------
-// Public Types: GetFnLabelDisplay, SetFnLabelDisplay
+// Public Types: GetFunctionKeyLabelDisplayState, SetFunctionKeyLabelDisplayState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query whether FN key labels are shown on the display.
+define_cat_command!("Get whether FN key labels are shown on the display (`#LBL`).
 
 # Command format
 
@@ -481,29 +470,27 @@ define_command!("Query whether FN key labels are shown on the display.
 
 # Response format
 
-> `#LBLn;`
+> `#LBL{n};`
 
 Where `n` is the boolean state `0` (FN key labels off) or `1` (FN key labels on)." =>
-    GetFnLabelDisplay
+    GetFunctionKeyLabelDisplayState
 );
 
-define_command!("Set whether FN key labels are shown on the display.
+define_cat_command!("Set whether FN key labels are shown on the display (`#LBL`.
 
 # Command format
 
-> `#LBLn;`
+> `#LBL{n};`
 
 Where `n` is the boolean state `0` (FN key labels off) or `1` (FN key labels on)." =>
-    SetFnLabelDisplay {
-        labels_on: bool
-    }
+    SetFunctionKeyLabelDisplayState { state }
 );
 
 // ------------------------------------------------------------------------------------------------
-// Public Types: GetMarkerAFrequency, SetMarkerAFrequency, MarkerFrequency
+// Public Types: GetMarkerAFrequency, SetMarkerAFrequency
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the marker A frequency.
+define_cat_command!("Get the marker A frequency (`#MFA`).
 
 # Command format
 
@@ -511,18 +498,18 @@ define_command!("Query the marker A frequency.
 
 # Response format
 
-> `#MFAsxxxxxxxxxxx;`
+> `#MFA{s}{xxxxxxxxxxx};`
 
 Where *s* is `+`, `-`, or a space (meaning `+`), and *xxxxxxxxxxx* is the marker frequency in
 Hz." =>
     GetMarkerAFrequency
 );
 
-define_command!("Set the marker A frequency.
+define_cat_command!("Set the marker A frequency (`#MFA`).
 
 # Command format
 
-> `#MFAsxxxxxxxxxxx;`
+> `#MFA{s}{xxxxxxxxxxx};`
 
 Where *s* is `+` or `-`, and *xxxxxxxxxxx* is the marker frequency in Hz.
 
@@ -533,17 +520,7 @@ is undefined. A value of zero sets the marker to the main VFO frequency of the t
 transceivers other than the K3, the marker frequency is interpreted relative to the frequency
 the transceiver is tuned to and may be positive or negative." =>
     SetMarkerAFrequency {
-        marker: MarkerFrequency
-    }
-);
-
-define_command_struct!(
-    "A parsed signed marker-frequency value, as used by `#MFA` and `#MFB`." =>
-    MarkerFrequency {
-        "`true` if the value is negative." =>
-        is_negative: bool,
-        "The magnitude of the frequency, in Hz." =>
-        frequency: Frequency
+        marker: SignedFrequency
     }
 );
 
@@ -551,7 +528,7 @@ define_command_struct!(
 // Public Types: GetMarkerBFrequency, SetMarkerBFrequency
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the marker B frequency.
+define_cat_command!("Get the marker B frequency (`#MFB`).
 
 # Command format
 
@@ -559,18 +536,18 @@ define_command!("Query the marker B frequency.
 
 # Response format
 
-> `#MFBsxxxxxxxxxxx;`
+> `#MFB{s}{xxxxxxxxxxx};`
 
 Where *s* is `+`, `-`, or a space (meaning `+`), and *xxxxxxxxxxx* is the marker frequency in
 Hz." =>
     GetMarkerBFrequency
 );
 
-define_command!("Set the marker B frequency.
+define_cat_command!("Set the marker B frequency (`#MFB`).
 
 # Command format
 
-> `#MFBsxxxxxxxxxxx;`
+> `#MFB{s}{xxxxxxxxxxx};`
 
 Where *s* is `+` or `-`, and *xxxxxxxxxxx* is the marker frequency in Hz.
 
@@ -581,7 +558,7 @@ is undefined. A value of zero sets the marker to the main VFO frequency of the t
 transceivers other than the K3, the marker frequency is interpreted relative to the frequency
 the transceiver is tuned to and may be positive or negative." =>
     SetMarkerBFrequency {
-        marker: MarkerFrequency
+        marker: SignedFrequency
     }
 );
 
@@ -589,7 +566,7 @@ the transceiver is tuned to and may be positive or negative." =>
 // Public Types: GetMarkerAState, SetMarkerAState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query whether marker A is on/off.
+define_cat_command!("Get marker A on/off state (`#MKA`).
 
 # Command format
 
@@ -597,17 +574,17 @@ define_command!("Query whether marker A is on/off.
 
 # Response format
 
-> `#MKAn;`
+> `#MKA{n};`
 
 Where `n` is the boolean state `0` (marker off) or `1` (marker on)." =>
     GetMarkerAState
 );
 
-define_command!("Set marker A on/off.
+define_cat_command!("Set marker A on/off state (`#MKA`).
 
 # Command format
 
-> `#MKAn;`
+> `#MKA{n};`
 
 Where `n` is the boolean state `0` (marker off) or `1` (marker on).
 
@@ -621,7 +598,7 @@ off-screen before executing a marker-on command, it will default to the center f
 // Public Types: GetMarkerBState, SetMarkerBState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query whether marker B is on/off.
+define_cat_command!("Get marker B on/off state (`#MKB`).
 
 # Command format
 
@@ -629,17 +606,17 @@ define_command!("Query whether marker B is on/off.
 
 # Response format
 
-> `#MKBn;`
+> `#MKB{n};`
 
 Where `n` is the boolean state `0` (marker off) or `1` (marker on)." =>
     GetMarkerBState
 );
 
-define_command!("Set marker B on/off.
+define_cat_command!("Set marker B on/off state (`#MKB`).
 
 # Command format
 
-> `#MKBn;`
+> `#MKB{n};`
 
 Where `n` is the boolean state `0` (marker off) or `1` (marker on).
 
@@ -653,7 +630,7 @@ off-screen before executing a marker-on command, it will default to the center f
 // Public Types: GetNoiseBlankerState, SetNoiseBlankerState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the noise-blanker on/off status.
+define_cat_command!("Get the noise-blanker on/off status (`#NB`).
 
 # Command format
 
@@ -661,17 +638,17 @@ define_command!("Query the noise-blanker on/off status.
 
 # Response format
 
-> `#NBn;`
+> `#NB{n};`
 
 Where `n` is the boolean state `0` (noise blanker off) or `1` (noise blanker on)." =>
     GetNoiseBlankerState
 );
 
-define_command!("Set the noise-blanker on/off status.
+define_cat_command!("Set the noise-blanker on/off status (`#NB`).
 
 # Command format
 
-> `#NBn;`
+> `#NB{n};`
 
 Where `n` is the boolean state `0` (noise blanker off) or `1` (noise blanker on)." =>
     SetNoiseBlankerState { state }
@@ -681,7 +658,7 @@ Where `n` is the boolean state `0` (noise blanker off) or `1` (noise blanker on)
 // Public Types: GetNoiseBlankerLevel, SetNoiseBlankerLevel
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the noise-blanker level.
+define_cat_command!("Get the noise-blanker level (`#NBL`).
 
 # Command format
 
@@ -689,18 +666,18 @@ define_command!("Query the noise-blanker level.
 
 # Response format
 
-> `#NBLnn;`
+> `#NBL{nn};`
 
 Where *nn* is the aggressiveness of the noise-blanker algorithm, between `01` (least aggressive)
 and `15` (most aggressive)." =>
     GetNoiseBlankerLevel
 );
 
-define_command!("Set the noise-blanker level.
+define_cat_command!("Set the noise-blanker level (`#NBL`).
 
 # Command format
 
-> `#NBLnn;`
+> `#NBL{nn};`
 
 Where *nn* is the aggressiveness of the noise-blanker algorithm, between `01` (least aggressive)
 and `15` (most aggressive)." =>
@@ -713,7 +690,7 @@ and `15` (most aggressive)." =>
 // Public Types: GetPeakModeState, SetPeakModeState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the peak mode.
+define_cat_command!("Get the peak mode (`#PKM`).
 
 # Command format
 
@@ -721,17 +698,17 @@ define_command!("Query the peak mode.
 
 # Response format
 
-> `#PKMn;`
+> `#PKM{n};`
 
 Where `n` is the boolean state `0` (peak mode off) or `1` (peak mode on)." =>
     GetPeakModeState
 );
 
-define_command!("Set the peak mode.
+define_cat_command!("Set the peak mode (`#PKM`).
 
 # Command format
 
-> `#PKMn;`
+> `#PKM{n};`
 
 Where `n` is the boolean state `0` (peak mode off) or `1` (peak mode on)." =>
     SetPeakModeState { state }
@@ -741,7 +718,7 @@ Where `n` is the boolean state `0` (peak mode off) or `1` (peak mode on)." =>
 // Public Types: GetPowerStatus, SetPowerStatus
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the power status.
+define_cat_command!("Get the power status (`#PS`).
 
 # Command format
 
@@ -749,17 +726,17 @@ define_command!("Query the power status.
 
 # Response format
 
-> `#PSn;`
+> `#PS{n};`
 
 Where `n` = `1` indicates the P3 is on." =>
     GetPowerStatus
 );
 
-define_command!("Set the power status.
+define_cat_command!("Set the power status (`#PS`).
 
 # Command format
 
-> `#PSn;`
+> `#PS{n};`
 
 Where `n` = `1` indicates the P3 is on.
 
@@ -773,7 +750,7 @@ the `#PS0` command has no effect." =>
 // Public Types: SetPassThroughModeState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Enter serial pass-through mode.
+define_cat_command!("Enter serial pass-through mode (`#PT`).
 
 # Command format
 
@@ -792,11 +769,11 @@ transceiver. Pass-through mode ends automatically 8 seconds after the last RS232
 // Public Types: SetQsyToMarker, QsyAction
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Command the transceiver to QSY to the active marker frequency.
+define_cat_command!("Command the transceiver to QSY to the active marker frequency (`#QSY`).
 
 # Command format
 
-> `#QSYn;`
+> `#QSY{n};`
 
 Where *n* is one of:
 
@@ -821,10 +798,10 @@ define_command_enum!(
 );
 
 // ------------------------------------------------------------------------------------------------
-// Public Types: GetRelativeCenterFrequency, SetRelativeCenterFrequency, RelativeCenterFrequencyOffset
+// Public Types: GetRelativeCenterFrequency, SetRelativeCenterFrequency
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the reference frequency calibration offset.
+define_cat_command!("Get the relative center frequency (`#RCF`).
 
 # Command format
 
@@ -832,37 +809,27 @@ define_command!("Query the reference frequency calibration offset.
 
 # Response format
 
-> `#RCFsnnnnnn;`
+> `#RCF{s}{nnnnnn};`
 
-Where *s* is `+` or `-` and *nnnnnn* is the difference, in Hz, between the current center
-frequency and the VFO A frequency." =>
+Where *s* is `+` or `-` and *nnnnnn* is the offset in Hz which, when added to the VFO A
+frequency, becomes the new center frequency." =>
     GetRelativeCenterFrequency
 );
 
-define_command!("Set the reference frequency calibration offset.
+define_cat_command!("Set the relative center frequency (`#RCF`).
+
+This command is used to position the VFO A cursor on the screen. For example, if the current span is
+set to 50 kHz, `#RCF+025000;` will move the VFO A cursor to the left edge of the screen. The center
+frequency moves up 25 kHz, which shifts the VFO A cursor to the left.
 
 # Command format
 
-> `#RCFsnnnnnn;`
+> `#RCF{s}{nnnnnn};`
 
 Where *s* is `+` or `-` and *nnnnnn* is the offset in Hz which, when added to the VFO A
-frequency, becomes the new center frequency.
-
-**Note**: This command is used to position the VFO A cursor on the screen. For example, if the
-current span is set to 50 kHz, `#RCF+025000;` will move the VFO A cursor to the left edge of the
-screen (the center frequency moves up 25 kHz, which shifts the VFO A cursor to the left)." =>
+frequency, becomes the new center frequency." =>
     SetRelativeCenterFrequency {
-        offset: RelativeCenterFrequencyOffset
-    }
-);
-
-define_command_struct!(
-    "A parsed signed relative center-frequency offset, as used by `#RCF`." =>
-    RelativeCenterFrequencyOffset {
-        "`true` if the value is negative." =>
-        is_negative: bool,
-        "The magnitude of the offset, in Hz." =>
-        offset_hz: u32
+        offset: SignedFrequency
     }
 );
 
@@ -870,7 +837,7 @@ define_command_struct!(
 // Public Types: GetReferenceLevel, SetReferenceLevel
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the spectrum display reference level.
+define_cat_command!("Get the spectrum display reference level (`#REF`).
 
 # Command format
 
@@ -878,18 +845,18 @@ define_command!("Query the spectrum display reference level.
 
 # Response format
 
-> `#REFsnnn;`
+> `#REF{s}{nnn};`
 
 Where *s* is `+`, `-`, or a space (meaning `+`), and *nnn* is the reference level in dBm,
 between `-170` and `+010`." =>
     GetReferenceLevel
 );
 
-define_command!("Set the spectrum display reference level.
+define_cat_command!("Set the spectrum display reference level (`#REF`).
 
 # Command format
 
-> `#REFsnnn;`
+> `#REF{s}{nnn};`
 
 Where *s* is `+` or `-`, and *nnn* is the reference level in dBm, between `-170` and `+010`.
 
@@ -904,7 +871,7 @@ Where *s* is `+` or `-`, and *nnn* is the reference level in dBm, between `-170`
 // Public Types: Reset
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Force a power-on reset.
+define_cat_command!("Force a power-on reset (`#RST`).
 
 # Command format
 
@@ -918,7 +885,7 @@ There is no response to this command." =>
 // Public Types: GetFpgaImageFirmwareRevision, FpgaImageFirmwareRevision, FirmwareRevision
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the SVGA board's FPGA image revision.
+define_cat_command!("Get the SVGA board's FPGA image revision (`#RVF`).
 
 # Command format
 
@@ -926,7 +893,7 @@ define_command!("Query the SVGA board's FPGA image revision.
 
 # Response format
 
-> `#RVFnnNN.NN;`
+> `#RVF{nn}{NN.NN};`
 
 Where *nn* is the FPGA image number, `00` to `05`, and *NN.NN* is the image revision, e.g.
 `01.23`.
@@ -957,7 +924,7 @@ define_command_struct!(
 // Public Types: GetMainFirmware
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the main firmware revision.
+define_cat_command!("Get the main firmware revision (`#RVM`).
 
 # Command format
 
@@ -965,17 +932,17 @@ define_command!("Query the main firmware revision.
 
 # Response format
 
-> `#RVMNN.NN;`
+> `#RVM{NN.NN};`
 
 Where *NN.NN* is the firmware revision, e.g. `01.23`." =>
-    GetMainFirmware
+    GetFirmwareRevision
 );
 
 // ------------------------------------------------------------------------------------------------
 // Public Types: GetSvgaFirmwareRevision, SvgaFirmwareRevision
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the SVGA board firmware revision.
+define_cat_command!("Get the SVGA board firmware revision (`#RVS`).
 
 # Command format
 
@@ -983,7 +950,7 @@ define_command!("Query the SVGA board firmware revision.
 
 # Response format
 
-> `#RVSNN.NN;`
+> `#RVS{NN.NN};`
 
 Where *NN.NN* is the firmware revision, e.g. `01.23`.
 
@@ -1011,7 +978,7 @@ pub enum SvgaFirmwareRevision {
 // Public Types: GetScale, SetScale
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the current display scale.
+define_cat_command!("Get the current display scale (`#SCL`).
 
 # Command format
 
@@ -1019,18 +986,18 @@ define_command!("Query the current display scale.
 
 # Response format
 
-> `#SCLnnn;`
+> `#SCL{nnn};`
 
 Where *nnn* is the scale, the difference in dB between the top and bottom of the spectrum
 screen, between `010` and `080` dB." =>
     GetScale
 );
 
-define_command!("Set the current display scale.
+define_cat_command!("Set the current display scale (`#SCL`).
 
 # Command format
 
-> `#SCLnnn;`
+> `#SCL{nnn};`
 
 Where *nnn* is the scale, the difference in dB between the top and bottom of the spectrum
 screen, between `010` and `080` dB.
@@ -1045,7 +1012,7 @@ screen, between `010` and `080` dB.
 // Public Types: GetSpanMode, SetSpanMode, SpanMode
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the span mode.
+define_cat_command!("Get the span mode (`#SPM`).
 
 # Command format
 
@@ -1053,7 +1020,7 @@ define_command!("Query the span mode.
 
 # Response format
 
-> `#SPMn;`
+> `#SPM{n};`
 
 Where *n* is one of:
 
@@ -1064,11 +1031,11 @@ In stepped span mode, the span steps between 2, 5, 10, 20, 50, 100 and 200 kHz."
     GetSpanMode
 );
 
-define_command!("Set the span mode.
+define_cat_command!("Set the span mode (`#SPM`).
 
 # Command format
 
-> `#SPMn;`
+> `#SPM{n};`
 
 Where *n* is one of:
 
@@ -1092,7 +1059,7 @@ define_command_enum!(
 // Public Types: GetSpan, SetSpan
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the panadapter span.
+define_cat_command!("Get the panadapter span (`#SPN`).
 
 # Command format
 
@@ -1100,7 +1067,7 @@ define_command!("Query the panadapter span.
 
 # Response format
 
-> `#SPNxxxxxx;`
+> `#SPN{xxxxxx};`
 
 Where *xxxxxx* is the span, in 100 Hz units, between `000020` and `002000`.
 
@@ -1108,11 +1075,11 @@ Where *xxxxxx* is the span, in 100 Hz units, between `000020` and `002000`.
     GetSpan
 );
 
-define_command!("Set the panadapter span.
+define_cat_command!("Set the panadapter span (`#SPN`).
 
 # Command format
 
-> `#SPNxxxxxx;`
+> `#SPN{xxxxxx};`
 
 Where *xxxxxx* is the span, in 100 Hz units, between `000020` and `002000`.
 
@@ -1126,7 +1093,7 @@ Where *xxxxxx* is the span, in 100 Hz units, between `000020` and `002000`.
 // Public Types: GetSvgaDecodedDataDisplayState, SetSvgaDecodedDataDisplayState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the SVGA decoded-data display state.
+define_cat_command!("Get the SVGA decoded-data display state (`#SVDT`).
 
 # Command format
 
@@ -1134,17 +1101,17 @@ define_command!("Query the SVGA decoded-data display state.
 
 # Response format
 
-> `#SVDTn;`
+> `#SVDT{n};`
 
 Where `n` is the boolean state `0` (data display off) or `1` (data display on)." =>
     GetSvgaDecodedDataDisplayState
 );
 
-define_command!("Set the SVGA decoded-data display state.
+define_cat_command!("Set the SVGA decoded-data display state (`#SVDT`).
 
 # Command format
 
-> `#SVDTn;`
+> `#SVDT{n};`
 
 Where `n` is the boolean state `0` (data display off) or `1` (data display on)." =>
     SetSvgaDecodedDataDisplayState { state }
@@ -1154,7 +1121,7 @@ Where `n` is the boolean state `0` (data display off) or `1` (data display on)."
 // Public Types: GetSvgaDisplayState, SetSvgaDisplayState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the SVGA display state.
+define_cat_command!("Get the SVGA display state (`#SVEN`).
 
 # Command format
 
@@ -1162,17 +1129,17 @@ define_command!("Query the SVGA display state.
 
 # Response format
 
-> `#SVENn;`
+> `#SVEN{n};`
 
 Where `n` is the boolean state `0` (SVGA display off) or `1` (SVGA display on)." =>
     GetSvgaDisplayState
 );
 
-define_command!("Set the SVGA display state.
+define_cat_command!("Set the SVGA display state (`#SVEN`).
 
 # Command format
 
-> `#SVENn;`
+> `#SVEN{n};`
 
 Where `n` is the boolean state `0` (SVGA display off) or `1` (SVGA display on)." =>
     SetSvgaDisplayState { state }
@@ -1182,7 +1149,7 @@ Where `n` is the boolean state `0` (SVGA display off) or `1` (SVGA display on)."
 // Public Types: GetSvgaSpectrumFillState, SetSvgaSpectrumFillState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the SVGA spectrum-fill state.
+define_cat_command!("Get the SVGA spectrum-fill state (`#SVFL`).
 
 # Command format
 
@@ -1190,18 +1157,18 @@ define_command!("Query the SVGA spectrum-fill state.
 
 # Response format
 
-> `#SVFLn;`
+> `#SVFL{n};`
 
 Where `n` is the boolean state `0` (fill off) or `1` (fill on). When on, the area below the
 spectrum trace on the external SVGA display is filled in for easier visibility." =>
     GetSvgaSpectrumFillState
 );
 
-define_command!("Set the SVGA spectrum-fill state.
+define_cat_command!("Set the SVGA spectrum-fill state (`#SVFL`).
 
 # Command format
 
-> `#SVFLn;`
+> `#SVFL{n};`
 
 Where `n` is the boolean state `0` (fill off) or `1` (fill on). When on, the area below the
 spectrum trace on the external SVGA display is filled in for easier visibility." =>
@@ -1212,7 +1179,7 @@ spectrum trace on the external SVGA display is filled in for easier visibility."
 // Public Types: GetSvgaFontSize, SetSvgaFontSize, SvgaFontSize
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the SVGA font selection.
+define_cat_command!("Get the SVGA font selection (`#SVFN`).
 
 # Command format
 
@@ -1220,17 +1187,17 @@ define_command!("Query the SVGA font selection.
 
 # Response format
 
-> `#SVFNn;`
+> `#SVFN{n};`
 
 Where *n* is the font number, `0` to `3`. The larger the number, the larger the font." =>
     GetSvgaFontSize
 );
 
-define_command!("Set the SVGA font selection.
+define_cat_command!("Set the SVGA font selection (`#SVFN`).
 
 # Command format
 
-> `#SVFNn;`
+> `#SVFN{n};`
 
 Where *n* is the font number, `0` to `3`. The larger the number, the larger the font." =>
     SetSvgaFontSize {
@@ -1251,7 +1218,7 @@ define_command_enum!(
 // Public Types: GetSvgaDisplayResolution, SetSvgaDisplayResolution, SvgaDisplayResolution
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the SVGA display resolution.
+define_cat_command!("Get the SVGA display resolution (`#SVRS`).
 
 # Command format
 
@@ -1259,18 +1226,18 @@ define_command!("Query the SVGA display resolution.
 
 # Response format
 
-> `#SVRSn;`
+> `#SVRS{n};`
 
 Where *n* is the external display resolution, `0` to `4`. See the manual for the SVGA option for
 more details." =>
     GetSvgaDisplayResolution
 );
 
-define_command!("Set the SVGA display resolution.
+define_cat_command!("Set the SVGA display resolution (`#SVRS`).
 
 # Command format
 
-> `#SVRSn;`
+> `#SVRS{n};`
 
 Where *n* is the external display resolution, `0` to `4`. See the manual for the SVGA option for
 more details." =>
@@ -1293,7 +1260,7 @@ define_command_enum!(
 // Public Types: GetSvgaWaterfallBias, SetSvgaWaterfallBias
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the SVGA waterfall bias.
+define_cat_command!("Get the SVGA waterfall bias (`#SVWB`).
 
 # Command format
 
@@ -1301,7 +1268,7 @@ define_command!("Query the SVGA waterfall bias.
 
 # Response format
 
-> `#SVWBnn;`
+> `#SVWB{nn};`
 
 Where *nn* is the bias, between `01` and `99`, corresponding to 0.1 to 9.9 in the P3's 'SVGA
 bias' menu entry. The higher the number, the greater the color contrast in the external display
@@ -1309,11 +1276,11 @@ waterfall; a value of `10` (1.0) looks similar to the P3's own screen on a typic
     GetSvgaWaterfallBias
 );
 
-define_command!("Set the SVGA waterfall bias.
+define_cat_command!("Set the SVGA waterfall bias (`#SVWB`).
 
 # Command format
 
-> `#SVWBnn;`
+> `#SVWB{nn};`
 
 Where *nn* is the bias, between `01` and `99`, corresponding to 0.1 to 9.9 in the P3's 'SVGA
 bias' menu entry. The higher the number, the greater the color contrast in the external display
@@ -1327,7 +1294,7 @@ waterfall; a value of `10` (1.0) looks similar to the P3's own screen on a typic
 // Public Types: GetVfoBCursorState, SetVfoBCursorState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the VFO B cursor on/off state.
+define_cat_command!("Get the VFO B cursor on/off state (`#VFB`).
 
 # Command format
 
@@ -1335,17 +1302,17 @@ define_command!("Query the VFO B cursor on/off state.
 
 # Response format
 
-> `#VFBn;`
+> `#VFB{n};`
 
 Where `n` is the boolean state `0` (VFO B cursor off) or `1` (VFO B cursor on)." =>
     GetVfoBCursorState
 );
 
-define_command!("Set the VFO B cursor on/off state.
+define_cat_command!("Set the VFO B cursor on/off state (`#VFB`).
 
 # Command format
 
-> `#VFBn;`
+> `#VFB{n};`
 
 Where `n` is the boolean state `0` (VFO B cursor off) or `1` (VFO B cursor on)." =>
     SetVfoBCursorState { state }
@@ -1355,7 +1322,7 @@ Where `n` is the boolean state `0` (VFO B cursor off) or `1` (VFO B cursor on)."
 // Public Types: GetWaterfallAveragingState, SetWaterfallAveragingState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the waterfall averaging on/off state.
+define_cat_command!("Get the waterfall averaging on/off state (`#WFA`).
 
 # Command format
 
@@ -1363,17 +1330,17 @@ define_command!("Query the waterfall averaging on/off state.
 
 # Response format
 
-> `#WFAn;`
+> `#WFA{n};`
 
 Where `n` is the boolean state `0` (waterfall averaging off) or `1` (waterfall averaging on)." =>
     GetWaterfallAveragingState
 );
 
-define_command!("Set the waterfall averaging on/off state.
+define_cat_command!("Set the waterfall averaging on/off state (`#WFA`).
 
 # Command format
 
-> `#WFAn;`
+> `#WFA{n};`
 
 Where `n` is the boolean state `0` (waterfall averaging off) or `1` (waterfall averaging on)." =>
     SetWaterfallAveragingState { state }
@@ -1383,7 +1350,7 @@ Where `n` is the boolean state `0` (waterfall averaging off) or `1` (waterfall a
 // Public Types: GetWaterfallColor, SetWaterfallColor, WaterfallColor
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the waterfall color.
+define_cat_command!("Get the waterfall color (`#WFC`).
 
 # Command format
 
@@ -1391,7 +1358,7 @@ define_command!("Query the waterfall color.
 
 # Response format
 
-> `#WFCn;`
+> `#WFC{n};`
 
 Where *n* is one of:
 
@@ -1400,11 +1367,11 @@ Where *n* is one of:
     GetWaterfallColor
 );
 
-define_command!("Set the waterfall color.
+define_cat_command!("Set the waterfall color (`#WFC`).
 
 # Command format
 
-> `#WFCn;`
+> `#WFC{n};`
 
 Where *n* is one of:
 
@@ -1426,7 +1393,7 @@ define_command_enum!(
 // Public Types: GetWaterfallMarkersState, SetWaterfallMarkersState
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the waterfall markers on/off state.
+define_cat_command!("Get the waterfall markers on/off state (`#WFM`).
 
 # Command format
 
@@ -1434,17 +1401,17 @@ define_command!("Query the waterfall markers on/off state.
 
 # Response format
 
-> `#WFMn;`
+> `#WFM{n};`
 
 Where `n` is the boolean state `0` (waterfall markers off) or `1` (waterfall markers on)." =>
     GetWaterfallMarkersState
 );
 
-define_command!("Set the waterfall markers on/off state.
+define_cat_command!("Set the waterfall markers on/off state (`#WFM`).
 
 # Command format
 
-> `#WFMn;`
+> `#WFM{n};`
 
 Where `n` is the boolean state `0` (waterfall markers off) or `1` (waterfall markers on)." =>
     SetWaterfallMarkersState { state }
@@ -1454,7 +1421,7 @@ Where `n` is the boolean state `0` (waterfall markers off) or `1` (waterfall mar
 // Public Types: GetTransceiverConnected, SetTransceiverConnected
 // ------------------------------------------------------------------------------------------------
 
-define_command!("Query the selected transceiver.
+define_cat_command!("Get the selected transceiver (`#XCV`).
 
 # Command format
 
@@ -1462,18 +1429,18 @@ define_command!("Query the selected transceiver.
 
 # Response format
 
-> `#XCVnn;`
+> `#XCV{nn};`
 
 Where *nn* is `00` (K3), `01` (user-defined transceiver), `02` (455 kHz IF), etc. up to the last
 'transceiver' in the 'Xcvr Sel' menu selection." =>
     GetTransceiverConnected
 );
 
-define_command!("Set the selected transceiver.
+define_cat_command!("Set the selected transceiver (`#XCV`).
 
 # Command format
 
-> `#XCVnn;`
+> `#XCV{nn};`
 
 Where *nn* is `00` (K3), `01` (user-defined transceiver), `02` (455 kHz IF), etc. up to the last
 'transceiver' in the 'Xcvr Sel' menu selection." =>
@@ -1481,22 +1448,6 @@ Where *nn* is `00` (K3), `01` (user-defined transceiver), `02` (455 kHz IF), etc
         transceiver: u8
     }
 );
-
-// ------------------------------------------------------------------------------------------------
-// Private Functions
-// ------------------------------------------------------------------------------------------------
-
-/// Format a signed [`Frequency`] as a P3 `s` + 11-digit ASCII value, as used by `#CTF`, `#MFA`
-/// and `#MFB`.
-fn format_signed_frequency(is_negative: bool, frequency: Frequency) -> Vec<u8> {
-    let mut bytes = vec![if is_negative {
-        ASCII_SIGN_NEGATIVE
-    } else {
-        ASCII_SIGN_POSITIVE
-    }];
-    bytes.extend(Vec::<u8>::from(frequency));
-    bytes
-}
 
 // ------------------------------------------------------------------------------------------------
 // Implementations
@@ -1536,19 +1487,20 @@ impl CommandWithResponse for GetProductId {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetDisplayAveraging => b"#AVG");
-impl_command_with_response!(GetDisplayAveraging => 2, u8_from_ascii => u8);
+impl_cat_command!(GetDisplayAveragingTimeConstant => b"#AVG");
+impl_cat_command_with_response!(GetDisplayAveragingTimeConstant => 2, u8_from_ascii => u8);
 
-impl_command!(SetDisplayAveraging => b"#AVG" format level uint 2);
+// TODO: add if clause to validate that the averaging time constant is 0, or 2..=20.
+impl_cat_command!(SetDisplayAveragingTimeConstant => b"#AVG" format averaging_time uint 2);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(BitmapUpload => b"#BMP");
+impl_cat_command!(UploadScreenshotBitmap => b"#BMP");
 
 // The `#BMP` response omits the command-id echo and trailing `;` terminator that
 // `validate_response` (and therefore `impl_command_with_response!`) assumes, so response parsing
 // is hand-rolled instead.
-impl CommandWithResponse for BitmapUpload {
+impl CommandWithResponse for UploadScreenshotBitmap {
     type Response = BitmapData;
 
     fn expected_response_length(&self) -> usize {
@@ -1572,8 +1524,8 @@ impl CommandWithResponse for BitmapUpload {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetBaudRate => b"#BR");
-impl_command_with_response!(GetBaudRate => 1, |bytes: &[u8]| {
+impl_cat_command!(GetBaudRate => b"#BR");
+impl_cat_command_with_response!(GetBaudRate => 1, |bytes: &[u8]| {
     match bytes[0] {
         b'0' => Ok(BaudRate::Bd4800),
         b'1' => Ok(BaudRate::Bd9600),
@@ -1583,7 +1535,7 @@ impl_command_with_response!(GetBaudRate => 1, |bytes: &[u8]| {
     }
 } => BaudRate);
 
-impl_command!(SetBaudRate => b"#BR" with |s: &SetBaudRate| {
+impl_cat_command!(SetBaudRate => b"#BR" with |s: &SetBaudRate| {
     match s.baud_rate {
         BaudRate::Bd4800 => Ok(Some(vec![b'0'])),
         BaudRate::Bd9600 => Ok(Some(vec![b'1'])),
@@ -1599,28 +1551,23 @@ impl_command!(SetBaudRate => b"#BR" with |s: &SetBaudRate| {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetCenterFrequency => b"#CTF");
-impl_command_with_response!(GetCenterFrequency => 12, |bytes: &[u8]| {
-    Ok(CenterFrequency {
-        is_negative: sign_from_ascii_loose(bytes[0])? < 0,
-        frequency: Frequency::try_from(&bytes[1..])?
-    })
-} => CenterFrequency);
+impl_cat_command!(GetCenterFrequency => b"#CTF");
+impl_cat_command_with_response!(GetCenterFrequency => try_from 12 SignedFrequency);
 
-impl_command!(SetCenterFrequency => b"#CTF" with Some |s: &SetCenterFrequency| {
-    format_signed_frequency(s.center.is_negative, s.center.frequency)
+impl_cat_command!(SetCenterFrequency => b"#CTF" with Some |cmd: &SetCenterFrequency| {
+    cmd.center.to_bytes()
 });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetDisplayMode => b"#DSM");
-impl_command_with_response!(GetDisplayMode => try_from enum DisplayMode);
+impl_cat_command!(GetDisplayMode => b"#DSM");
+impl_cat_command_with_response!(GetDisplayMode => try_from enum DisplayMode);
 
-impl_command!(SetDisplayMode => b"#DSM" for as byte mode);
+impl_cat_command!(SetDisplayMode => b"#DSM" for as byte mode);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetFunctionKeyLabel => b"#FNL" with |s: &GetFunctionKeyLabel| {
+impl_cat_command!(GetFunctionKeyLabel => b"#FNL" with |s: &GetFunctionKeyLabel| {
     if (1..=8).contains(&s.function_key) {
         Ok(Some(vec![s.function_key + ASCII_DIGIT_ZERO]))
     } else {
@@ -1631,7 +1578,7 @@ impl_command!(GetFunctionKeyLabel => b"#FNL" with |s: &GetFunctionKeyLabel| {
         })
     }
 });
-impl_command_with_response!(GetFunctionKeyLabel => 10, |bytes: &[u8]| {
+impl_cat_command_with_response!(GetFunctionKeyLabel => 10, |bytes: &[u8]| {
     Ok(FunctionKeyLabel {
         function_key: u8_from_ascii(&bytes[0..1])?,
         label: string_from_ascii(&bytes[1..])?,
@@ -1640,14 +1587,14 @@ impl_command_with_response!(GetFunctionKeyLabel => 10, |bytes: &[u8]| {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetFontSize => b"#FON");
-impl_command_with_response!(GetFontSize => try_from enum FontSize);
+impl_cat_command!(GetDisplayFontSize => b"#FON");
+impl_cat_command_with_response!(GetDisplayFontSize => try_from enum FontSize);
 
-impl_command!(SetFontSize => b"#FON" for as byte size);
+impl_cat_command!(SetDisplayFontSize => b"#FON" for as byte size);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetFunctionKeyExecute => b"#FNX" with |s: &SetFunctionKeyExecute| {
+impl_cat_command!(ExecuteFunctionKey => b"#FNX" with |s: &ExecuteFunctionKey| {
     if (1..=8).contains(&s.function_key) {
         Ok(Some(vec![s.function_key + ASCII_DIGIT_ZERO]))
     } else {
@@ -1661,80 +1608,70 @@ impl_command!(SetFunctionKeyExecute => b"#FNX" with |s: &SetFunctionKeyExecute| 
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetFixedTuneAutoAdjustMode => b"#FXA");
-impl_command_with_response!(GetFixedTuneAutoAdjustMode => try_from enum FixedTuneAutoAdjustMode);
+impl_cat_command!(GetFixedTuneAutoAdjustMode => b"#FXA");
+impl_cat_command_with_response!(GetFixedTuneAutoAdjustMode => try_from enum FixedTuneAutoAdjustMode);
 
-impl_command!(SetFixedTuneAutoAdjustMode => b"#FXA" for as byte mode);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetFixedTuneOrTrackingMode => b"#FXT");
-impl_command_with_response!(GetFixedTuneOrTrackingMode => try_from enum FixedTuneOrTrackingMode);
-
-impl_command!(SetFixedTuneOrTrackingMode => b"#FXT" for as byte mode);
+impl_cat_command!(SetFixedTuneAutoAdjustMode => b"#FXA" for as byte mode);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetFnLabelDisplay => b"#LBL");
-impl_command_with_response!(GetFnLabelDisplay => boolean);
+impl_cat_command!(GetFixedTuneOrTrackingMode => b"#FXT");
+impl_cat_command_with_response!(GetFixedTuneOrTrackingMode => try_from enum FixedTuneOrTrackingMode);
 
-impl_command!(SetFnLabelDisplay => b"#LBL" for boolean labels_on);
+impl_cat_command!(SetFixedTuneOrTrackingMode => b"#FXT" for as byte mode);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetMarkerAFrequency => b"#MFA");
-impl_command_with_response!(GetMarkerAFrequency => 12, |bytes: &[u8]| {
-    Ok(MarkerFrequency {
-        is_negative: sign_from_ascii_loose(bytes[0])? < 0,
-        frequency: Frequency::try_from(&bytes[1..])?
-    })
-} => MarkerFrequency);
+impl_cat_command!(GetFunctionKeyLabelDisplayState => b"#LBL");
+impl_cat_command_with_response!(GetFunctionKeyLabelDisplayState => boolean);
 
-impl_command!(SetMarkerAFrequency => b"#MFA" with Some |s: &SetMarkerAFrequency| {
-    format_signed_frequency(s.marker.is_negative, s.marker.frequency)
+impl_cat_command!(SetFunctionKeyLabelDisplayState => b"#LBL" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetMarkerAFrequency => b"#MFA");
+impl_cat_command_with_response!(GetMarkerAFrequency => try_from 12 SignedFrequency);
+
+impl_cat_command!(SetMarkerAFrequency => b"#MFA" with Some |cmd: &SetMarkerAFrequency| {
+    cmd.marker.to_bytes()
 });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetMarkerBFrequency => b"#MFB");
-impl_command_with_response!(GetMarkerBFrequency => 12, |bytes: &[u8]| {
-    Ok(MarkerFrequency {
-        is_negative: sign_from_ascii_loose(bytes[0])? < 0,
-        frequency: Frequency::try_from(&bytes[1..])?
-    })
-} => MarkerFrequency);
+impl_cat_command!(GetMarkerBFrequency => b"#MFB");
+impl_cat_command_with_response!(GetMarkerBFrequency => try_from 12 SignedFrequency);
 
-impl_command!(SetMarkerBFrequency => b"#MFB" with Some |s: &SetMarkerBFrequency| {
-    format_signed_frequency(s.marker.is_negative, s.marker.frequency)
+impl_cat_command!(SetMarkerBFrequency => b"#MFB" with Some |cmd: &SetMarkerBFrequency| {
+    cmd.marker.to_bytes()
 });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetMarkerAState => b"#MKA");
-impl_command_with_response!(GetMarkerAState => boolean);
+impl_cat_command!(GetMarkerAState => b"#MKA");
+impl_cat_command_with_response!(GetMarkerAState => boolean);
 
-impl_command!(SetMarkerAState => b"#MKA" for state);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetMarkerBState => b"#MKB");
-impl_command_with_response!(GetMarkerBState => boolean);
-
-impl_command!(SetMarkerBState => b"#MKB" for state);
+impl_cat_command!(SetMarkerAState => b"#MKA" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetNoiseBlankerState => b"#NB");
-impl_command_with_response!(GetNoiseBlankerState => boolean);
+impl_cat_command!(GetMarkerBState => b"#MKB");
+impl_cat_command_with_response!(GetMarkerBState => boolean);
 
-impl_command!(SetNoiseBlankerState => b"#NB" for state);
+impl_cat_command!(SetMarkerBState => b"#MKB" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetNoiseBlankerLevel => b"#NBL");
-impl_command_with_response!(GetNoiseBlankerLevel => 2, u8_from_ascii => u8);
+impl_cat_command!(GetNoiseBlankerState => b"#NB");
+impl_cat_command_with_response!(GetNoiseBlankerState => boolean);
 
-impl_command!(
+impl_cat_command!(SetNoiseBlankerState => b"#NB" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetNoiseBlankerLevel => b"#NBL");
+impl_cat_command_with_response!(GetNoiseBlankerLevel => 2, u8_from_ascii => u8);
+
+impl_cat_command!(
     SetNoiseBlankerLevel => b"#NBL"
     format level uint 2,
     if |s: &SetNoiseBlankerLevel| {
@@ -1752,52 +1689,45 @@ impl_command!(
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetPeakModeState => b"#PKM");
-impl_command_with_response!(GetPeakModeState => boolean);
+impl_cat_command!(GetPeakModeState => b"#PKM");
+impl_cat_command_with_response!(GetPeakModeState => boolean);
 
-impl_command!(SetPeakModeState => b"#PKM" for state);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetPowerStatus => b"#PS");
-impl_command_with_response!(GetPowerStatus => boolean);
-
-impl_command!(SetPowerStatus => b"#PS" for state);
+impl_cat_command!(SetPeakModeState => b"#PKM" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetPassThroughModeState => b"#PT");
+impl_cat_command!(GetPowerStatus => b"#PS");
+impl_cat_command_with_response!(GetPowerStatus => boolean);
+
+impl_cat_command!(SetPowerStatus => b"#PS" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(SetQsyToMarker => b"#QSY" for as byte action);
+impl_cat_command!(SetPassThroughModeState => b"#PT");
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetRelativeCenterFrequency => b"#RCF");
-impl_command_with_response!(GetRelativeCenterFrequency => 7, |bytes: &[u8]| {
-    Ok(RelativeCenterFrequencyOffset {
-        is_negative: sign_from_ascii_loose(bytes[0])? < 0,
-        offset_hz: u32_from_ascii(&bytes[1..])?,
-    })
-} => RelativeCenterFrequencyOffset);
+impl_cat_command!(SetQsyToMarker => b"#QSY" for as byte action);
 
-impl_command!(SetRelativeCenterFrequency => b"#RCF" with Some |s: &SetRelativeCenterFrequency| {
-    let mut v = vec![if s.offset.is_negative { ASCII_SIGN_NEGATIVE } else { ASCII_SIGN_POSITIVE }];
-    v.extend(format!("{:06}", s.offset.offset_hz).into_bytes());
-    v
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetRelativeCenterFrequency => b"#RCF");
+impl_cat_command_with_response!(GetRelativeCenterFrequency => try_from 12 SignedFrequency);
+
+impl_cat_command!(SetRelativeCenterFrequency => b"#RCF" with Some |cmd: &SetRelativeCenterFrequency| {
+    cmd.offset.to_bytes()
 });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetReferenceLevel => b"#REF");
-impl_command_with_response!(GetReferenceLevel => 4, |bytes: &[u8]| {
+impl_cat_command!(GetReferenceLevel => b"#REF");
+impl_cat_command_with_response!(GetReferenceLevel => 4, |bytes: &[u8]| {
     let sign = sign_from_ascii_loose(bytes[0])? as i16;
     let magnitude = u16_from_ascii(&bytes[1..4])? as i16;
     Ok(sign * magnitude)
 } => i16);
 
-impl_command!(SetReferenceLevel => b"#REF" with Some |s: &SetReferenceLevel| {
+impl_cat_command!(SetReferenceLevel => b"#REF" with Some |s: &SetReferenceLevel| {
     let mut v = vec![if s.dbm.is_negative() { ASCII_SIGN_NEGATIVE } else { ASCII_SIGN_POSITIVE }];
     v.extend(format!("{:03}", s.dbm.unsigned_abs()).into_bytes());
     v
@@ -1815,12 +1745,12 @@ impl_command!(SetReferenceLevel => b"#REF" with Some |s: &SetReferenceLevel| {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(Reset => b"#RST");
+impl_cat_command!(Reset => b"#RST");
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetFpgaImageFirmwareRevision => b"#RVF");
-impl_command_with_response!(GetFpgaImageFirmwareRevision => 7, |bytes: &[u8]| {
+impl_cat_command!(GetFpgaImageFirmwareRevision => b"#RVF");
+impl_cat_command_with_response!(GetFpgaImageFirmwareRevision => 7, |bytes: &[u8]| {
     if bytes[4] == b'.' {
         Ok(FpgaImageFirmwareRevision {
             image_number: u8_from_ascii(&bytes[0..=1])?,
@@ -1842,8 +1772,8 @@ impl_command_with_response!(GetFpgaImageFirmwareRevision => 7, |bytes: &[u8]| {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetMainFirmware => b"#RVM");
-impl_command_with_response!(GetMainFirmware => 5, |bytes: &[u8]| {
+impl_cat_command!(GetFirmwareRevision => b"#RVM");
+impl_cat_command_with_response!(GetFirmwareRevision => 5, |bytes: &[u8]| {
     if bytes[2] == b'.' {
         Ok(FirmwareRevision {
             major: u8_from_ascii(&bytes[0..=1])?,
@@ -1858,8 +1788,8 @@ impl_command_with_response!(GetMainFirmware => 5, |bytes: &[u8]| {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetSvgaFirmwareRevision => b"#RVS");
-impl_command_with_response!(GetSvgaFirmwareRevision => 5, |bytes: &[u8]| {
+impl_cat_command!(GetSvgaFirmwareRevision => b"#RVS");
+impl_cat_command_with_response!(GetSvgaFirmwareRevision => 5, |bytes: &[u8]| {
     if bytes[2] == b'.' {
         if &bytes[2..] == b"99.99" {
             Ok(SvgaFirmwareRevision::NotInstalled)
@@ -1882,103 +1812,103 @@ impl_command_with_response!(GetSvgaFirmwareRevision => 5, |bytes: &[u8]| {
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetScale => b"#SCL");
-impl_command_with_response!(GetScale => 3, u16_from_ascii => u16);
+impl_cat_command!(GetScale => b"#SCL");
+impl_cat_command_with_response!(GetScale => 3, u16_from_ascii => u16);
 
-impl_command!(SetScale => b"#SCL" with Some |s: &SetScale| {
+impl_cat_command!(SetScale => b"#SCL" with Some |s: &SetScale| {
     format!("{:03}", s.db).into_bytes()
 });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetSpanMode => b"#SPM");
-impl_command_with_response!(GetSpanMode => try_from enum SpanMode);
+impl_cat_command!(GetSpanMode => b"#SPM");
+impl_cat_command_with_response!(GetSpanMode => try_from enum SpanMode);
 
-impl_command!(SetSpanMode => b"#SPM" for as byte mode);
+impl_cat_command!(SetSpanMode => b"#SPM" for as byte mode);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetSpan => b"#SPN");
-impl_command_with_response!(GetSpan => 6, u32_from_ascii => u32);
+impl_cat_command!(GetSpan => b"#SPN");
+impl_cat_command_with_response!(GetSpan => 6, u32_from_ascii => u32);
 
-impl_command!(SetSpan => b"#SPN" with Some |s: &SetSpan| {
+impl_cat_command!(SetSpan => b"#SPN" with Some |s: &SetSpan| {
     format!("{:06}", s.span_hundred_hz).into_bytes()
 });
-impl_command_with_response!(SetSpan => 6, u32_from_ascii => u32);
+impl_cat_command_with_response!(SetSpan => 6, u32_from_ascii => u32);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetSvgaDecodedDataDisplayState => b"#SVDT");
-impl_command_with_response!(GetSvgaDecodedDataDisplayState => boolean);
+impl_cat_command!(GetSvgaDecodedDataDisplayState => b"#SVDT");
+impl_cat_command_with_response!(GetSvgaDecodedDataDisplayState => boolean);
 
-impl_command!(SetSvgaDecodedDataDisplayState => b"#SVDT" for state);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetSvgaDisplayState => b"#SVEN");
-impl_command_with_response!(GetSvgaDisplayState => boolean);
-
-impl_command!(SetSvgaDisplayState => b"#SVEN" for state);
+impl_cat_command!(SetSvgaDecodedDataDisplayState => b"#SVDT" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetSvgaSpectrumFillState => b"#SVFL");
-impl_command_with_response!(GetSvgaSpectrumFillState => boolean);
+impl_cat_command!(GetSvgaDisplayState => b"#SVEN");
+impl_cat_command_with_response!(GetSvgaDisplayState => boolean);
 
-impl_command!(SetSvgaSpectrumFillState => b"#SVFL" for state);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetSvgaFontSize => b"#SVFN");
-impl_command_with_response!(GetSvgaFontSize => try_from enum SvgaFontSize);
-
-impl_command!(SetSvgaFontSize => b"#SVFN" for as byte size);
+impl_cat_command!(SetSvgaDisplayState => b"#SVEN" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetSvgaDisplayResolution => b"#SVRS");
-impl_command_with_response!(GetSvgaDisplayResolution => try_from enum SvgaDisplayResolution);
+impl_cat_command!(GetSvgaSpectrumFillState => b"#SVFL");
+impl_cat_command_with_response!(GetSvgaSpectrumFillState => boolean);
 
-impl_command!(SetSvgaDisplayResolution => b"#SVRS" for as byte resolution);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetSvgaWaterfallBias => b"#SVWB");
-impl_command_with_response!(GetSvgaWaterfallBias => 2, u8_from_ascii => u8);
-
-impl_command!(SetSvgaWaterfallBias => b"#SVWB" format bias uint 2);
+impl_cat_command!(SetSvgaSpectrumFillState => b"#SVFL" for state);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetVfoBCursorState => b"#VFB");
-impl_command_with_response!(GetVfoBCursorState => boolean);
+impl_cat_command!(GetSvgaFontSize => b"#SVFN");
+impl_cat_command_with_response!(GetSvgaFontSize => try_from enum SvgaFontSize);
 
-impl_command!(SetVfoBCursorState => b"#VFB" for state);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetWaterfallAveragingState => b"#WFA");
-impl_command_with_response!(GetWaterfallAveragingState => boolean);
-
-impl_command!(SetWaterfallAveragingState => b"#WFA" for state);
+impl_cat_command!(SetSvgaFontSize => b"#SVFN" for as byte size);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetWaterfallColor => b"#WFC");
-impl_command_with_response!(GetWaterfallColor => try_from enum WaterfallColor);
+impl_cat_command!(GetSvgaDisplayResolution => b"#SVRS");
+impl_cat_command_with_response!(GetSvgaDisplayResolution => try_from enum SvgaDisplayResolution);
 
-impl_command!(SetWaterfallColor => b"#WFC" for as byte color);
-
-// ------------------------------------------------------------------------------------------------
-
-impl_command!(GetWaterfallMarkersState => b"#WFM");
-impl_command_with_response!(GetWaterfallMarkersState => boolean);
-
-impl_command!(SetWaterfallMarkersState => b"#WFM" for state);
+impl_cat_command!(SetSvgaDisplayResolution => b"#SVRS" for as byte resolution);
 
 // ------------------------------------------------------------------------------------------------
 
-impl_command!(GetTransceiverConnected => b"#XCV");
-impl_command_with_response!(GetTransceiverConnected => 2, u8_from_ascii => u8);
+impl_cat_command!(GetSvgaWaterfallBias => b"#SVWB");
+impl_cat_command_with_response!(GetSvgaWaterfallBias => 2, u8_from_ascii => u8);
 
-impl_command!(SetTransceiverConnected => b"#XCV" format transceiver uint 2);
+impl_cat_command!(SetSvgaWaterfallBias => b"#SVWB" format bias uint 2);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetVfoBCursorState => b"#VFB");
+impl_cat_command_with_response!(GetVfoBCursorState => boolean);
+
+impl_cat_command!(SetVfoBCursorState => b"#VFB" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetWaterfallAveragingState => b"#WFA");
+impl_cat_command_with_response!(GetWaterfallAveragingState => boolean);
+
+impl_cat_command!(SetWaterfallAveragingState => b"#WFA" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetWaterfallColor => b"#WFC");
+impl_cat_command_with_response!(GetWaterfallColor => try_from enum WaterfallColor);
+
+impl_cat_command!(SetWaterfallColor => b"#WFC" for as byte color);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetWaterfallMarkersState => b"#WFM");
+impl_cat_command_with_response!(GetWaterfallMarkersState => boolean);
+
+impl_cat_command!(SetWaterfallMarkersState => b"#WFM" for state);
+
+// ------------------------------------------------------------------------------------------------
+
+impl_cat_command!(GetTransceiverConnected => b"#XCV");
+impl_cat_command_with_response!(GetTransceiverConnected => 2, u8_from_ascii => u8);
+
+impl_cat_command!(SetTransceiverConnected => b"#XCV" format transceiver uint 2);

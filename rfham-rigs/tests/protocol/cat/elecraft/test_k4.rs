@@ -17,10 +17,11 @@ use rfham_rigs::{
         Command,
         cat::elecraft::k4::{
             AtuMode, CaptureScreenshot, CenterPanadapterOnVfoA, CenterPanadapterOnVfoB,
-            CopyVfoAtoVfoB, DigitalAudioRoutingMode, GetActiveSoftwareReleaseChannel, GetAtuMode,
-            GetAudioLineInputLevel, GetAudioLineOutputLevel, GetAudioMixRatio,
-            GetBandIndependenceState, GetCoarseTuningStep, GetCurrentBandPowerLimit,
-            GetDigitalAudioRoutingMode, GetDigitalOutputPin1State, GetErrorReportingState,
+            CopyVfoAtoVfoB, DigitalAudioRoutingMode, DigitalPinState,
+            GetActiveSoftwareReleaseChannel, GetAtuMode, GetAudioLineInputLevel,
+            GetAudioLineOutputLevel, GetAudioMixRatio, GetBandIndependenceState,
+            GetCoarseTuningStep, GetCurrentBandPowerLimit, GetDigitalAudioRoutingMode,
+            GetDigitalOutputPin1State, GetErrorReportingState, GetK4CommandMode,
             GetKeyerPaddleEmulationMode, GetMicInputSource, GetPowerStatus, GetRepeaterOffset,
             GetScreenCount, GetStreamingLatencyClass, GetTransceiverId, GetTransceiverSerialNumber,
             GetTransmitDataBandwidth, GetTransmitGain, GetTransmitGainConstant,
@@ -31,14 +32,15 @@ use rfham_rigs::{
             GetVfoATuningStep, GetVfoBAgcMode, GetVfoBAutoNotchState, GetVfoBCtssTone,
             GetVfoBFilterPresetSlot, GetVfoBIfCenterPitch, GetVfoBManualNotchSettings,
             GetVfoBModeAlternates, GetVfoBNoiseReductionSettings, GetVfoBTextDecodeMode,
-            GetVfoBTransverterActiveBandSlot, GetVfoBTuningStep, GetVoxGain, GetVoxInhibitState,
-            GetWattmeterCalibrationConstant, KeyerPaddleEmulationMode, MicInputSource,
-            PlayDvrMessage, PowerStatus, RepeaterOffsetDirection, SetActiveSoftwareReleaseChannel,
-            SetAtuMode, SetAtuTuningState, SetAudioLineInputLevel, SetAudioLineOutputLevel,
-            SetAudioMixRatio, SetBandIndependenceState, SetCoarseTuningStep, SetCommandEchoState,
-            SetCwSidetonePitch, SetDigitalAudioRoutingMode, SetDigitalOutputPin1State,
-            SetErrorReportingState, SetK4QskOrVoxDelay, SetKeyerPaddleEmulationMode, SetKeyerSpeed,
-            SetMicInputSource, SetPowerStatus, SetRepeaterOffset, SetStreamingLatencyClass,
+            GetVfoBTransverterActiveBandSlot, GetVfoBTransverterOffset, GetVfoBTuningStep,
+            GetVoxGain, GetVoxInhibitState, GetWattmeterCalibrationConstant, K4CommandMode,
+            KeyerPaddleEmulationMode, MicInputSource, PlayDvrMessage, PowerStatus,
+            RepeaterOffsetDirection, SetActiveSoftwareReleaseChannel, SetAtuMode,
+            SetAtuTuningState, SetAudioLineInputLevel, SetAudioLineOutputLevel, SetAudioMixRatio,
+            SetBandIndependenceState, SetCoarseTuningStep, SetCommandEchoState, SetCwSidetonePitch,
+            SetDigitalAudioRoutingMode, SetDigitalOutputPin1State, SetErrorReportingState,
+            SetK4CommandMode, SetKeyerPaddleEmulationMode, SetKeyerSpeed, SetMicInputSource,
+            SetPowerStatus, SetQskOrVoxDelay, SetRepeaterOffset, SetStreamingLatencyClass,
             SetSystemAutoInfoInterval, SetTransmitDataBandwidth, SetTransmitTestModeState,
             SetVfoAAgcMode, SetVfoAAutoNotchState, SetVfoACtssTone, SetVfoAFilterPresetSlot,
             SetVfoAManualNotchSettings, SetVfoANoiseReductionSettings, SetVfoATextDecodeMode,
@@ -60,6 +62,31 @@ use rfham_rigs::{
 fn expected_signed_offset_4(n: i16) -> Vec<u8> {
     let sign = if n.is_negative() { "-" } else { "+" };
     format!("{sign}{:04}", n.unsigned_abs()).into_bytes()
+}
+
+// ------------------------------------------------------------------------------------------------
+// K4: GetK4CommandMode, SetK4CommandMode
+// ------------------------------------------------------------------------------------------------
+
+#[test]
+fn get_k4_command_mode_encodes() {
+    assert_eq!(GetK4CommandMode.to_message().unwrap(), b"K4;".to_vec());
+}
+
+#[test]
+fn set_k4_command_mode_encodes_normal() {
+    let cmd = SetK4CommandMode {
+        mode: K4CommandMode { advanced: false },
+    };
+    assert_eq!(cmd.to_message().unwrap(), b"K40;".to_vec());
+}
+
+#[test]
+fn set_k4_command_mode_encodes_advanced() {
+    let cmd = SetK4CommandMode {
+        mode: K4CommandMode { advanced: true },
+    };
+    assert_eq!(cmd.to_message().unwrap(), b"K41;".to_vec());
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -180,7 +207,7 @@ fn set_digital_audio_encodes() {
     let cmd = SetDigitalAudioRoutingMode {
         mode: DigitalAudioRoutingMode::DigitalOut,
     };
-    assert_eq!(cmd.to_message().unwrap(), b"DA2;".to_vec());
+    assert_eq!(cmd.to_message().unwrap(), b"DA1;".to_vec());
 }
 
 #[test]
@@ -209,20 +236,24 @@ fn set_digital_audio_accepts_boundary_values() {
 fn get_dig_out_1_encodes() {
     assert_eq!(
         GetDigitalOutputPin1State.to_message().unwrap(),
-        b"DO1;".to_vec()
+        b"DO;".to_vec()
     );
 }
 
 #[test]
 fn set_dig_out_1_encodes_high() {
-    let cmd = SetDigitalOutputPin1State { high: true };
+    let cmd = SetDigitalOutputPin1State {
+        state: DigitalPinState::set_high(),
+    };
     assert_eq!(cmd.to_message().unwrap(), b"DO1;".to_vec());
 }
 
 #[test]
 fn set_dig_out_1_encodes_low() {
-    let cmd = SetDigitalOutputPin1State { high: false };
-    assert_eq!(cmd.to_message().unwrap(), b"DO1;".to_vec());
+    let cmd = SetDigitalOutputPin1State {
+        state: DigitalPinState::set_low(),
+    };
+    assert_eq!(cmd.to_message().unwrap(), b"DO0;".to_vec());
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -1066,7 +1097,7 @@ fn get_k4_power_status_encodes() {
 #[test]
 fn set_k4_power_status_encodes_off() {
     let cmd = SetPowerStatus {
-        state: PowerStatus::PowerOff,
+        state: PowerStatus::Off,
     };
     assert_eq!(cmd.to_message().unwrap(), b"PS0;".to_vec());
 }
@@ -1074,7 +1105,7 @@ fn set_k4_power_status_encodes_off() {
 #[test]
 fn set_k4_power_status_encodes_on() {
     let cmd = SetPowerStatus {
-        state: PowerStatus::PowerOn,
+        state: PowerStatus::On,
     };
     assert_eq!(cmd.to_message().unwrap(), b"PS1;".to_vec());
 }
@@ -1138,7 +1169,7 @@ fn set_repeater_offset_encodes() {
         direction: RepeaterOffsetDirection::Positive,
         offset_hz: 600_000,
     };
-    assert_eq!(cmd.to_message().unwrap(), b"RP10600000;".to_vec());
+    assert_eq!(cmd.to_message().unwrap(), b"RP1600000;".to_vec());
 }
 
 #[test]
@@ -1176,20 +1207,20 @@ fn get_screen_count_encodes() {
 
 #[test]
 fn set_k4_delay_encodes() {
-    let cmd = SetK4QskOrVoxDelay { delay_ms: 500 };
+    let cmd = SetQskOrVoxDelay { delay_ms: 500 };
     assert_eq!(cmd.to_message().unwrap(), b"SD0500;".to_vec());
 }
 
 #[test]
 fn set_k4_delay_accepts_boundary_values() {
-    assert!(SetK4QskOrVoxDelay { delay_ms: 0 }.validate().is_ok());
-    assert!(SetK4QskOrVoxDelay { delay_ms: 2000 }.validate().is_ok());
+    assert!(SetQskOrVoxDelay { delay_ms: 0 }.validate().is_ok());
+    assert!(SetQskOrVoxDelay { delay_ms: 2000 }.validate().is_ok());
 }
 
 #[test]
 fn set_k4_delay_rejects_out_of_range() {
     assert!(matches!(
-        SetK4QskOrVoxDelay { delay_ms: 2001 }.validate(),
+        SetQskOrVoxDelay { delay_ms: 2001 }.validate(),
         Err(RigError::InvalidArgumentValue { .. })
     ));
 }
@@ -1339,7 +1370,7 @@ fn set_text_decode_mode_b_encodes() {
     let cmd = SetVfoBTextDecodeMode {
         mode: TextDecodeMode::Rtty,
     };
-    assert_eq!(cmd.to_message().unwrap(), b"TD$1;".to_vec());
+    assert_eq!(cmd.to_message().unwrap(), b"TD$2;".to_vec());
 }
 
 #[test]
@@ -1512,7 +1543,7 @@ fn get_vfo_offset_a_encodes() {
 #[test]
 fn get_vfo_offset_b_encodes() {
     assert_eq!(
-        GetVfoATransverterOffset.to_message().unwrap(),
+        GetVfoBTransverterOffset.to_message().unwrap(),
         b"VO$;".to_vec()
     );
 }
