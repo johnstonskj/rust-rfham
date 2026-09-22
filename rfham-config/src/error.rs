@@ -33,6 +33,14 @@ pub enum ConfigError {
     #[error("An error occured parsing the input as an integer value; error: {0}")]
     ParseInt(#[from] ParseIntError),
 
+    #[error(
+        "Invalid string representation for enum type {type_name}, not a known variant; could not parse {value:?}"
+    )]
+    ParseEnum {
+        type_name: &'static str,
+        value: String,
+    },
+
     #[error("An error occured parsing the input as a connection string; error: {0}")]
     ParseConnectionString(#[from] ParseConnectionString),
 
