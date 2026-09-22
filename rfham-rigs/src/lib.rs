@@ -2,6 +2,38 @@
 //! Provides a rig-control library for supported transceivers, tuners, and amplifiers.
 //!
 //!
+//! The goal of this crate is to produce a new model for ham (amateur) radio
+//! control that encompasses the capabilities of the two major protocols that
+//! exist today, namely Computer Aided Transciver (CAT) and Communications
+//! Interface-V (CI-V).
+//!
+//!
+//! ```text
+//! rfham-rigs::
+//! ├── api::                   │ Synchronous trait-based
+//! │   ├── actors::            │ Asynchronous channel based
+//! │   ├── asyncs::            │ Asynchronous async/await based
+//! │   ├── entities::          │ Entity traits
+//! │   └── features::          │ Entity features
+//! ├── errors::                │ Common
+//! ├── protocols::
+//! │   ├── cat::               │ CAT variants
+//! │   │   └── elecraft::      │ Elecraft-like
+//! │   └── civ::               │ Icom and Xiegu
+//! ├── rigs::
+//! │   ├── elecraft::          │ Brand and equipment names
+//! │   ├── icom::
+//! │   └── // ...
+//! └── transports::
+//!     ├── serial::            │ Serial, USB, Bluetooth
+//!     ├── ip::                │ TCP/IP
+//!     └── unix::              │ Unix sockets
+//! ```
+//!
+//!
+//! For more details, see the repository
+//! [documentation](https://github.com/johnstonskj/rust-rfham/blob/main/rfham-rigs/docs/index.md).
+//!
 //! # Feature flags
 #![doc = document_features::document_features!()]
 

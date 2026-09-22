@@ -51,23 +51,24 @@ Interface-V (CI-V) \[2]. According to \[4]:
 
 ```text
 rfham-rigs::
-├── entities::
-├── features::
-├── replies::
-├── errors::
+├── api::                   │ Synchronous trait-based
+│   ├── actors::            │ Asynchronous channel based
+│   ├── asyncs::            │ Asynchronous async/await based
+│   ├── entities::          │ Entity traits
+│   └── features::          │ Entity features
+├── errors::                │ Common
 ├── protocols::
-│   ├── cat::
-│   └── civ::
+│   ├── cat::               │ CAT variants
+│   │   └── elecraft::      │ Elecraft-like
+│   └── civ::               │ Icom and Xiegu
 ├── rigs::
-│   ├── elecraft::
-│   │   └── kx3()
+│   ├── elecraft::          │ Brand and equipment names
 │   ├── icom::
-│   │   ├── ic705()
-│   │   └── ic905()
 │   └── // ...
 └── transports::
-    ├── serial::
-    └── ip::
+    ├── serial::            │ Serial, USB, Bluetooth
+    ├── ip::                │ TCP/IP
+    └── unix::              │ Unix sockets
 ```
 
 ## Rig *Entity+Feature* API
