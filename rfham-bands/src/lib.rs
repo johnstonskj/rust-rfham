@@ -276,7 +276,7 @@ impl ToMarkdownWith for BandPlan {
         blank_line(writer)?;
 
         let mut ordered_licenses = self.licenses.iter().collect::<Vec<_>>();
-        ordered_licenses.sort_by(|a, b| a.1.ordinal().cmp(&b.1.ordinal()));
+        ordered_licenses.sort_by_key(|a| a.1.ordinal());
 
         for (number, (key, license)) in ordered_licenses.iter().enumerate() {
             numbered_list_item(

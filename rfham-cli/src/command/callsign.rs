@@ -58,11 +58,7 @@ impl OnceCommand for ValidateCallSign {
             if let Some(allocation) = ItuSeriesAllocation::from_callsign(&callsign) {
                 bulleted_list_item(&mut writer, 2, format!("ITU allocation; {allocation:#}"))?;
             } else {
-                bulleted_list_item(
-                    &mut writer,
-                    2,
-                    format!("ITU allocation; Unknown/unallocated"),
-                )?;
+                bulleted_list_item(&mut writer, 2, "ITU allocation; Unknown/unallocated")?;
                 bulleted_list_item(
                     &mut writer,
                     3,

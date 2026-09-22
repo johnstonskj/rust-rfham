@@ -169,10 +169,9 @@ impl ToMarkdown for SimpleDipole {
             )?;
             writeln!(
                 writer,
-                "{}│  {} {}",
+                "{}│  {} 50Ω feed line",
                 " ".repeat(wl_4_padded_len),
                 "│".blue().dimmed(),
-                "50Ω feed line"
             )?;
             writeln!(
                 writer,

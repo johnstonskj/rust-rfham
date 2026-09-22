@@ -63,7 +63,7 @@ impl IpGeoService for Legacy {
     fn lookup(&self) -> Result<Location, ServiceError> {
         trace!("Legacy::lookup(): {IPINFO_LEGACY_URI}");
         // TODO: set user-agent
-        let response = reqwest::blocking::get(format!("{IPINFO_LEGACY_URI}"))?;
+        let response = reqwest::blocking::get(IPINFO_LEGACY_URI.to_string())?;
         if response.status().is_success() {
             let body = response.text()?;
             let parsed: LegacyLocation = serde_json::from_str(&body)?;

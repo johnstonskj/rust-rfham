@@ -59,7 +59,7 @@ impl IpGeoService for Lookup {
     fn lookup(&self) -> Result<Location, ServiceError> {
         trace!("Lookup::lookup(): {GEOIP_LOOKUP_URL}");
         // TODO: set user-agent
-        let response = reqwest::blocking::get(format!("{GEOIP_LOOKUP_URL}"))?;
+        let response = reqwest::blocking::get(GEOIP_LOOKUP_URL.to_string())?;
         if response.status().is_success() {
             let status = response.status();
             let body = response.text()?;
@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn test_deserialize_and_into() {
-        let parsed: GeoIpResponse = from_str(&EXAMPLE_JSON).unwrap();
+        let parsed: GeoIpResponse = from_str(EXAMPLE_JSON).unwrap();
         let location: Location = parsed.try_into().unwrap();
         assert_eq!(
             Location::new(

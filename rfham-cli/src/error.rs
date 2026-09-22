@@ -304,6 +304,7 @@ impl Note {
         Self::new(NoteKind::Help, content)
     }
 
+    #[allow(clippy::self_named_constructors)]
     pub fn note<S: Into<String>>(content: S) -> Self {
         Self::new(NoteKind::Note, content)
     }

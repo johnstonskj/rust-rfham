@@ -182,20 +182,20 @@ impl Lookup {
                 Ok(())
             } else if let Some(error) = &parsed.session.error {
                 error!("service response: {:?}", error);
-                return Err(ServiceError::Authentication(
+                Err(ServiceError::Authentication(
                     CallSignInfoProvider::Qrz.to_string(),
                     error.to_string(),
-                ));
+                ))
             } else {
                 error!("Response was not an error, but also failed to provide a session key");
-                return Err(ServiceError::Authentication(
+                Err(ServiceError::Authentication(
                     CallSignInfoProvider::Qrz.to_string(),
                     "".to_string(),
-                ));
+                ))
             }
         } else {
             error!("Legacy::lookup => status: {}", response.status());
-            return Err(ServiceError::Http(response.status()));
+            Err(ServiceError::Http(response.status()))
         }
     }
 
@@ -220,16 +220,16 @@ impl Lookup {
                 Ok(CallSignInfo::try_from(info)?)
             } else if let Some(error) = &parsed.session.error {
                 error!("service response: {:?}", error);
-                return Err(ServiceError::Authentication(
+                Err(ServiceError::Authentication(
                     CallSignInfoProvider::Qrz.to_string(),
                     error.to_string(),
-                ));
+                ))
             } else {
                 unreachable!()
             }
         } else {
             error!("Legacy::lookup => status: {}", response.status());
-            return Err(ServiceError::Http(response.status()));
+            Err(ServiceError::Http(response.status()))
         }
     }
 }
@@ -251,10 +251,10 @@ impl TryFrom<&CallsignResponse> for CallSigns {
                     .as_ref()
                     .map(|s| {
                         s.split(' ')
-                            .map(|s| CallSign::from_str(&s.trim()).unwrap())
+                            .map(|s| CallSign::from_str(s.trim()).unwrap())
                             .collect::<Vec<_>>()
                     })
-                    .unwrap_or_else(|| Vec::new()),
+                    .unwrap_or_default(),
             ))
     }
 }
