@@ -25,3 +25,5 @@ rig_mod!(kx3 as "KX3");
 rig_mod!(kh1 as "KH1");
 
 amp_mod!(kpa500 as "KPA500");
+amp_mod!(kpa1500 as "KPA1500");
+amp_mod!(kxpa100 as "KXPA100");

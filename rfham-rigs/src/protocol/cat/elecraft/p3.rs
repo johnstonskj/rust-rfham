@@ -28,8 +28,9 @@ use crate::{
             },
         },
     },
-    transport::BaudRate,
+    transport::Message,
 };
+use rfham_config::connections::BaudRate;
 use strum::EnumIs;
 
 // ------------------------------------------------------------------------------------------------
@@ -1466,15 +1467,16 @@ impl Command for GetProductId {
         None
     }
 
-    fn to_message(&self) -> Result<Vec<u8>, RigError> {
-        Ok(self.command_id().to_vec())
+    fn to_message(&self) -> Result<Message<'_>, RigError> {
+        Ok(Message::from(self.command_id()))
     }
 }
 
 impl CommandWithResponse for GetProductId {
     type Response = ProductId;
 
-    fn parse(&self, bytes: &[u8]) -> Result<ProductId, RigError> {
+    fn parse(&self, message: &Message<'_>) -> Result<ProductId, RigError> {
+        let bytes = message.as_bytes();
         if bytes == b"P3" {
             Ok(ProductId::MainFirmwareExecuting)
         } else if bytes == b"p3" {
@@ -1507,7 +1509,8 @@ impl CommandWithResponse for UploadScreenshotBitmap {
         131_640
     }
 
-    fn parse(&self, bytes: &[u8]) -> Result<Self::Response, RigError> {
+    fn parse(&self, message: &Message<'_>) -> Result<Self::Response, RigError> {
+        let bytes = message.as_bytes();
         if bytes.len() != self.expected_response_length() {
             Err(invalid_response_length(
                 self.expected_response_length(),
@@ -1554,9 +1557,7 @@ impl_cat_command!(SetBaudRate => b"#BR" with |s: &SetBaudRate| {
 impl_cat_command!(GetCenterFrequency => b"#CTF");
 impl_cat_command_with_response!(GetCenterFrequency => try_from 12 SignedFrequency);
 
-impl_cat_command!(SetCenterFrequency => b"#CTF" with Some |cmd: &SetCenterFrequency| {
-    cmd.center.to_bytes()
-});
+impl_cat_command!(SetCenterFrequency => b"#CTF" into vec center);
 
 // ------------------------------------------------------------------------------------------------
 
@@ -1632,18 +1633,14 @@ impl_cat_command!(SetFunctionKeyLabelDisplayState => b"#LBL" for state);
 impl_cat_command!(GetMarkerAFrequency => b"#MFA");
 impl_cat_command_with_response!(GetMarkerAFrequency => try_from 12 SignedFrequency);
 
-impl_cat_command!(SetMarkerAFrequency => b"#MFA" with Some |cmd: &SetMarkerAFrequency| {
-    cmd.marker.to_bytes()
-});
+impl_cat_command!(SetMarkerAFrequency => b"#MFA" into vec marker);
 
 // ------------------------------------------------------------------------------------------------
 
 impl_cat_command!(GetMarkerBFrequency => b"#MFB");
 impl_cat_command_with_response!(GetMarkerBFrequency => try_from 12 SignedFrequency);
 
-impl_cat_command!(SetMarkerBFrequency => b"#MFB" with Some |cmd: &SetMarkerBFrequency| {
-    cmd.marker.to_bytes()
-});
+impl_cat_command!(SetMarkerBFrequency => b"#MFB" into vec marker);
 
 // ------------------------------------------------------------------------------------------------
 
@@ -1714,9 +1711,7 @@ impl_cat_command!(SetQsyToMarker => b"#QSY" for as byte action);
 impl_cat_command!(GetRelativeCenterFrequency => b"#RCF");
 impl_cat_command_with_response!(GetRelativeCenterFrequency => try_from 12 SignedFrequency);
 
-impl_cat_command!(SetRelativeCenterFrequency => b"#RCF" with Some |cmd: &SetRelativeCenterFrequency| {
-    cmd.offset.to_bytes()
-});
+impl_cat_command!(SetRelativeCenterFrequency => b"#RCF" into vec offset);
 
 // ------------------------------------------------------------------------------------------------
 

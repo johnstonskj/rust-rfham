@@ -30,6 +30,7 @@ use crate::{
             u32_from_ascii, validate_response,
         },
     },
+    transport::message::Message,
 };
 use core::fmt::Display;
 use tracing::error;
@@ -2175,8 +2176,8 @@ impl CommandWithResponse for GetVfoAModeAlternates {
         0
     }
 
-    fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
-        let d = validate_response(bytes, self.command_id(), 0)?;
+    fn parse(&self, message: &Message<'_>) -> Result<Vec<u8>, RigError> {
+        let d = validate_response(message.as_bytes(), self.command_id(), 0)?;
         bytes_to_vec(d)
     }
 }
@@ -2192,8 +2193,8 @@ impl CommandWithResponse for GetVfoBModeAlternates {
         0
     }
 
-    fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>, RigError> {
-        let d = validate_response(bytes, self.command_id(), 0)?;
+    fn parse(&self, message: &Message<'_>) -> Result<Vec<u8>, RigError> {
+        let d = validate_response(message.as_bytes(), self.command_id(), 0)?;
         bytes_to_vec(d)
     }
 }
@@ -2268,8 +2269,12 @@ impl CommandWithResponse for GetVfoAManualNotchSettings {
         7
     }
 
-    fn parse(&self, bytes: &[u8]) -> Result<ManualNotch, RigError> {
-        let d = validate_response(bytes, self.command_id(), self.expected_response_length())?;
+    fn parse(&self, message: &Message<'_>) -> Result<ManualNotch, RigError> {
+        let d = validate_response(
+            message.as_bytes(),
+            self.command_id(),
+            self.expected_response_length(),
+        )?;
         Ok(ManualNotch {
             state: d[0] == b'1',
             offset_hz: parse_signed_hz_4(&d[2..7])?,
@@ -2288,8 +2293,12 @@ impl CommandWithResponse for GetVfoBManualNotchSettings {
         7
     }
 
-    fn parse(&self, bytes: &[u8]) -> Result<ManualNotch, RigError> {
-        let d = validate_response(bytes, self.command_id(), self.expected_response_length())?;
+    fn parse(&self, message: &Message<'_>) -> Result<ManualNotch, RigError> {
+        let d = validate_response(
+            message.as_bytes(),
+            self.command_id(),
+            self.expected_response_length(),
+        )?;
         Ok(ManualNotch {
             state: d[0] == b'1',
             offset_hz: parse_signed_hz_4(&d[2..7])?,
@@ -2324,8 +2333,12 @@ impl CommandWithResponse for GetVfoANoiseReductionSettings {
         2
     }
 
-    fn parse(&self, bytes: &[u8]) -> Result<NoiseReduction, RigError> {
-        let d = validate_response(bytes, self.command_id(), self.expected_response_length())?;
+    fn parse(&self, message: &Message<'_>) -> Result<NoiseReduction, RigError> {
+        let d = validate_response(
+            message.as_bytes(),
+            self.command_id(),
+            self.expected_response_length(),
+        )?;
         Ok(NoiseReduction {
             state: d[0] == b'1',
             level: d[1] - b'0',
@@ -2344,8 +2357,12 @@ impl CommandWithResponse for GetVfoBNoiseReductionSettings {
         2
     }
 
-    fn parse(&self, bytes: &[u8]) -> Result<NoiseReduction, RigError> {
-        let d = validate_response(bytes, self.command_id(), self.expected_response_length())?;
+    fn parse(&self, message: &Message<'_>) -> Result<NoiseReduction, RigError> {
+        let d = validate_response(
+            message.as_bytes(),
+            self.command_id(),
+            self.expected_response_length(),
+        )?;
         Ok(NoiseReduction {
             state: d[0] == b'1',
             level: d[1] - b'0',
@@ -2458,8 +2475,12 @@ impl CommandWithResponse for GetRepeaterOffset {
         8
     }
 
-    fn parse(&self, bytes: &[u8]) -> Result<RepeaterOffset, RigError> {
-        let d = validate_response(bytes, self.command_id(), self.expected_response_length())?;
+    fn parse(&self, message: &Message<'_>) -> Result<RepeaterOffset, RigError> {
+        let d = validate_response(
+            message.as_bytes(),
+            self.command_id(),
+            self.expected_response_length(),
+        )?;
         Ok(RepeaterOffset {
             direction: RepeaterOffsetDirection::from_repr(d[0]).ok_or(
                 RigError::InvalidArgumentValue {

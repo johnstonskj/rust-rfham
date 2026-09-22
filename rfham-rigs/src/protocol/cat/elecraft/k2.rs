@@ -1003,7 +1003,7 @@ impl SetAntennaSelection {
 
 impl_cat_command!(GetBargraphValue => b"BG");
 impl_cat_command_with_response!(GetBargraphValue => 2, |bytes: &[u8]| {
-    let value = u8_from_ascii(&bytes)?;
+    let value = u8_from_ascii(bytes)?;
     match value {
         0..=10 => Ok(BargraphValue {
             value,
@@ -1029,6 +1029,7 @@ impl_cat_command!(MoveVfoAFrequencyDown => b"DN" with Some |cmd: &MoveVfoAFreque
     }
 });
 
+#[allow(clippy::derivable_impls)]
 impl Default for MoveVfoAFrequencyDown {
     fn default() -> Self {
         Self { step: None }
@@ -1117,7 +1118,7 @@ impl TryFrom<u8> for VfoAAnnunciatorData {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         if parse_bit_flag!(value[7] OFF) {
-            Err(invalid_response_data(&[value]))
+            Err(invalid_response_data([value]))
         } else {
             Ok(Self {
                 xit_on: parse_bit_flag!(value[0] ON),
@@ -1137,7 +1138,7 @@ impl TryFrom<u8> for VfoAAnnunciatorFlashData {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         if parse_bit_flag!(value[7] OFF) {
-            Err(invalid_response_data(&[value]))
+            Err(invalid_response_data([value]))
         } else {
             Ok(Self {
                 xit_flashing: parse_bit_flag!(value[0] ON),

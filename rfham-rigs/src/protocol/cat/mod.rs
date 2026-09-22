@@ -20,14 +20,11 @@
 use crate::{
     error::RigError,
     protocol::{Command, CommandWithResponse, ProtocolHandler},
-    transport::ActiveConnectionKind,
+    transport::{Message, Transport},
 };
 use core::{fmt::Debug, time::Duration};
 use rfham_iri::UniversalRigName;
-use std::{
-    io::{ErrorKind, Read, Write},
-    thread,
-};
+use std::{io::ErrorKind, thread};
 use tracing::{info, trace, warn};
 
 // ------------------------------------------------------------------------------------------------
@@ -35,12 +32,11 @@ use tracing::{info, trace, warn};
 // ------------------------------------------------------------------------------------------------
 
 #[derive(Debug)]
-pub struct CatWrapper {
+pub struct CatWrapper<T: Transport> {
     rig_name: UniversalRigName,
-    port: ActiveConnectionKind,
+    port: T,
     post_write_delay: Duration,
     read_partial_delay: Duration,
-    // busy_transmit_delay: Duration,
 }
 
 pub(crate) const MESSAGE_TERMINATOR: u8 = b';';
@@ -58,7 +54,9 @@ pub(crate) const OVERFLOW_ERROR_RESPONSE: &[u8] = &[OVERFLOW_ERROR_RESPONSE_ID, 
 // Implementations
 // ------------------------------------------------------------------------------------------------
 
-impl ProtocolHandler for CatWrapper {
+const NO_DELAY: Duration = Duration::from_millis(0);
+
+impl<T: Transport> ProtocolHandler for CatWrapper<T> {
     fn send<C>(&mut self, command: &C) -> Result<(), RigError>
     where
         C: crate::protocol::Command,
@@ -69,19 +67,17 @@ impl ProtocolHandler for CatWrapper {
         );
         let message = command.to_message()?;
 
-        trace!(
-            "CatWrapper::sending {} bytes => {message:02X?}",
-            message.len()
-        );
-        self.port.write_all(&message)?;
-        self.port.flush()?;
+        trace!("CatWrapper::sending {message:#}");
+        self.port.write_all(message.as_bytes())?;
 
-        thread::sleep(self.post_write_delay);
+        if self.post_write_delay > NO_DELAY {
+            thread::sleep(self.post_write_delay);
+        }
 
         Ok(())
     }
 
-    fn receive(&mut self) -> Result<Option<Vec<u8>>, RigError> {
+    fn receive(&mut self) -> Result<Option<Message<'_>>, RigError> {
         trace!(
             "CatWrapper::receive() with read_partial_delay: {:?}",
             self.read_partial_delay
@@ -120,13 +116,15 @@ impl ProtocolHandler for CatWrapper {
                 }
                 Err(e) => return Err(e.into()),
             }
-            thread::sleep(self.read_partial_delay);
+            if self.read_partial_delay > NO_DELAY {
+                thread::sleep(self.read_partial_delay);
+            }
         }
 
-        Ok(Some(response[0..total_length].to_vec()))
+        Ok(Some(Message::from(response[0..total_length].to_vec())))
     }
 
-    fn port(&mut self) -> &mut ActiveConnectionKind {
+    fn port(&mut self) -> &mut impl Transport {
         &mut self.port
     }
 
@@ -135,8 +133,8 @@ impl ProtocolHandler for CatWrapper {
     }
 }
 
-impl CatWrapper {
-    pub fn new(port: ActiveConnectionKind, rig_name: UniversalRigName) -> Self {
+impl<T: Transport> CatWrapper<T> {
+    pub fn new(port: T, rig_name: UniversalRigName) -> Self {
         info!("CatWrapper::new(..., {rig_name:?})");
         assert!(rig_name.is_rig(), "UniversalRigName must be a rig name");
         Self {
@@ -144,7 +142,6 @@ impl CatWrapper {
             port,
             post_write_delay: Duration::from_millis(50),
             read_partial_delay: Duration::from_millis(10),
-            // busy_transmit_delay: Duration::from_millis(100),
         }
     }
 }
@@ -154,13 +151,14 @@ impl CatWrapper {
 // ------------------------------------------------------------------------------------------------
 
 #[inline(always)]
-fn make_message(command_id: &[u8], argument_bytes: Option<Vec<u8>>, terminator: u8) -> Vec<u8> {
+fn make_message(command_id: &[u8], argument_bytes: Option<Vec<u8>>, terminator: u8) -> Message<'_> {
     command_id
         .iter()
         .copied()
         .chain(argument_bytes.unwrap_or_default().iter().copied())
         .chain(std::iter::once(terminator))
-        .collect()
+        .collect::<Vec<u8>>()
+        .into()
 }
 
 // ------------------------------------------------------------------------------------------------

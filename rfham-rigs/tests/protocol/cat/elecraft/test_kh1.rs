@@ -204,9 +204,7 @@ fn set_operating_mode_accepts_all_values() {
 
 #[test]
 fn select_menu_item_encodes() {
-    let cmd = SelectMenuItem {
-        item_id: [b'K', b' ', b'S'],
-    };
+    let cmd = SelectMenuItem { item_id: *b"K S" };
     assert_eq!(cmd.to_message().unwrap(), b"MNK S;".to_vec());
 }
 

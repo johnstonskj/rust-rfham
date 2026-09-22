@@ -1,118 +1,139 @@
 //!
-//! Provides ..., a one-line description
+//! Provides the lowest layer abstractions for serial and IP communication.
 //!
-//! More detailed description
+//! The abstractions are simple, and minimal:
 //!
-//! # Examples
+//! - [`Message`]; a type-safe wrapper around a byte buffer.
+//! - [`Transport`]; a trait defining the interface for transport connections. Transport
+//!   implementations are responsible for managing the underlying connection and implementing the
+//!   standard `Read` and `Write` traits.
+//! - [`connect`] ; a function that establishes a transport connection based on the provided
+//!   configuration.
+//!
+//!
+//! # Example
+//!
+//! The following example demonstrates how to establish a transport connection using a serial
+//! connection. The connection configuration is parsed from a string representation, commonly
+//! provided as a command-line argument or environment variable.
+//!
+//! ```rust,no_run
+//! use rfham_config::connections::{Connection, SerialConnection};
+//! use rfham_rigs::transport::connect;
+//!
+//! let conn: Connection = SerialConnection::from_str(
+//!     "/dev/cu.usbserial-A10KMJZB:38400;stop-bits=Two",
+//! ).unwrap().into();
+//!
+//! let transport = rfham_rigs::transport::connect(&conn).unwrap();
+//! println!("Transport connected ({transport:?})");
+//! ```
+//!
+//! The following example demonstrates how to send a message using the current transport connection.
+//! The message is constructed using the `Message::new` method, from a byte string and corresponds
+//! to the CAT no-op command. Generally clients use the [`protocol`](crate::protocol) layer for
+//! constructing and parsing protocol-specific messages.
+//!
+//! ```rust,no_run
+//! # fn get_current_transport() -> impl Transport {
+//! #     unimplemented!()
+//! # }
+//! use rfham_rigs::transport::message::Message;
+//! let message = Message::new(b";"); // Common CAT 'No-op' command.
+//! println!("Sending: {message:#}"); // "Sending: Message [ ;]"
+//!
+//! let transport = get_current_transport();
+//! transport.write_message(&message).unwrap();
+//! ```
 //!
 
-use crate::error::{RigError, enum_parse, lock_poisoned};
+use crate::error::RigError;
 use rfham_config::connections::{Connection, Host, IpConnection, SerialConnection};
 use serialport::{
     DataBits, Error as SerialError, FlowControl, Parity, SerialPort, SerialPortBuilder, StopBits,
 };
 use std::{
-    fmt::{Debug, Display},
+    fmt::Debug,
     io::{Error as IoError, ErrorKind, Read, Write},
     net::{SocketAddr, TcpStream, ToSocketAddrs},
-    sync::{Arc, RwLock, RwLockWriteGuard},
+    sync::Mutex,
     time::Duration,
 };
-use strum::{AsRefStr, EnumIs, EnumTryAs, FromRepr};
-
-// ------------------------------------------------------------------------------------------------
-// Public Macros
-// ------------------------------------------------------------------------------------------------
+use strum::{EnumIs, EnumTryAs};
 
 // ------------------------------------------------------------------------------------------------
 // Public Types
 // ------------------------------------------------------------------------------------------------
 
-#[derive(Debug)]
-pub struct ActiveConnection {
-    serial: bool,
-    inner: Arc<RwLock<ActiveConnectionKind>>,
+///
+/// This is the interface provided by the transport layer for communication with connected devices.
+///
+/// The transport implements `Read` and `Write` traits so clients can perform standard I/O
+/// operations directly against it, although the higher-level message functions are preferred.
+///
+pub trait Transport: Debug + Read + Write {
+    ///
+    /// Writes a message to the transport.
+    ///
+    /// This method takes a reference to a `Message` and writes its bytes to the underlying
+    /// transport. It uses the `Write` trait's `write_all` method to ensure the entire message is
+    /// written, and then flushes the transport.
+    ///
+    fn write_message(&mut self, message: &message::Message<'_>) -> std::io::Result<()> {
+        self.write_all(message.as_bytes())?;
+        self.flush()
+    }
 }
 
+// ------------------------------------------------------------------------------------------------
+// Public Functions
+// ------------------------------------------------------------------------------------------------
+
+///
+/// Connect, and return, a transport described in a [`Connection`] object.
+///
+/// # Example
+///
+/// ```rust
+/// use rfham_rigs::transport::connect;
+/// use rfham_config::connections::{CBaudRate, onnection, SerialConnection};
+///
+/// let connection: Connection = Connection::Serial(
+///     SerialConnection::new(
+///         "/dev/ttyUSB0",
+///         BaudRate::Bd38400
+///     )
+/// );
+/// let transport = connect(&connection);
+/// ```
+///
+pub fn connect(config: &Connection) -> Result<impl Transport, RigError> {
+    Ok(ConnectedTransport::new(ConnectedTransportKind::connect(
+        config,
+    )?))
+}
+
+// ------------------------------------------------------------------------------------------------
+// Private Types
+// ------------------------------------------------------------------------------------------------
+
+#[derive(Debug)]
+struct ConnectedTransport(Mutex<ConnectedTransportKind>);
+
 #[derive(Debug, EnumIs, EnumTryAs)]
-pub enum ActiveConnectionKind {
+enum ConnectedTransportKind {
     Serial { port: Box<dyn SerialPort> },
     Ip { stream: TcpStream },
 }
-
-///
-/// In telecommunications and electronics, baud is a common unit of measurement of symbol rate,
-/// which is one of the components that determine the speed of communication over a data channel.
-///
-/// It is the unit for symbol rate or modulation rate in symbols per second or pulses per second.
-/// It is the number of distinct symbol changes (signalling events) made to the transmission medium
-/// per second in a digitally modulated signal or a bd rate line code.
-///
-/// Baud is related to gross bit rate, which can be expressed in bits per second (bit/s).
-/// If there are precisely two symbols in the system (typically 0 and 1), then baud and bits per
-/// second are equivalent.
-///
-/// Its symbol is uppercase (Bd), but when the unit is spelled out, it should be written in
-/// lowercase (baud) except when it begins a sentence or is capitalized for another reason, such as
-/// in title case. It was defined by the CCITT (now the ITU-T) in November 1926.
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, AsRefStr, EnumIs, FromRepr)]
-#[repr(u32)]
-pub enum BaudRate {
-    /// Bell 103 modem or ITU-T V.21 modem.
-    Bd300 = 300,
-    /// Bell 202, Bell 212A, orITU-T V.22 modem.
-    Bd1200 = 1200,
-    /// ITU-T V.22bis modem.
-    Bd2400 = 2400,
-    /// ITU-T V.27ter modem.
-    Bd4800 = 4800,
-    /// ITU-T V.32 modem.
-    Bd9600 = 9600,
-    /// ITU-T V.32bis modem.
-    Bd14000 = 14000,
-    Bd19200 = 19200,
-    Bd38400 = 38400,
-    /// ITU-T V.90/V.92 modem.
-    Bd56000 = 56000,
-    /// ITU-T V.32bis modem with V.42bis compression.
-    Bd57600 = 57600,
-    /// ITU-T V.34 modem with V.42bis compression, low cost serial V.90/V.92 modem with V.42bis or V.44 compression.
-    Bd115200 = 115200,
-    /// ISO 11898-3 CAN bus.
-    Bd125000 = 125000,
-    /// Basic Rate Interface ISDN terminal adapter.
-    Bd128000 = 128000,
-    /// LocalTalk, Econet, high end serial V.90/V.92 modem with V.42bis or V.44 compression.
-    Bd230400 = 230400,
-    /// DMX512, stage lighting and effects network.
-    Bd250000 = 250000,
-}
-
-const DEFAULT_SERIAL_TIMEOUT: Duration = Duration::from_millis(200);
-const DEFAULT_IP_CONNECT_TIMEOUT: Duration = Duration::new(15, 0);
 
 // ------------------------------------------------------------------------------------------------
 // Implementations
 // ------------------------------------------------------------------------------------------------
 
-impl Display for BaudRate {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", *self as u32)
-    }
-}
+const DEFAULT_SERIAL_TIMEOUT: Duration = Duration::from_millis(200);
+const DEFAULT_IP_CONNECT_TIMEOUT: Duration = Duration::new(15, 0);
 
-impl TryFrom<u32> for BaudRate {
-    type Error = RigError;
-
-    fn try_from(value: u32) -> Result<Self, Self::Error> {
-        Self::from_repr(value).ok_or_else(|| enum_parse(value, "BaudRate"))
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Read for ActiveConnectionKind {
+impl Read for ConnectedTransportKind {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         match self {
             Self::Serial { port } => port.read(buf),
@@ -121,7 +142,7 @@ impl Read for ActiveConnectionKind {
     }
 }
 
-impl Write for ActiveConnectionKind {
+impl Write for ConnectedTransportKind {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         match self {
             Self::Serial { port } => port.write(buf),
@@ -137,69 +158,71 @@ impl Write for ActiveConnectionKind {
     }
 }
 
-impl TryFrom<&Connection> for ActiveConnectionKind {
-    type Error = RigError;
-
-    fn try_from(connection: &Connection) -> Result<Self, Self::Error> {
+impl ConnectedTransportKind {
+    fn connect(connection: &Connection) -> Result<Self, RigError> {
         Ok(match connection {
-            Connection::Serial(conn) => Self::Serial {
-                port: to_serial_port(conn)?,
-            },
-            Connection::Ip(conn) => Self::Ip {
-                stream: if let Some(result) = to_socket_address(conn)?.map(|addr| {
-                    TcpStream::connect_timeout(
-                        &addr,
-                        conn.timeout().unwrap_or(DEFAULT_IP_CONNECT_TIMEOUT),
-                    )
-                }) {
-                    result?
+            Connection::Serial(conn) => {
+                let port = to_serial_port(conn)?;
+
+                Self::Serial { port }
+            }
+            Connection::Ip(conn) => {
+                if let Some(addr) = to_socket_address(conn)? {
+                    let timeout = conn.connect_timeout().unwrap_or(DEFAULT_IP_CONNECT_TIMEOUT);
+                    let stream = TcpStream::connect_timeout(&addr, timeout)?;
+                    stream.set_read_timeout(conn.read_timeout())?;
+                    stream.set_write_timeout(conn.write_timeout())?;
+                    // stream.set_keepalive(true)? #[feature()] nightly
+                    Self::Ip { stream }
                 } else {
                     return Err(log_rig_error!(SocketAddress => socket_addr: conn.to_string()));
-                },
-            },
+                }
+            }
         })
     }
 }
 
 // ------------------------------------------------------------------------------------------------
 
-impl Read for ActiveConnection {
+impl Read for ConnectedTransport {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let mut inner = self.inner.write().map_err(|_| ErrorKind::Other)?;
+        let mut inner = self.0.lock().map_err(|_| ErrorKind::Other)?;
         inner.read(buf)
     }
 }
 
-impl Write for ActiveConnection {
+impl Write for ConnectedTransport {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let mut inner = self.inner.write().map_err(|_| ErrorKind::Other)?;
+        let mut inner = self.0.lock().map_err(|_| ErrorKind::Other)?;
         inner.write(buf)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        let mut inner = self.inner.write().map_err(|_| ErrorKind::Other)?;
+        let mut inner = self.0.lock().map_err(|_| ErrorKind::Other)?;
         inner.flush()
     }
 }
 
-impl ActiveConnection {
-    pub fn new(inner: ActiveConnectionKind) -> Self {
-        Self {
-            serial: inner.is_serial(),
-            inner: Arc::new(RwLock::new(inner)),
+impl Transport for ConnectedTransport {}
+
+impl ConnectedTransport {
+    fn new(inner: ConnectedTransportKind) -> Self {
+        Self(Mutex::new(inner))
+    }
+
+    #[allow(dead_code)]
+    fn read_all(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let mut inner = self.0.lock().map_err(|_| ErrorKind::Other)?;
+        let expected = buf.len();
+        let mut total_read = 0;
+        while total_read < expected {
+            match inner.read(&mut buf[total_read..]) {
+                Ok(0) => break,
+                Ok(n) => total_read += n,
+                Err(e) => return Err(e),
+            }
         }
-    }
-
-    pub fn is_serial(&self) -> bool {
-        self.serial
-    }
-
-    pub fn is_ip(&self) -> bool {
-        !self.serial
-    }
-
-    pub fn inner(&mut self) -> Result<RwLockWriteGuard<'_, ActiveConnectionKind>, RigError> {
-        self.inner.write().map_err(lock_poisoned)
+        Ok(total_read)
     }
 }
 
@@ -218,16 +241,16 @@ fn to_socket_address(conn: &IpConnection) -> Result<Option<SocketAddr>, IoError>
     }
 }
 
-pub fn to_serial_port_builder(conn: &SerialConnection) -> SerialPortBuilder {
-    serialport::new(conn.path().display().to_string(), conn.baud_rate())
+fn to_serial_port_builder(conn: &SerialConnection) -> SerialPortBuilder {
+    serialport::new(conn.path().display().to_string(), conn.baud_rate() as u32)
         .data_bits(conn.data_bits().unwrap_or(DataBits::Eight))
         .flow_control(conn.flow_control().unwrap_or(FlowControl::None))
         .parity(conn.parity().unwrap_or(Parity::None))
         .stop_bits(conn.stop_bits().unwrap_or(StopBits::One))
-        .timeout(conn.timeout().unwrap_or(DEFAULT_SERIAL_TIMEOUT))
+        .timeout(conn.io_timeout().unwrap_or(DEFAULT_SERIAL_TIMEOUT))
 }
 
-pub fn to_serial_port(conn: &SerialConnection) -> Result<Box<dyn SerialPort>, SerialError> {
+fn to_serial_port(conn: &SerialConnection) -> Result<Box<dyn SerialPort>, SerialError> {
     to_serial_port_builder(conn).open()
 }
 
@@ -235,4 +258,5 @@ pub fn to_serial_port(conn: &SerialConnection) -> Result<Box<dyn SerialPort>, Se
 // Sub-Modules
 // ------------------------------------------------------------------------------------------------
 
-pub mod log;
+pub mod message;
+pub use message::Message;

@@ -5,7 +5,7 @@
 ///
 /// Elecraft CAT commands are defined using the `define_command!` macro, which generates a command
 /// structure with the specified fields.
-////
+///
 /// # Forms
 ///
 /// ```rust
@@ -77,6 +77,7 @@ macro_rules! define_cat_command {
             ),*
         }
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     (
         $doc_str:literal =>  $cmd_type:ident {
             $( $( $field_doc:literal )? $field:ident : $type:ty),*
@@ -93,6 +94,7 @@ macro_rules! define_cat_command {
             ),*
         }
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     (
         $doc_str:literal => $cmd_type:ident { state }
     ) => {
@@ -100,6 +102,7 @@ macro_rules! define_cat_command {
             "Represents the On/Off state." on: bool
         });
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     (
         $doc_str:literal => $cmd_type:ident
     ) => {
@@ -189,6 +192,19 @@ macro_rules! define_cat_command {
 /// cast to `u8`.
 ///
 /// ```rust
+/// impl_cat_command!(
+///     CommandType => "id" into vec field_name, if validate_args
+/// );
+/// impl_cat_command!(
+///     CommandType => "id" into vec field_name
+/// );
+/// ```
+///
+/// The `into vec field_name` variant is a shorthand for commands that have a single field whose
+/// type implements `Into<Vec<u8>>` and therefore can be directly converted into the message
+/// content. For example, used for `Frequency` and `SignedFrequency` types.
+///
+/// ```rust
 /// impl_cat_command!(CommandType => "id");
 /// impl_cat_command!(CommandType);
 /// ```
@@ -212,17 +228,18 @@ macro_rules! define_cat_command {
 macro_rules! impl_cat_command {
     (
         $type:ident => $id:literal
-        with Some $arg_fn:expr
-        $(, if $valid_fn:expr )?
+            with Some $arg_fn:expr
+            $(, if $valid_fn:expr )?
     ) => {
         impl_cat_command!($type => $id with |arg|{
             Ok(Some($arg_fn(arg)))
         } $(, if $valid_fn)?);
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     (
         $type:ident => $id:literal
-        with $arg_fn:expr
-        $(, if $valid_fn:expr )?
+            with $arg_fn:expr
+            $(, if $valid_fn:expr )?
     ) => {
         impl $crate::protocol::Command for $type {
             impl_cat_command!($type);
@@ -230,16 +247,17 @@ macro_rules! impl_cat_command {
 
             $(
                 #[inline(always)]
-                fn validate(&self) -> Result<(), RigError> {
+                fn validate(&self) -> Result<(), $crate::error::RigError> {
                     $valid_fn(self)
                 }
             )?
 
-            fn argument_bytes(&self) -> Result<Option<Vec<u8>>, RigError> {
+            fn argument_bytes(&self) -> Result<Option<Vec<u8>>, $crate::error::RigError> {
                 $arg_fn(self)
             }
         }
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     (
         $type:ident => $id:literal
         format $field_name:ident uint $width:literal
@@ -249,6 +267,7 @@ macro_rules! impl_cat_command {
             $crate::protocol::cat::common::format_uint_ascii(cmd.$field_name, $width)
         } $(, if $valid_fn)?);
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     (
         $type:ident => $id:literal
         format $field_name:ident int $width:literal
@@ -258,26 +277,26 @@ macro_rules! impl_cat_command {
             $crate::protocol::cat::common::format_int_ascii(cmd.$field_name, $width)
         } $(, if $valid_fn)?);
     };
-    ($type:ident => $id:literal for boolean $field:ident) => {
-        impl $crate::protocol::Command for $type {
-            impl_cat_command!($type);
-            impl_cat_command!(@id $id);
-
-            fn argument_bytes(&self) -> Result<Option<Vec<u8>>, RigError> {
-                Ok(Some(
-                    vec![
-                        if self.$field {
-                            b'1'
-                        } else {
-
-                             b'0'
-                        }
-                    ]
-                ))
-            }
-        }
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    (
+        $type:ident => $id:literal
+            for boolean $field:ident
+    ) => {
+        impl_cat_command!($type => $id with Some |cmd: &$type| {
+            vec![
+                if cmd.$field {
+                    b'1'
+                } else {
+                     b'0'
+                }
+            ]
+        });
     };
-     ($type:ident => $id:literal for state) => {
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+     (
+        $type:ident => $id:literal
+            for state
+    ) => {
         impl_cat_command!($type => $id for boolean on);
         impl $type {
             #[inline(always)]
@@ -290,38 +309,46 @@ macro_rules! impl_cat_command {
             }
         }
     };
-    ($type:ident => $id:literal for as byte $field:ident $(, if $valid_fn:expr )?) => {
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    (
+        $type:ident => $id:literal
+            for as byte $field:ident
+            $(, if $valid_fn:expr )?
+    ) => {
+        impl_cat_command!($type => $id with Some |cmd: &$type| {
+            vec![cmd.$field as u8]
+        } $(, if $valid_fn)?);
+    };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    (
+        $type:ident => $id:literal
+            into vec $field:ident
+            $(, if $valid_fn:expr )?
+    ) => {
+        impl_cat_command!($type => $id with Some |cmd: &$type| {
+                cmd.$field.into()
+            } $(, if $valid_fn:expr )?);
+    };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    (
+        $type:ident => $id:literal
+    ) => {
         impl $crate::protocol::Command for $type {
             impl_cat_command!($type);
             impl_cat_command!(@id $id);
-
-            $(
-                #[inline(always)]
-                fn validate(&self) -> Result<(), RigError> {
-                    $valid_fn(self)
-                }
-            )?
-
-            #[allow(trivial_numeric_casts)]
-            fn argument_bytes(&self) -> Result<Option<Vec<u8>>, RigError> {
-                Ok(Some(vec![self.$field as u8]))
-            }
         }
     };
-    ($type:ident => $id:literal) => {
-        impl $crate::protocol::Command for $type {
-            impl_cat_command!($type);
-            impl_cat_command!(@id $id);
-        }
-    };
-    ($type:ident) => {
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    (
+        $type:ident
+    ) => {
         const MESSAGE_TERMINATOR: u8 = b';';
 
         fn message_preamble(&self) -> Option<&[u8]> {
             None
         }
 
-        fn to_message(&self) -> Result<Vec<u8>, RigError> {
+        fn to_message(&self) -> Result<$crate::transport::message::Message<'_>, $crate::error::RigError> {
             Ok($crate::protocol::cat::make_message(
                 self.command_id(),
                 self.argument_bytes()?,
@@ -329,6 +356,7 @@ macro_rules! impl_cat_command {
             ))
         }
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     (@id $id:literal) => {
             fn command_id(&self) -> &[u8] {
                 $id
@@ -412,10 +440,10 @@ macro_rules! impl_cat_command_with_response {
                 $len
             }
 
-            fn parse(&self, bytes: &[u8]) -> Result<Self::Response, RigError> {
+            fn parse(&self, message: &$crate::transport::message::Message<'_>) -> Result<Self::Response, $crate::error::RigError> {
                 let response =
                     $crate::protocol::cat::common::validate_response(
-                        bytes,
+                        message.as_bytes(),
                         <Self as $crate::protocol::Command>::command_id(self),
                         self.expected_response_length()
                     )?;
@@ -423,6 +451,7 @@ macro_rules! impl_cat_command_with_response {
             }
         }
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     (
         $type:ident => try_from $len:literal $inner:ty
     ) => {
@@ -433,10 +462,10 @@ macro_rules! impl_cat_command_with_response {
                 $len
             }
 
-            fn parse(&self, bytes: &[u8]) -> Result<Self::Response, RigError> {
+            fn parse(&self, message: &$crate::transport::message::Message<'_>) -> Result<Self::Response, $crate::error::RigError> {
                 let response =
                     $crate::protocol::cat::common::validate_response(
-                        bytes,
+                        message.as_bytes(),
                         <Self as $crate::protocol::Command>::command_id(self),
                         self.expected_response_length()
                     )?;
@@ -444,6 +473,7 @@ macro_rules! impl_cat_command_with_response {
             }
         }
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     (
         $type:ident => try_from enum $inner:ty
     ) => {
@@ -454,7 +484,7 @@ macro_rules! impl_cat_command_with_response {
                 1
             }
 
-            fn parse(&self, bytes: &[u8]) -> Result<Self::Response, RigError> {
+            fn parse(&self, message: &$crate::transport::message::Message<'_>) -> Result<Self::Response, $crate::error::RigError> {
                 if self.expected_response_length() != 1 {
                     Err($crate::error::invalid_response_length(
                         1,
@@ -463,7 +493,7 @@ macro_rules! impl_cat_command_with_response {
                 } else {
                     let response =
                         $crate::protocol::cat::common::validate_response(
-                            bytes,
+                            message.as_bytes(),
                             <Self as $crate::protocol::Command>::command_id(self),
                             self.expected_response_length()
                         )?;
@@ -479,6 +509,7 @@ macro_rules! impl_cat_command_with_response {
             }
         }
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     (
         $type:ident => string
     ) => {
@@ -489,11 +520,12 @@ macro_rules! impl_cat_command_with_response {
                 0
             }
 
-            fn parse(&self, bytes: &[u8]) -> Result<Self::Response, RigError> {
-                $crate::protocol::cat::common::string_from_ascii(bytes)
+            fn parse(&self, message: &$crate::transport::message::Message<'_>) -> Result<Self::Response, $crate::error::RigError> {
+                $crate::protocol::cat::common::string_from_ascii(message.as_bytes())
             }
         }
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     (
         $type:ident => boolean
     ) => {
@@ -504,10 +536,10 @@ macro_rules! impl_cat_command_with_response {
                 1
             }
 
-            fn parse(&self, bytes: &[u8]) -> Result<Self::Response, RigError> {
+            fn parse(&self, message: &$crate::transport::message::Message<'_>) -> Result<Self::Response, $crate::error::RigError> {
                 let response =
                     $crate::protocol::cat::common::validate_response(
-                        bytes,
+                        message.as_bytes(),
                         <Self as $crate::protocol::Command>::command_id(self),
                         self.expected_response_length()
                     )?;
@@ -519,7 +551,7 @@ macro_rules! impl_cat_command_with_response {
                             "Couldn't convert {:02X?} into a value of type bool, error: expecting '1' or '0'",
                             response[0]
                         );
-                        Err(RigError::InvalidResponseData {
+                        Err($crate::error::RigError::InvalidResponseData {
                             data: response.to_vec(),
                         })
                     }
@@ -597,6 +629,7 @@ macro_rules! impl_set_cat_command_from_enum {
             }
         }
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     (
         $type:ident, $enum:ident => $field:ident {
             $( $variant:ident => $( $method_doc:literal, )? $method:ident ),+
@@ -670,25 +703,30 @@ macro_rules! impl_set_cat_command_from_enum {
 ///
 #[macro_export]
 macro_rules! parse_bit_flag {
-    ($bytes:ident [ $byte:literal : $bit:literal ] == $state:literal) => {
+    ($bytes:ident [ $byte:literal : $bit:literal ] == $state:expr) => {
         ((1 << $bit) & $bytes[$byte]) == $state
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     ($bytes:ident [ $byte:literal : $bit:literal ] ON) => {
-        parse_bit_flag!($bytes[$byte:$bit] == 1)
+        parse_bit_flag!($bytes[$byte:$bit] == (1 << $bit))
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     ($bytes:ident [ $byte:literal : $bit:literal ] OFF) => {
         parse_bit_flag!($bytes[$byte:$bit] == 0)
     };
-    // --------------------------------------------------------------------------------------------
-    ($byte:ident [ $bit:literal ] == $state:literal) => {
+    // ---------------------------------------------------------------------------------------------
+    ($byte:ident [ $bit:literal ] == $state:expr) => {
         ((1 << $bit) & $byte) == $state
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     ($byte:ident [ $bit:literal ] ON) => {
-        parse_bit_flag!($byte[$bit] == 1)
+        parse_bit_flag!($byte[$bit] == (1 << $bit))
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     ($byte:ident [ $bit:literal ] OFF) => {
         parse_bit_flag!($byte[$bit] == 0)
     };
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 }
 
 // ------------------------------------------------------------------------------------------------

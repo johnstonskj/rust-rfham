@@ -1,285 +1,187 @@
 //!
 //! Provides commands for Elecraft products, covering the K and KX series transceivers, KPA and KXPA
-//! amplifiers, and KP and KXP panadapters.
+//! amplifiers, KAT500 tuner, and KP and KXP panadapters.
 //!
 //! # Transceivers
 //!
-//! | Command                           | ID        | K2    | K3    | K3S   | K4    | KX2   | KX3   | KH1   |
-//! |-----------------------------------|-----------|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|
-//! | CaptureScreenshot                 | `SS`      |       |       |       | **Y** |       |       |       |
-//! | CenterPanadapterOnVfoA            | `FC`      |       |       |       | **Y** |       |       |       |
-//! | CenterPanadapterOnVfoB            | `FC$`     |       |       |       | **Y** |       |       |       |
-//! | ClearRitOffset                    |           |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | CopyVfoAtoVfoB                    | `AB0`     |       |       |       | **Y** |       |       |       |
-//! | DumpLog                           | `LG`      |       |       |       |       |       |       | **Y** |
-//! | EmulateButtonHold                 | \[2]      |       | **Y** | **Y** |       | **Y** | **Y** | **Y** |
-//! | EmulateButtonTap                  | \[3]      |       | **Y** | **Y** |       | **Y** | **Y** | **Y** |
-//! | EmulateEncodeRotation             | `EN`      |       |       |       |       |       |       | **Y** |
-//! | EmulateHandKeyPress               | `HK`      |       |       |       |       |       |       | **Y** |
-//! | GetActiveSoftwareReleaseChannel   | `RL`      |       |       |       | **Y** |       |       |       |
-//! | GetActualPowerOutput              |           |       |       |       |       | **Y** | **Y** |       |
-//! | GetAgcTimeConstant                | `GT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetAntennaSelection               | `AN`      | **Y** |       |       |       |       |       |       |
-//! | GetAtuMode                        | `AT`      |       |       |       | **Y** |       |       |       |
-//! | GetAtuNetworkValues               | `AK`      |       |       |       |       | **Y** | **Y** |       |
-//! | GetAudioLineInputLevel            | `LI`      |       |       |       | **Y** |       |       |       |
-//! | GetAudioLineOutputLevel           | `LO`      |       |       |       | **Y** |       |       |       |
-//! | GetAudioMixRatio                  | `MX`      |       |       |       | **Y** |       |       |       |
-//! | GetAudioPeakingFilterState        | `AP`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetAutoInfoMode                   | `AI`      | **Y** | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetBandIndependenceState          | `BI`      |       |       |       | **Y** |       |       |       |
-//! | GetBargraphValue                  | `BG` \[6] | **Y** | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetBufferedText                   | `TB`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetCoarseTuningStep               | `VC`      |       |       |       | **Y** |       |       |       |
-//! | GetCurrentBandPowerLimit          | `PP`      |       |       |       | **Y** |       |       |       |
-//! | GetCwSidetonePitch                | `CW`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetDataSubMode                    | `DT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetDigitalAudioRoutingMode        | `DA`      |       |       |       | **Y** |       |       |       |
-//! | GetDigitalOutputPin1State         | `DO`      |       |       |       | **Y** |       |       |       |
-//! | GetDisplayText                    | `DS`      |       |       |       |       |       |       | **Y** |
-//! | GetDiversityMode                  | `DV`      |       | **Y** | **Y** |       |       |       |       |
-//! | GetErrorReportingState            | `ER`      |       |       |       | **Y** |       |       |       |
-//! | GetEssbMode                       | `ES`      |       | **Y** | **Y** |       |       |       |       |
-//! | GetFirmwareRevision               | `RV`      |       | **Y** | **Y** |       | **Y** | **Y** | **Y** |
-//! | GetHelpInformation                | `H`       |       |       |       |       |       |       | **Y** |
-//! | GetHighResolutionSMeter           | `SMH`     |       | **Y** | **Y** |       |       |       |       |
-//! | GetIfCenterFrequency              | `FI`      |       | **Y** |       |       |       |       |       |
-//! | GetInstalledOptions               | `OM`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetK2CommandMode                  | `K2`      | **Y** |       |       |       |       |       |       |
-//! | GetK3CommandMode                  | `K3`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetK3IconsAndStatus               | `IC`      |       | **Y** | **Y** |       |       |       |       |
-//! | GetK4CommandMode                  | `K4`      |       |       |       | **Y** |       |       |       |
-//! | GetKeyerPaddleEmulationMode       | `KP`      |       |       |       | **Y** |       |       |       |
-//! | GetKeyerSpeed                     | `KS`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetMemoryChannel                  | `MC`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetMenuParameter                  | `MP` \[4] |       | **Y** | **Y** |       | **Y** | **Y** | **Y** |
-//! | GetMenuParameter16                | `MQ`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetMenuParameter16                | `MQ`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetMicGain                        | `MG`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetMicInputSource                 | `MI`      |       |       |       | **Y** |       |       |       |
-//! | GetMonitorLevel                   | `ML`      |       | **Y** | **Y** | **Y** | **Y** | **Y** |       |
-//! | GetPowerStatus                    | `PS` \[5] |       | **Y** | **Y** | **Y** | **Y** | **Y** |       |
-//! | GetQskDelay                       | `SD`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetReceiveAntenna                 | `AR`      |       | **Y** | **Y** |       |       |       |       |
-//! | GetReceiveVfo                     | `FR`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetRepeaterOffset                 | `RP`      |       |       |       | **Y** |       |       |       |
-//! | GetRitControl                     | `RT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetRitXitOffset                   | `RO`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetScreenCount                    | `SC`      |       |       |       | **Y** |       |       |       |
-//! | GetSpeechCompression              | `CP`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetStreamingLatencyClass          | `SL`      |       |       |       | **Y** |       |       |       |
-//! | GetSubReceiver                    | `SB`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetTransceiverId                  | `I`       |       |       |       | **Y** |       |       | **Y** |
-//! | GetTransceiverInformation         | `IF`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetTransceiverSerialNumber        | `SN`      |       |       |       | **Y** |       |       | **Y** |
-//! | GetTransceiverStatus              | `ST`      |       |       |       |       |       |       | **Y** |
-//! | GetTransmitBufferedText           | `TBX`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetTransmitDataBandwidth          | `DW`      |       |       |       | **Y** |       |       |       |
-//! | GetTransmitGain                   | `TG`      |       |       |       | **Y** |       |       |       |
-//! | GetTransmitGainConstant           | `TA`      |       |       |       | **Y** |       |       |       |
-//! | GetTransmitLowerLimit             | `TXL`     |       |       |       |       |       |       | **Y** |
-//! | GetTransmitMeterMode              | `TM`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetTransmitPowerControl           | `PC`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetTransmitState                  | `TQ`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetTransmitTestModeState          | `TS`      |       |       |       | **Y** |       |       |       |
-//! | GetTransmitUpperLimit             | `TXH`     |       |       |       |       |       |       | **Y** |
-//! | GetTransmitVfoSplitModeState      | `FT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetUtcTimestamp                   | `UT`      |       |       |       | **Y** |       |       |       |
-//! | GetVfoAAfGain                     | `AG`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoAAgcMode                    | `GT`      |       |       |       | **Y** |       |       |       |
-//! | GetVfoAAutoNotchState             | `NA`      |       |       |       | **Y** |       |       |       |
-//! | GetVfoABandNumber                 | `BN`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoACtssTone                   | `PL`      |       |       |       | **Y** |       |       |       |
-//! | GetVfoADisplayAndIcons            | `DS` \[6] | **Y** | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoAFilterBandwidth            | `BW`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoAFilterPresetSlot           | `FP`      |       |       |       | **Y** |       |       |       |
-//! | GetVfoAIfCenterPitch              | `IS`      |       |       |       | **Y** |       |       |       |
-//! | GetVfoAIfShift                    | `IS`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoALegacyFilterBandwidth      | `FW`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoALock                       | `LK`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoAManualNotchSettings        | `NM`      |       |       |       | **Y** |       |       |       |
-//! | GetVfoAModeAlternates             | `MA`      |       |       |       | **Y** |       |       |       |
-//! | GetVfoANoiseBlanker               | `NB`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoANoiseBlankerLevel          | `NL`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoANoiseReductionSettings     | `NR`      |       |       |       | **Y** |       |       |       |
-//! | GetVfoAOperatingFrequency         | `FA`      | **Y** | **Y** | **Y** | **Y** | **Y** | **Y** |       |
-//! | GetVfoAOperatingMode              | `MD`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoAPreamp                     | `PA`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoAReceiveAttenuator          | `RA`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoARfGain                     | `RG`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoASMeter                     | `SM`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoASquelch                    | `SQ`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoATextDecodeMode             | `TD`      |       |       |       | **Y** |       |       |       |
-//! | GetVfoATransverterActiveBandSlot  | `XV`      |       |       |       | **Y** |       |       |       |
-//! | GetVfoATransverterOffset          | `VO`      |       |       |       | **Y** |       |       |       |
-//! | GetVfoATuningStep                 | `VT`      |       |       |       | **Y** |       |       |       |
-//! | GetVfoAXfilNumber                 | `XF`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBAfGain                     | `AG$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBAgcMode                    | `GT$`     |       |       |       | **Y** |       |       |       |
-//! | GetVfoBAutoNotchState             | `NA$`     |       |       |       | **Y** |       |       |       |
-//! | GetVfoBBandNumber                 | `BN$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBCtssTone                   | `PL$`     |       |       |       | **Y** |       |       |       |
-//! | GetVfoBDisplayText                | `DB`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBFilterBandwidth            | `BW$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBFilterPresetSlot           | `FP$`     |       |       |       | **Y** |       |       |       |
-//! | GetVfoBIfCenterPitch              | `IS$`     |       |       |       | **Y** |       |       |       |
-//! | GetVfoBIfShift                    | `IS$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBLegacyFilterBandwidth      | `FW$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBLock                       | `LK$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBLock                       | `LK$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBManualNotchSettings        | `NM$`     |       |       |       | **Y** |       |       |       |
-//! | GetVfoBModeAlternates             | `MA$`     |       |       |       | **Y** |       |       |       |
-//! | GetVfoBNoiseBlanker               | `NB$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBNoiseBlankerLevel          | `NL$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBNoiseReductionSettings     | `NR$`     |       |       |       | **Y** |       |       |       |
-//! | GetVfoBOperatingFrequency         | `FA$`     | **Y** | **Y** | **Y** | **Y** | **Y** | **Y** |       |
-//! | GetVfoBOperatingMode              | `MD$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBPreamp                     | `PA$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBReceiveAttenuator          | `RA$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBRfGain                     | `RG$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBSMeter                     | `SM$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBSquelch                    | `SQ$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoBTextDecodeMode             | `TD$`     |       |       |       | **Y** |       |       |       |
-//! | GetVfoBTransverterActiveBandSlot  | `XV$`     |       |       |       | **Y** |       |       |       |
-//! | GetVfoBTransverterOffset          | `VO$`     |       |       |       | **Y** |       |       |       |
-//! | GetVfoBTuningStep                 | `VT$`     |       |       |       | **Y** |       |       |       |
-//! | GetVfoBXfilNumber                 | `XF$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVfoLinkedState                 | `LN`      |       | **Y** |       |       |       |       |       |
-//! | GetVox                            | `VX`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GetVoxGain                        | `VG`      |       |       |       | **Y** |       |       |       |
-//! | GetVoxInhibitState                | `VI`      |       |       |       | **Y** |       |       |       |
-//! | GetWattmeterCalibrationConstant   | `WM`      |       |       |       | **Y** |       |       |       |
-//! | GetXitControl                     | `XT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GoToReceive                       | `RX`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | GoToTransmit                      | `TX`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | LoadFirmware                      | `LD`      |       |       |       |       |       |       | **Y** |
-//! | MoveRitOffsetDown                 | `RD`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | MoveRitOffsetUp                   | `RU`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | MoveVfoAFrequencyDown             | `DN` \[6] | **Y** | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | MoveVfoAFrequencyUp               | `UP`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | MoveVfoBFrequencyDown             | `DN$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | MoveVfoBFrequencyUp               | `UP$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | PlayDvrMessage                    | `PB`      |       |       |       | **Y** |       |       |       |
-//! | SelectMenuItem                    | `MN` \[4] |       | **Y** | **Y** |       | **Y** | **Y** | **Y** |
-//! | SendCwText                        | `KY`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetActiveSoftwareReleaseChannel   | `RL`      |       |       |       | **Y** |       |       |       |
-//! | SetAfGain                         | `AG` \[1] |       |       |       |       |       |       | **Y** |
-//! | SetAgcTimeConstant                | `GT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetAtuMode                        | `AT`      |       |       |       | **Y** |       |       |       |
-//! | SetAtuTuningState                 | `TU`      |       |       |       | **Y** |       |       |       |
-//! | SetAudioLineInputLevel            | `LI`      |       |       |       | **Y** |       |       |       |
-//! | SetAudioLineOutputLevel           | `LO`      |       |       |       | **Y** |       |       |       |
-//! | SetAudioMixRatio                  | `MX`      |       |       |       | **Y** |       |       |       |
-//! | SetAudioPeakingFilterState        | `AP`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetAutoInfoMode                   | `AI`      | **Y** | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetBandIndependenceState          | `BI`      |       |       |       | **Y** |       |       |       |
-//! | SetBaudRate                       | `BR`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetCoarseTuningStep               | `VC`      |       |       |       | **Y** |       |       |       |
-//! | SetCommandEchoState               | `EC`      |       |       |       | **Y** |       |       |       |
-//! | SetCommandProcessingDelay         | `DE`      |       | **Y** | **Y** |       |       |       |       |
-//! | SetCwSidetonePitch                | `CW`      |       |       |       | **Y** |       |       |       |
-//! | SetDataSubMode                    | `DT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetDigitalAudioRoutingMode        | `DA`      |       |       |       | **Y** |       |       |       |
-//! | SetDigitalOutputPin1State         | `DO`      |       |       |       | **Y** |       |       |       |
-//! | SetDisplayText                    | `DS`      |       |       |       |       |       |       | **Y** |
-//! | SetDiversityMode                  | `DV`      |       | **Y** | **Y** |       |       |       |       |
-//! | SetDspCommandDebugState           | `DL`      |       | **Y** | **Y** |       |       |       |       |
-//! | SetErrorLogging                   | `EL`      |       |       |       |       | **Y** | **Y** |       |
-//! | SetErrorReportingState            | `ER`      |       |       |       | **Y** |       |       |       |
-//! | SetEssbMode                       | `ES`      |       | **Y** | **Y** |       |       |       |       |
-//! | SetK2CommandMode                  | `K2`      | **Y** |       |       |       |       |       |       |
-//! | SetK3CommandMode                  | `K3`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetK4CommandMode                  | `K4`      |       |       |       | **Y** |       |       |       |
-//! | SetKeyerPaddleEmulationMode       | `KP`      |       |       |       | **Y** |       |       |       |
-//! | SetKeyerSpeed                     | `KS`      |       |       |       | **Y** |       |       |       |
-//! | SetKeyerSpeed                     | `KS`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetMemoryChannel                  | `MC`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetMenuParameter                  | `MP` \[4] |       | **Y** | **Y** |       | **Y** | **Y** | **Y** |
-//! | SetMicGain                        | `MG`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetMicInputSource                 | `MI`      |       |       |       | **Y** |       |       |       |
-//! | SetMonitorLevel                   | `ML`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetMonitorLevel                   | `ML`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetOperatingFrequency             | `FA`      |       |       |       |       |       |       | **Y** |
-//! | SetOperatingMode                  | `MD`      |       |       |       |       |       |       | **Y** |
-//! | SetPowerStatus                    | `PS`      |       |       |       | **Y** |       |       |       |
-//! | SetPowerStatus                    | `PS`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetQskOrVoxDelay                  | `SD`      |       |       |       | **Y** |       |       |       |
-//! | SetReceiveAntenna                 | `AR`      |       | **Y** | **Y** |       |       |       |       |
-//! | SetReceiveVfo                     | `FR`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetRepeaterOffset                 | `RP`      |       |       |       | **Y** |       |       |       |
-//! | SetRitControl                     | `RT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetRitXitOffset                   | `RO`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetSpeechCompression              | `CP`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetStreamingLatencyClass          | `SL`      |       |       |       | **Y** |       |       |       |
-//! | SetSubReceiver                    | `SB`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetSystemAutoInfoInterval         | `SI`      |       |       |       | **Y** |       |       |       |
-//! | SetTextToTerminal                 | `TT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetTransmitDataBandwidth          | `DW`      |       |       |       | **Y** |       |       |       |
-//! | SetTransmitEqualizer              | `TE`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetTransmitMeterMode              | `TM`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetTransmitPowerControl           | `PC`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetTransmitTestModeState          | `TS`      |       |       |       | **Y** |       |       |       |
-//! | SetTransmitVfoSplitModeState      | `FT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoAAfGain                     | `AG`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoAAgcMode                    | `GT`      |       |       |       | **Y** |       |       |       |
-//! | SetVfoAAutoNotchState             | `NA`      |       |       |       | **Y** |       |       |       |
-//! | SetVfoABandNumber                 | `BN`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoABandNumber                 | `BN`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoACtssTone                   | `PL`      |       |       |       | **Y** |       |       |       |
-//! | SetVfoAFilterBandwidth            | `BW`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoAFilterPresetSlot           | `FP`      |       |       |       | **Y** |       |       |       |
-//! | SetVfoAIfShift                    | `IS`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoALegacyFilterBandwidth      | `FW`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoALock                       | `LK`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoALock                       | `LK`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoAManualNotchSettings        | `NM`      |       |       |       | **Y** |       |       |       |
-//! | SetVfoANoiseBlanker               | `NB`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoANoiseBlankerLevel          | `NL`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoANoiseReductionSettings     | `NR`      |       |       |       | **Y** |       |       |       |
-//! | SetVfoAOperatingFrequency         | `FA`      | **Y** | **Y** | **Y** | **Y** | **Y** | **Y** |       |
-//! | SetVfoAOperatingMode              | `MD`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoAPreamp                     | `PA`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoAReceiveAttenuator          | `RA`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoARfGain                     | `RG`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoASquelch                    | `SQ`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoATextDecodeMode             | `TD`      |       |       |       | **Y** |       |       |       |
-//! | SetVfoATransverterActiveBandSlot  | `XV`      |       |       |       | **Y** |       |       |       |
-//! | SetVfoATuningStep                 | `VT`      |       |       |       | **Y** |       |       |       |
-//! | SetVfoBAfGain                     | `AG$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoBAgcMode                    | `GT$`     |       |       |       | **Y** |       |       |       |
-//! | SetVfoBAutoNotchState             | `NA$`     |       |       |       | **Y** |       |       |       |
-//! | SetVfoBBandNumber                 | `BN$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoBBandNumber                 | `BN$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoBCtssTone                   | `PL$`     |       |       |       | **Y** |       |       |       |
-//! | SetVfoBDisplayText                | `DB`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoBFilterBandwidth            | `BW$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoBFilterPresetSlot           | `FP$`     |       |       |       | **Y** |       |       |       |
-//! | SetVfoBIfShift                    | `IS$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoBLegacyFilterBandwidth      | `FW$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoBLock                       | `LK$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoBLock                       | `LK$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoBManualNotchSettings        | `NM$`     |       |       |       | **Y** |       |       |       |
-//! | SetVfoBNoiseBlanker               | `NB$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoBNoiseBlankerLevel          | `NL$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoBNoiseReductionSettings     | `NR$`     |       |       |       | **Y** |       |       |       |
-//! | SetVfoBOperatingFrequency         | `FA$`     | **Y** | **Y** | **Y** | **Y** | **Y** | **Y** |       |
-//! | SetVfoBOperatingMode              | `MD$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoBPreamp                     | `PA$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoBReceiveAttenuator          | `RA$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoBRfGain                     | `RG$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoBSquelch                    | `SQ$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVfoBTextDecodeMode             | `TD`      |       |       |       | **Y** |       |       |       |
-//! | SetVfoBTextDecodeMode             | `TD$`     |       |       |       | **Y** |       |       |       |
-//! | SetVfoBTransverterActiveBandSlot  | `XV$`     |       |       |       | **Y** |       |       |       |
-//! | SetVfoBTuningStep                 | `VT$`     |       |       |       | **Y** |       |       |       |
-//! | SetVfoLinkedState                 | `LN`      |       | **Y** |       |       |       |       |       |
-//! | SetVfoOffset                      | `FO`      |       |       |       |       |       |       | **Y** |
-//! | SetVox                            | `VX`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SetVoxGain                        | `VG`      |       |       |       | **Y** |       |       |       |
-//! | SetVoxInhibitState                | `VI`      |       |       |       | **Y** |       |       |       |
-//! | SetWattmeterCalibrationConstant   | `WM`      |       |       |       | **Y** |       |       |       |
-//! | SetXitControl                     | `XT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
-//! | SwapVfoAandVfoB                   | `AB1`     |       |       |       | **Y** |       |       |       |
+//! | Command                               | ID        | K2    | K3    | K3S   | K4    | KX2   | KX3   | KH1   |
+//! |---------------------------------------|-----------|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|
+//! | CaptureScreenshot                     | `SS`      |       |       |       | **Y** |       |       |       |
+//! | CenterPanadapterOnVfoA                | `FC`      |       |       |       | **Y** |       |       |       |
+//! | CenterPanadapterOnVfoB                | `FC$`     |       |       |       | **Y** |       |       |       |
+//! | ClearRitOffset                        |           |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | CopyVfoAtoVfoB                        | `AB0`     |       |       |       | **Y** |       |       |       |
+//! | DumpLog                               | `LG`      |       |       |       |       |       |       | **Y** |
+//! | EmulateButtonHold                     | \[2]      |       | **Y** | **Y** |       | **Y** | **Y** | **Y** |
+//! | EmulateButtonTap                      | \[3]      |       | **Y** | **Y** |       | **Y** | **Y** | **Y** |
+//! | EmulateEncodeRotation                 | `EN`      |       |       |       |       |       |       | **Y** |
+//! | EmulateHandKeyPress                   | `HK`      |       |       |       |       |       |       | **Y** |
+//! | Get/Set ActiveSoftwareReleaseChannel  | `RL`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set AgcTimeConstant               | `GT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set AtuMode                       | `AT`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set AudioLineInputLevel           | `LI`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set AudioLineOutputLevel          | `LO`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set AudioMixRatio                 | `MX`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set AudioPeakingFilterState       | `AP`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set AutoInfoMode                  | `AI`      | **Y** | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set BandIndependenceState         | `BI`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set CoarseTuningStep              | `VC`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set CwSidetonePitch               | `CW`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set DataSubMode                   | `DT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set DigitalAudioRoutingMode       | `DA`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set DigitalOutputPin1State        | `DO`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set DisplayText                   | `DS`      |       |       |       |       |       |       | **Y** |
+//! | Get/Set DiversityMode                 | `DV`      |       | **Y** | **Y** |       |       |       |       |
+//! | Get/Set ErrorReportingState           | `ER`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set EssbMode                      | `ES`      |       | **Y** | **Y** |       |       |       |       |
+//! | Get/Set K2CommandMode                 | `K2`      | **Y** |       |       |       |       |       |       |
+//! | Get/Set K3CommandMode                 | `K3`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set K4CommandMode                 | `K4`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set KeyerPaddleEmulationMode      | `KP`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set MemoryChannel                 | `MC`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set MicGain                       | `MG`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set MicInputSource                | `MI`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set MonitorLevel                  | `ML`      |       | **Y** | **Y** | **Y** | **Y** | **Y** |       |
+//! | Get/Set PowerStatus                   | `PS` \[5] |       | **Y** | **Y** | **Y** | **Y** | **Y** |       |
+//! | Get/Set ReceiveAntenna                | `AR`      |       | **Y** | **Y** |       |       |       |       |
+//! | Get/Set ReceiveVfo                    | `FR`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set RepeaterOffset                | `RP`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set RitControl                    | `RT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set RitXitOffset                  | `RO`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set SpeechCompression             | `CP`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set StreamingLatencyClass         | `SL`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set SubReceiver                   | `SB`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set TransmitDataBandwidth         | `DW`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set TransmitMeterMode             | `TM`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set TransmitPowerControl          | `PC`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set TransmitTestModeState         | `TS`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set TransmitVfoSplitModeState     | `FT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoAAfGain                    | `AG`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoAAgcMode                   | `GT`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoAAutoNotchState            | `NA`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoABandNumber                | `BN`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoACtssTone                  | `PL`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoAFilterBandwidth           | `BW`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoAFilterPresetSlot          | `FP`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoAIfShift                   | `IS`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoALegacyFilterBandwidth     | `FW`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoALock                      | `LK`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoAManualNotchSettings       | `NM`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoANoiseBlanker              | `NB`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoANoiseBlankerLevel         | `NL`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoANoiseReductionSettings    | `NR`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoAOperatingFrequency        | `FA`      | **Y** | **Y** | **Y** | **Y** | **Y** | **Y** |       |
+//! | Get/Set VfoAOperatingMode             | `MD`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoAPreamp                    | `PA`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoAReceiveAttenuator         | `RA`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoARfGain                    | `RG`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoASquelch                   | `SQ`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoATextDecodeMode            | `TD`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoATransverterActiveBandSlot | `XV`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoATuningStep                | `VT`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoBAfGain                    | `AG$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoBAgcMode                   | `GT$`     |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoBAutoNotchState            | `NA$`     |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoBBandNumber                | `BN$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoBCtssTone                  | `PL$`     |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoBDisplayText               | `DB`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoBFilterBandwidth           | `BW$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoBFilterPresetSlot          | `FP$`     |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoBIfShift                   | `IS$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoBLegacyFilterBandwidth     | `FW$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoBLock                      | `LK$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoBManualNotchSettings       | `NM$`     |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoBNoiseBlanker              | `NB$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoBNoiseBlankerLevel         | `NL$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoBNoiseReductionSettings    | `NR$`     |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoBOperatingFrequency        | `FA$`     | **Y** | **Y** | **Y** | **Y** | **Y** | **Y** |       |
+//! | Get/Set VfoBOperatingMode             | `MD$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoBPreamp                    | `PA$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoBReceiveAttenuator         | `RA$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoBRfGain                    | `RG$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoBSquelch                   | `SQ$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VfoBTextDecodeMode            | `TD$`     |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoBTransverterActiveBandSlot | `XV$`     |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoBTuningStep                | `VT$`     |       |       |       | **Y** |       |       |       |
+//! | Get/Set VfoLinkedState                | `LN`      |       | **Y** |       |       |       |       |       |
+//! | Get/Set Vox                           | `VX`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | Get/Set VoxGain                       | `VG`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set VoxInhibitState               | `VI`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set WattmeterCalibrationConstant  | `WM`      |       |       |       | **Y** |       |       |       |
+//! | Get/Set XitControl                    | `XT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | GetActualPowerOutput                  |           |       |       |       |       | **Y** | **Y** |       |
+//! | GetAntennaSelection                   | `AN`      | **Y** |       |       |       |       |       |       |
+//! | GetAtuNetworkValues                   | `AK`      |       |       |       |       | **Y** | **Y** |       |
+//! | GetBargraphValue                      | `BG` \[6] | **Y** | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | GetBufferedText                       | `TB`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | GetCurrentBandPowerLimit              | `PP`      |       |       |       | **Y** |       |       |       |
+//! | GetFirmwareRevision                   | `RV`      |       | **Y** | **Y** |       | **Y** | **Y** | **Y** |
+//! | GetHelpInformation                    | `H`       |       |       |       |       |       |       | **Y** |
+//! | GetHighResolutionSMeter               | `SMH`     |       | **Y** | **Y** |       |       |       |       |
+//! | GetIfCenterFrequency                  | `FI`      |       | **Y** |       |       |       |       |       |
+//! | GetInstalledOptions                   | `OM`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | GetK3IconsAndStatus                   | `IC`      |       | **Y** | **Y** |       |       |       |       |
+//! | GetKeyerSpeed                         | `KS`      |       | **Y** | **Y** |   Y   | **Y** | **Y** |       |
+//! | GetMenuParameter                      | `MP` \[4] |       | **Y** | **Y** |       | **Y** | **Y** | **Y** |
+//! | GetMenuParameter16                    | `MQ`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | GetMenuParameter16                    | `MQ`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | GetQskDelay                           | `SD`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | GetScreenCount                        | `SC`      |       |       |       | **Y** |       |       |       |
+//! | GetTransceiverId                      | `I`       |       |       |       | **Y** |       |       | **Y** |
+//! | GetTransceiverInformation             | `IF`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | GetTransceiverSerialNumber            | `SN`      |       |       |       | **Y** |       |       | **Y** |
+//! | GetTransceiverStatus                  | `ST`      |       |       |       |       |       |       | **Y** |
+//! | GetTransmitBufferedText               | `TBX`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | GetTransmitGain                       | `TG`      |       |       |       | **Y** |       |       |       |
+//! | GetTransmitGainConstant               | `TA`      |       |       |       | **Y** |       |       |       |
+//! | GetTransmitLowerLimit                 | `TXL`     |       |       |       |       |       |       | **Y** |
+//! | GetTransmitState                      | `TQ`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | GetTransmitUpperLimit                 | `TXH`     |       |       |       |       |       |       | **Y** |
+//! | GetUtcTimestamp                       | `UT`      |       |       |       | **Y** |       |       |       |
+//! | GetVfoADisplayAndIcons                | `DS` \[6] | **Y** | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | GetVfoAIfCenterPitch                  | `IS`      |       |       |       | **Y** |       |       |       |
+//! | GetVfoAModeAlternates                 | `MA`      |       |       |       | **Y** |       |       |       |
+//! | GetVfoASMeter                         | `SM`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | GetVfoATransverterOffset              | `VO`      |       |       |       | **Y** |       |       |       |
+//! | GetVfoAXfilNumber                     | `XF`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | GetVfoBIfCenterPitch                  | `IS$`     |       |       |       | **Y** |       |       |       |
+//! | GetVfoBModeAlternates                 | `MA$`     |       |       |       | **Y** |       |       |       |
+//! | GetVfoBSMeter                         | `SM$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | GetVfoBTransverterOffset              | `VO$`     |       |       |       | **Y** |       |       |       |
+//! | GetVfoBXfilNumber                     | `XF$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | GoToReceive                           | `RX`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | GoToTransmit                          | `TX`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | LoadFirmware                          | `LD`      |       |       |       |       |       |       | **Y** |
+//! | MoveRitOffsetDown                     | `RD`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | MoveRitOffsetUp                       | `RU`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | MoveVfoAFrequencyDown                 | `DN` \[6] | **Y** | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | MoveVfoAFrequencyUp                   | `UP`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | MoveVfoBFrequencyDown                 | `DN$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | MoveVfoBFrequencyUp                   | `UP$`     |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | PlayDvrMessage                        | `PB`      |       |       |       | **Y** |       |       |       |
+//! | SelectMenuItem                        | `MN` \[4] |       | **Y** | **Y** |       | **Y** | **Y** | **Y** |
+//! | SendCwText                            | `KY`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | SetAfGain                             | `AG` \[1] |       |       |       |       |       |       | **Y** |
+//! | SetAtuTuningState                     | `TU`      |       |       |       | **Y** |       |       |       |
+//! | SetBaudRate                           | `BR`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | SetCommandEchoState                   | `EC`      |       |       |       | **Y** |       |       |       |
+//! | SetCommandProcessingDelay             | `DE`      |       | **Y** | **Y** |       |       |       |       |
+//! | SetDspCommandDebugState               | `DL`      |       | **Y** | **Y** |       |       |       |       |
+//! | SetErrorLogging                       | `EL`      |       |       |       |       | **Y** | **Y** |       |
+//! | SetK2CommandMode                      | `K2`      | **Y** |       |       |       |       |       |       |
+//! | SetK3CommandMode                      | `K3`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | SetK4CommandMode                      | `K4`      |       |       |       | **Y** |       |       |       |
+//! | SetKeyerSpeed                         | `KS`      |       | **Y** | **Y** | **Y** | **Y** | **Y** |       |
+//! | SetMenuParameter                      | `MP` \[4] |       | **Y** | **Y** |       | **Y** | **Y** | **Y** |
+//! | SetOperatingFrequency                 | `FA`      |       |       |       |       |       |       | **Y** |
+//! | SetOperatingMode                      | `MD`      |       |       |       |       |       |       | **Y** |
+//! | SetQskOrVoxDelay                      | `SD`      |       |       |       | **Y** |       |       |       |
+//! | SetSystemAutoInfoInterval             | `SI`      |       |       |       | **Y** |       |       |       |
+//! | SetTextToTerminal                     | `TT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | SetTransmitEqualizer                  | `TE`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | SetTransmitVfoSplitModeState          | `FT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | SetXitControl                         | `XT`      |       | **Y** | **Y** |       | **Y** | **Y** |       |
+//! | SwapVfoAandVfoB                       | `AB1`     |       |       |       | **Y** |       |       |       |
 //!
 //! ## Notes
 //!
@@ -295,196 +197,131 @@
 //!
 //! # Amplifiers
 //!
-//! | Command                       | ID     | KPA1500 | KPA500 | KXPA100 |
-//! |-------------------------------|--------|:-------:|:------:|:-------:|
+//! | Command                                       | ID     | KPA1500 | KPA500 | KXPA100 |
+//! |-----------------------------------------------|--------|:-------:|:------:|:-------:|
 //!
 //!
 //! # Panadapters
 //!
-//! | Command                           | ID        | P3      | PX3    |
-//! |-----------------------------------|-----------|:-------:|:------:|
-//! | ExecuteFunctionKey                | `#FNX`    | **Y**   | Y      |
-//! | GetBaudRate                       | `#BR`     | **Y**   | Y      |
-//! | GetBeaconModeState                | `#BCN`    |         | **Y**  |
-//! | GetBeaconTextMemoryLocation       | `#BCL`    |         | **Y**  |
-//! | GetBeaconTransmissionInterval     | `#BCI`    |         | **Y**  |
-//! | GetCalibrationSignalState         | `#CAL`    |         | **Y**  |
-//! | GetCenterFrequency                | `#CTF`    | **Y**   | Y      |
-//! | GetDisplayAveragingTimeConstant   | `#AVG`    | **Y**   | Y      |
-//! | GetDisplayFontSize                | `#FON`    | **Y**   |        |
-//! | GetDisplayMode                    | `#DSM`    |         | **Y**  |
-//! | GetDisplayMode                    | `#DSM`    | **Y**   |        |
-//! | GetFirmwareRevision               | `#RVM`    | **Y**   |        |
-//! | GetFixedTuneAutoAdjustMode        | `#FXA`    | **Y**   | Y      |
-//! | GetFixedTuneOrTrackingMode        | `#FXT`    | **Y**   |        |
-//! | GetFpgaImageFirmwareRevision      | `#RVF`    | **Y**   |        |
-//! | GetFunctionKeyLabel               | `#FNL`    | **Y**   | Y      |
-//! | GetFunctionKeyLabelDisplayState   | `#LBL`    |         | **Y**  |
-//! | GetFunctionKeyLabelDisplayState   | `#LBL`    | **Y**   |        |
-//! | GetMarkerAFrequency               | `#MFA`    | **Y**   |        |
-//! | GetMarkerAState                   | `#MKA`    | **Y**   |        |
-//! | GetMarkerBFrequency               | `#MFB`    | **Y**   |        |
-//! | GetMarkerBState                   | `#MKB`    | **Y**   |        |
-//! | GetNoiseBlankerLevel              | `#NBL`    | **Y**   | Y      |
-//! | GetNoiseBlankerState              | `#NB`     | **Y**   | Y      |
-//! | GetOppositeSideBandNullAmplitude  | `#OSBA`   |         | **Y**  |
-//! | GetOppositeSideBandNullPhase      | `#OSBP`   |         | **Y**  |
-//! | GetPeakModeState                  | `#PKM`    | **Y**   | Y      |
-//! | GetPowerStatus                    | `#PS`     | **Y**   | Y      |
-//! | GetProductId                      | `=`       | **Y**   | Y      |
-//! | GetReferenceLevel                 | `#REF`    | **Y**   | Y      |
-//! | GetRelativeCenterFrequency        | `#RCF`    | **Y**   | Y      |
-//! | GetScale                          | `#SCL`    | **Y**   | Y      |
-//! | GetSpan                           | `#SPN`    | **Y**   | Y      |
-//! | GetSpanMode                       | `#SPM`    | **Y**   |        |
-//! | GetSvgaDecodedDataDisplayState    | `#SVDT`   | **Y**   |        |
-//! | GetSvgaDisplayResolution          | `#SVRS`   | **Y**   |        |
-//! | GetSvgaDisplayState               | `#SVEN`   | **Y**   |        |
-//! | GetSvgaFirmwareRevision           | `#RVS`    | **Y**   |        |
-//! | GetSvgaFontSize                   | `#SVFN`   | **Y**   |        |
-//! | GetSvgaSpectrumFillState          | `#SVFL`   | **Y**   |        |
-//! | GetSvgaWaterfallBias              | `#SVWB`   | **Y**   |        |
-//! | GetTextHangTime                   | `#TXH`    |         | **Y**  |
-//! | GetTextTransmitMode               | `#TXM`    |         | **Y**  |
-//! | GetTransceiverConnected           | `#XCV`    | **Y**   |        |
-//! | GetUsbKeyboardDetectedState       | `#USB`    |         | **Y**  |
-//! | GetVfoBCursorState                | `#VFB`    | **Y**   | Y      |
-//! | GetWaterfallAveragingState        | `#WFA`    | **Y**   |        |
-//! | GetWaterfallColor                 | `#WFC`    | **Y**   |        |
-//! | GetWaterfallMarkersState          | `#WFM`    | **Y**   |        |
-//! | MoveMarkerAFrequency              | `#MAA`    |         | **Y**  |
-//! | MoveMarkerBFrequency              | `#MBA`    |         | **Y**  |
-//! | Reset                             | `#RST`    | **Y**   |        |
-//! | SaveScreenshotToFlashDrive        | `#MSS`    |         | **Y**  |
-//! | SetBaudRate                       | `#BR`     | **Y**   | Y      |
-//! | SetBeaconModeState                | `#BCN`    | **Y**   |        |
-//! | SetBeaconTextMemoryLocation       | `#BCL`    | **Y**   |        |
-//! | SetBeaconTransmissionInterval     | `#BCI`    | **Y**   |        |
-//! | SetCalibrationSignalState         | `#CAL`    | **Y**   |        |
-//! | SetCenterFrequency                | `#CTF`    | **Y**   | Y      |
-//! | SetDisplayAveragingTimeConstant   | `#AVG`    | **Y**   | Y      |
-//! | SetDisplayFontSize                | `#FON`    | **Y**   |        |
-//! | SetDisplayMode                    | `#DSM`    | **Y**   |        |
-//! | SetDisplayMode                    | `#DSM`    | **Y**   |        |
-//! | SetFixedTuneAutoAdjustMode        | `#FXA`    | **Y**   | Y      |
-//! | SetFixedTuneOrTrackingMode        | `#FXT`    | **Y**   |        |
-//! | SetFunctionKeyLabelDisplayState   | `#LBL`    | **Y**   |        |
-//! | SetMarkerAFrequency               | `#MFA`    | **Y**   |        |
-//! | SetMarkerAState                   | `#MKA`    | **Y**   |        |
-//! | SetMarkerBFrequency               | `#MFB`    | **Y**   |        |
-//! | SetMarkerBState                   | `#MKB`    | **Y**   |        |
-//! | SetNoiseBlankerLevel              | `#NBL`    | **Y**   | Y      |
-//! | SetNoiseBlankerState              | `#NB`     | **Y**   | Y      |
-//! | SetOppositeSideBandNullAmplitude  | `#OSBA`   | **Y**   |        |
-//! | SetOppositeSideBandNullPhase      | `#OSBP`   | **Y**   |        |
-//! | SetPassThroughModeState           | `#PT`     | **Y**   | Y      |
-//! | SetPeakModeState                  | `#PKM`    | **Y**   | Y      |
-//! | SetPowerStatus                    | `#PS`     | **Y**   | Y      |
-//! | SetQsyToMarker                    | `#QSY`    | **Y**   | Y      |
-//! | SetReferenceLevel                 | `#REF`    | **Y**   | Y      |
-//! | SetRelativeCenterFrequency        | `#RCF`    | **Y**   | Y      |
-//! | SetScale                          | `#SCL`    | **Y**   | Y      |
-//! | SetSpan                           | `#SPN`    | **Y**   | Y      |
-//! | SetSpanMode                       | `#SPM`    | **Y**   |        |
-//! | SetSvgaDecodedDataDisplayState    | `#SVDT`   | **Y**   |        |
-//! | SetSvgaDisplayResolution          | `#SVRS`   | **Y**   |        |
-//! | SetSvgaDisplayState               | `#SVEN`   | **Y**   |        |
-//! | SetSvgaFontSize                   | `#SVFN`   | **Y**   |        |
-//! | SetSvgaSpectrumFillState          | `#SVFL`   | **Y**   |        |
-//! | SetSvgaWaterfallBias              | `#SVWB`   | **Y**   |        |
-//! | SetTextHangTime                   | `#TXH`    | **Y**   |        |
-//! | SetTextTransmitMode               | `#TXM`    | **Y**   |        |
-//! | SetTransceiverConnected           | `#XCV`    | **Y**   |        |
-//! | SetVfoBCursorState                | `#VFB`    | **Y**   | Y      |
-//! | SetWaterfallAveragingState        | `#WFA`    | **Y**   |        |
-//! | SetWaterfallColor                 | `#WFC`    | **Y**   |        |
-//! | SetWaterfallMarkersState          | `#WFM`    | **Y**   |        |
-//! | UploadScreenshotBitmap            | `#BMP`    | **Y**   | Y      |
+//! In the PX3 column, those commands implemented by the P3 and usable as-is are marked with a 'Y'.
+//! If the command is unique to thePX3, or is significantly different from the P3 implementation, it
+//! is marked with a bold '**Y**'.
+//!
+//! | Command                                       | ID        | P3      | PX3    |
+//! |-----------------------------------------------|-----------|:-------:|:------:|
+//! | ExecuteFunctionKey                            | `#FNX`    | **Y**   | Y      |
+//! | Get/Set BaudRate                              | `#BR`     | **Y**   | Y      |
+//! | Get/Set BeaconModeState                       | `#BCN`    |         | **Y**  |
+//! | Get/Set BeaconTextMemoryLocation              | `#BCL`    |         | **Y**  |
+//! | Get/Set BeaconTransmissionInterval            | `#BCI`    |         | **Y**  |
+//! | Get/Set CalibrationSignalState                | `#CAL`    |         | **Y**  |
+//! | Get/Set CenterFrequency                       | `#CTF`    | **Y**   | Y      |
+//! | Get/Set DisplayAveragingTimeConstant          | `#AVG`    | **Y**   | Y      |
+//! | Get/Set DisplayFontSize                       | `#FON`    | **Y**   |        |
+//! | Get/Set DisplayMode                           | `#DSM`    | **Y**   | **Y**  |
+//! | Get/Set FixedTuneAutoAdjustMode               | `#FXA`    | **Y**   | Y      |
+//! | Get/Set FixedTuneOrTrackingMode               | `#FXT`    | **Y**   |        |
+//! | Get/Set FunctionKeyLabelDisplayState          | `#LBL`    | **Y**   | **Y**  |
+//! | Get/Set MarkerAFrequency                      | `#MFA`    | **Y**   |        |
+//! | Get/Set MarkerAState                          | `#MKA`    | **Y**   |        |
+//! | Get/Set MarkerBFrequency                      | `#MFB`    | **Y**   |        |
+//! | Get/Set MarkerBState                          | `#MKB`    | **Y**   |        |
+//! | Get/Set NoiseBlankerLevel                     | `#NBL`    | **Y**   | Y      |
+//! | Get/Set NoiseBlankerState                     | `#NB`     | **Y**   | Y      |
+//! | Get/Set OppositeSideBandNullAmplitude         | `#OSBA`   |         | **Y**  |
+//! | Get/Set OppositeSideBandNullPhase             | `#OSBP`   |         | **Y**  |
+//! | Get/Set PeakModeState                         | `#PKM`    | **Y**   | Y      |
+//! | Get/Set PowerStatus                           | `#PS`     | **Y**   | Y      |
+//! | Get/Set ReferenceLevel                        | `#REF`    | **Y**   | Y      |
+//! | Get/Set RelativeCenterFrequency               | `#RCF`    | **Y**   | Y      |
+//! | Get/Set Scale                                 | `#SCL`    | **Y**   | Y      |
+//! | Get/Set Span                                  | `#SPN`    | **Y**   | Y      |
+//! | Get/Set SpanMode                              | `#SPM`    | **Y**   |        |
+//! | Get/Set SvgaDecodedDataDisplayState           | `#SVDT`   | **Y**   |        |
+//! | Get/Set SvgaDisplayResolution                 | `#SVRS`   | **Y**   |        |
+//! | Get/Set SvgaDisplayState                      | `#SVEN`   | **Y**   |        |
+//! | Get/Set SvgaFontSize                          | `#SVFN`   | **Y**   |        |
+//! | Get/Set SvgaSpectrumFillState                 | `#SVFL`   | **Y**   |        |
+//! | Get/Set SvgaWaterfallBias                     | `#SVWB`   | **Y**   |        |
+//! | Get/Set TextHangTime                          | `#TXH`    | **Y**   |        |
+//! | Get/Set TextTransmitMode                      | `#TXM`    | **Y**   |
+//! | Get/Set TransceiverConnected                  | `#XCV`    | **Y**   |        |
+//! | Get/Set VfoBCursorState                       | `#VFB`    | **Y**   | Y      |
+//! | Get/Set WaterfallAveragingState               | `#WFA`    | **Y**   |        |
+//! | Get/Set WaterfallColor                        | `#WFC`    | **Y**   |        |
+//! | Get/Set WaterfallMarkersState                 | `#WFM`    | **Y**   |        |
+//! | GetFirmwareRevision                           | `#RVM`    | **Y**   |        |
+//! | GetFpgaImageFirmwareRevision                  | `#RVF`    | **Y**   |        |
+//! | GetFunctionKeyLabel                           | `#FNL`    | **Y**   | Y      |
+//! | GetProductId                                  | `=`       | **Y**   | Y      |
+//! | GetSvgaFirmwareRevision                       | `#RVS`    | **Y**   |        |
+//! | GetUsbKeyboardDetectedState                   | `#USB`    |         | **Y**  |
+//! | MoveMarkerAFrequency                          | `#MAA`    |         | **Y**  |
+//! | MoveMarkerBFrequency                          | `#MBA`    |         | **Y**  |
+//! | Reset                                         | `#RST`    | **Y**   |        |
+//! | SaveScreenshotToFlashDrive                    | `#MSS`    |         | **Y**  |
+//! | SetPassThroughModeState                       | `#PT`     | **Y**   | Y      |
+//! | SetQsyToMarker                                | `#QSY`    | **Y**   | Y      |
+//! | UploadScreenshotBitmap                        | `#BMP`    | **Y**   | Y      |
 //!
 //! # Tuners
 //!
 //! Only supports the KAT500 Automatic Antenna Tuner.
 //!
-//! * AntennaSideIter; An iterator over the variants of AntennaSide
-//! * Bypass; Force the ATU into bypass mode immediately.
-//! * ClearCurrentFault; Clear the current fault condition.
-//! * EepromInit; Re-initialize EEPROM storage to factory defaults.
-//! * GetAmplifierInterface; Get the amplifier interface relay state.
-//! * GetAntenna; Get the currently selected antenna port.
-//! * GetAntennaSide; Get the antenna side selection.
-//! * GetAttenuatorState; Get whether the built-in attenuator is enabled.
-//! * GetAtuFaultState; Get whether the ATU currently has a fault condition.
-//! * GetAtuKeepInPlaceState; Get the ATU keep-in-place state.
-//! * GetAtuPreset; Get the current ATU preset slot number.
-//! * GetAutoBypassState; Get whether automatic bypass is enabled.
-//! * GetAutoEnableState; Get whether the ATU is enabled, i.e. whether automatic tuning is allowed.
-//! * GetBand; Get the current band number.
-//! * GetBaudRate; Get the serial port baud rate.
-//! * GetCapacitorTopology; Get the tuning capacitor topology (hi-Z or lo-Z).
-//! * GetCapacitorValue; Get the tuning capacitor value.
-//! * GetDemoModeState; Get the demo-mode state.
-//! * GetErrorMessage; Get the last error message string.
-//! * GetFanThreshold; Get the fan-on power threshold.
-//! * GetFaultDelayTime; Get the fault delay time.
-//! * GetFaultStatus; Get the current fault status code.
-//! * GetFaultThresholdHigh; Get the upper fault SWR threshold.
-//! * GetFaultThresholdLow; Get the lower fault SWR threshold.
-//! * GetFirmwareVersion; Get the firmware version string.
-//! * GetFixedBypassState; Get whether fixed bypass mode is active.
-//! * GetFixedLcState; Get whether fixed L/C mode is enabled.
-//! * GetForwardPowerA; Get the forward power reading on meter channel A.
-//! * GetForwardPowerB; Get the forward power reading on meter channel B.
-//! * GetForwardVoltage; Get the ADC forward voltage reading.
-//! * GetFrequency; Get the operating frequency, in Hz.
-//! * GetInductance; Get the tuning inductance tap.
-//! * GetInductorSwitch; Get the inductor switch bitmask.
-//! * GetInhibitFan; Get whether the cooling fan is inhibited.
-//! * GetMeterType; Get the front-panel meter display type.
-//! * GetOperatingMode; Get the current ATU operating mode.
-//! * GetPowerSensorInput; Get the forward power reading from the internal sensor.
-//! * GetPowerStatus; Get the power-on status.
-//! * GetReflectedVoltage; Get the ADC reflected voltage reading.
-//! * GetSerialNumber; Get the unit serial number.
-//! * GetSwr; Get the computed standing wave ratio.
-//! * GetSwrBypassThreshold; Get the SWR threshold above which bypass is engaged.
-//! * GetSwrMeter; Get the current SWR meter reading.
-//! * GetTunePower; Get the RF power level used during a tune cycle.
-//! * GetTuneSatisfiedSwr; Get the SWR threshold below which a tune cycle is considered successful.
-//! * GetTuneState; Get whether a tuning cycle is currently in progress.
-//! * GetTuningSpeedLimit; Get the tuning speed limit setting.
-//! * MeterTypeIter; An iterator over the variants of MeterType
-//! * OperatingModeIter; An iterator over the variants of OperatingMode
-//! * ResetDevice; Perform a soft reset of the KAT500, triggering a firmware restart.
-//! * SetAmplifierInterface; Set the amplifier interface relay state.
-//! * SetAntenna; Set the currently selected antenna port.
-//! * SetAntennaSide; Set the antenna side selection.
-//! * SetAttenuatorState; Set whether the built-in attenuator is enabled.
-//! * SetAtuKeepInPlaceState; Set the ATU keep-in-place state.
-//! * SetAtuPreset; Set the current ATU preset slot number.
-//! * SetAutoBypassState; Set whether automatic bypass is enabled.
-//! * SetAutoEnableState; Set whether the ATU is enabled, i.e. whether automatic tuning is allowed.
-//! * SetBand; Set the current band number.
-//! * SetBaudRate; Set the serial port baud rate.
-//! * SetCapacitorTopology; Set the tuning capacitor topology (hi-Z or lo-Z).
-//! * SetCapacitorValue; Set the tuning capacitor value.
-//! * SetDemoModeState; Set the demo-mode state.
-//! * SetFanThreshold; Set the fan-on power threshold.
-//! * SetFaultDelayTime; Set the fault delay time.
-//! * SetFaultThresholdHigh; Set the upper fault SWR threshold.
-//! * SetFaultThresholdLow; Set the lower fault SWR threshold.
-//! * SetFixedBypassState; Set whether fixed bypass mode is active.
-//! * SetFixedLcState; Set whether fixed L/C mode is enabled.
-//! * SetFrequency; Set the operating frequency, in Hz.
-//! * SetInductance; Set the tuning inductance tap.
-//! * SetInductorSwitch; Set the inductor switch bitmask directly.
-//! * SetInhibitFan; Set whether the cooling fan is inhibited.
-//! * SetMeterType; Set the front-panel meter display type.
-//! * SetOperatingMode; Set the current ATU operating mode.
-//! * SetSwrBypassThreshold; Set the SWR threshold above which bypass is engaged.
-//! * SetTunePower; Set the RF power level used during a tune cycle.
-//! * SetTuneSatisfiedSwr; Set the SWR threshold below which a tune cycle is considered successful.
-//! * SetTuningSpeedLimit; Set the tuning speed limit.
-//! * StartTune
+//! | Command                                       | ID         |
+//! |-----------------------------------------------|------------|
+//! | ClearFaultCondition                           | `FLTC`     |
+//! | ForceBypassMode                               | `BYP`      |
+//! | Get/Set AmplifierInterfaceRelayClosedState    | `AMPI`     |
+//! | Get/Set AntennaSelection                      | `AN` \[1]  |
+//! | Get/Set AntennaSideSelection                  | `SIDE`     |
+//! | Get/Set AttenuatorState                       | `ATTN`     |
+//! | Get/Set AutoBypassState                       | `AB`       |
+//! | Get/Set AutoEnableState                       | `AE`       |
+//! | Get/Set Band                                  | `BN`       |
+//! | Get/Set BaudRate                              | `#BR` \[1] |
+//! | Get/Set CapacitorTopology                     | `CT`       |
+//! | Get/Set CapacitorValue                        | `C`        |
+//! | Get/Set DemoModeState                         | `DM`       |
+//! | Get/Set FanInhibitState                       | `IF`       |
+//! | Get/Set FanThreshold                          | `FC`       |
+//! | Get/Set FaultDelayTime                        | `FDT`      |
+//! | Get/Set FaultThresholdHigh                    | `FT0`      |
+//! | Get/Set FaultThresholdLow                     | `FT1`      |
+//! | Get/Set FixedBypassState                      | `FY`       |
+//! | Get/Set FixedLcState                          | `FX`       |
+//! | Get/Set InductanceTap                         | `I`        |
+//! | Get/Set InductorSwitch                        | `L`        |
+//! | Get/Set KeepInPlaceState                      | `AKIP`     |
+//! | Get/Set MeterType                             | `MT`       |
+//! | Get/Set OperatingFrequency                    | `F`  \[1]  |
+//! | Get/Set OperatingMode                         | `MD` \[1]  |
+//! | Get/Set PresetSlotNumber                      | `AP`       |
+//! | Get/Set SwrBypassThreshold                    | `VSWRB`    |
+//! | Get/Set TuningPower                           | `TP`       |
+//! | Get/Set TuningSatisfiedSwrThreshold           | `FTNS`     |
+//! | Get/Set TuningSpeedLimit                      | `SL`       |
+//! | GetErrorMessage                               | `EM`       |
+//! | GetFaultCondition                             | `FLT`      |
+//! | GetFirmwareVersion                            | `RV` \[1]  |
+//! | GetForwardPowerSensorInput                    | `PSI`      |
+//! | GetForwardVoltage                             | `VFWD`     |
+//! | GetMeterChannelAForwardPower                  | `FA`       |
+//! | GetMeterChannelBForwardPower                  | `FB`       |
+//! | GetPowerStatus                                | `PS`       |
+//! | GetReflectedVoltage                           | `VRFL`     |
+//! | GetSerialNumber                               | `SN`       |
+//! | GetSwr                                        | `VSWR`     |
+//! | GetSwrMeter                                   | `SM`       |
+//! | GetTuningState                                | `T`        |
+//! | ResetDevice                                   | `RSTX`     |
+//! | ResetToFactoryDefaults                        | `EEINIT`   |
+//! | StartTuningCycle                              | `ST`       |
+//!
+//! ## Notes
+//!
+//! 1. Has the same command ID, and meaning, as a transceiver command, but different argument/return
+//!    types, or range of valid values.
 //!
 //! # References
 //!

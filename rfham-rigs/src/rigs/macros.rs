@@ -1,7 +1,10 @@
 macro_rules! brand_mod {
     ($name:literal) => {
-        pub fn brand_name() -> ::rfham_core::Name {
-            <::rfham_core::Name as rfham_core::StringLike>::new_unchecked($name)
+        pastey::paste! {
+            #[doc = "Returns the brand name '" $name "' as a `Name`."]
+            pub fn brand_name() -> ::rfham_core::Name {
+                <::rfham_core::Name as rfham_core::StringLike>::new_unchecked($name)
+            }
         }
     };
 }
@@ -33,11 +36,15 @@ macro_rules! urn_mod {
         }
     };
     ($kind:ident $name:literal) => {
-        pub fn model_name() -> ::rfham_core::Name {
-            <::rfham_core::Name as rfham_core::StringLike>::new_unchecked($name)
-        }
-        pub fn model_urn() -> ::rfham_iri::UniversalRigName {
-            ::rfham_iri::UniversalRigName:: $kind(super::brand_name(), model_name())
+        pastey::paste! {
+            #[doc = "Returns the model name '" $name "' as a `Name`."]
+            pub fn model_name() -> ::rfham_core::Name {
+                <::rfham_core::Name as rfham_core::StringLike>::new_unchecked($name)
+            }
+            #[doc = "Returns the model name '" $name "' and brand as a `UniversalRigName`."]
+            pub fn model_urn() -> ::rfham_iri::UniversalRigName {
+                ::rfham_iri::UniversalRigName:: $kind(super::brand_name(), model_name())
+            }
         }
     };
 }

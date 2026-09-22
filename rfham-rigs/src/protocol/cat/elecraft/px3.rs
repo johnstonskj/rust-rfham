@@ -35,7 +35,7 @@
 //!
 
 use crate::{
-    error::{RigError, invalid_argument_value},
+    error::invalid_argument_value,
     protocol::cat::{
         common::{i16_from_ascii, u8_from_ascii, u16_from_ascii, u32_from_ascii},
         elecraft::k3_kx::VfoFrequencyChangeStep,

@@ -31,14 +31,10 @@
 //!    Jan 2026.
 //!
 
-use crate::{
-    error::RigError,
-    protocol::{
-        Frequency,
-        cat::common::{
-            bool_from_ascii_1_0, bytes_to_vec, u8_from_ascii, u32_from_ascii,
-            validate_integer_in_range,
-        },
+use crate::protocol::{
+    Frequency,
+    cat::common::{
+        bool_from_ascii_1_0, bytes_to_vec, u8_from_ascii, u32_from_ascii, validate_integer_in_range,
     },
 };
 

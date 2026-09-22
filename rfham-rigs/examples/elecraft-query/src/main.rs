@@ -25,7 +25,6 @@ use rfham_rigs::{
         },
     },
     rigs::elecraft::kx3,
-    transport::ActiveConnectionKind,
 };
 use std::{env, io::Error as IoError, process::ExitCode, str::FromStr};
 
@@ -43,7 +42,7 @@ fn main() -> Result<ExitCode, IoError> {
     ))
     .unwrap()
     .into();
-    let port = ActiveConnectionKind::try_from(&conn).unwrap();
+    let port = rfham_rigs::transport::connect(&conn).unwrap();
     println!("Connection active ({conn:?})");
 
     let mut cat = CatWrapper::new(port, kx3::model_urn());

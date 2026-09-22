@@ -3510,7 +3510,7 @@ impl TryFrom<u8> for VfoAIconData {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         if parse_bit_flag!(value[7] OFF) {
-            Err(invalid_response_data(&[value]))
+            Err(invalid_response_data([value]))
         } else {
             Ok(Self {
                 xit_on: parse_bit_flag!(value[0] ON),
@@ -3530,7 +3530,7 @@ impl TryFrom<u8> for VfoAIconFlashData {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         if parse_bit_flag!(value[7] OFF) {
-            Err(invalid_response_data(&[value]))
+            Err(invalid_response_data([value]))
         } else {
             Ok(Self {
                 manual_notch_on: parse_bit_flag!(value[0] ON),

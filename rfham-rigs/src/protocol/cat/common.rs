@@ -175,7 +175,7 @@ pub(crate) fn bool_from_ascii_1_0(ascii: u8) -> Result<bool, RigError> {
 pub(crate) fn assert_byte_eq(value: u8, expected: u8) -> Result<(), RigError> {
     if value != expected {
         error!("Expected fixed byte value {expected:02X}, got {value:02X}");
-        Err(invalid_response_data(&[value]))
+        Err(invalid_response_data([value]))
     } else {
         Ok(())
     }
@@ -247,7 +247,7 @@ where
         error!("{argument_name} value {value} out of range {min}..={max}");
         Err(RigError::InvalidArgumentValue {
             argument_name,
-            type_name: type_name,
+            type_name,
             value: value.to_string(),
         })
     }

@@ -10,13 +10,17 @@
 
 #![allow(rustdoc::private_doc_tests)]
 
-use crate::{error::RigError, transport::ActiveConnectionKind};
+use crate::{
+    error::RigError,
+    transport::{Message, Transport},
+};
 use core::{
     fmt::{Debug, Display},
     str::FromStr,
 };
 use rfham_iri::UniversalRigName;
 use serde::{Deserialize, Serialize};
+use std::iter;
 use tracing::{error, trace};
 
 // ------------------------------------------------------------------------------------------------
@@ -63,9 +67,15 @@ pub trait Command: Debug {
         Ok(None)
     }
 
+    ///
+    /// Return any bytes used as a preamble, or protocol identifier before the command id.
+    ///
     fn message_preamble(&self) -> Option<&[u8]>;
 
-    fn to_message(&self) -> Result<Vec<u8>, RigError>;
+    ///
+    /// Convert this command to a message that can be sent to the device.
+    ///
+    fn to_message(&self) -> Result<Message<'_>, RigError>;
 }
 
 ///
@@ -75,11 +85,28 @@ pub trait Command: Debug {
 pub trait CommandWithResponse: Command {
     type Response;
 
+    ///
+    /// Returns the exoected length of the data in the response body.
+    ///
     fn expected_response_length(&self) -> usize {
         0
     }
 
-    fn parse(&self, bytes: &[u8]) -> Result<Self::Response, RigError>;
+    ///
+    /// Returns the overall length of the response message, including the preamble, command id,
+    /// response body, and terminator.
+    ///
+    fn overall_response_message_length(&self) -> usize {
+        self.message_preamble().map_or(0, |p| p.len())
+            + self.command_id().len()
+            + self.expected_response_length()
+            + 1
+    }
+
+    ///
+    /// Parse the response message from a [`Message`] object.
+    ///
+    fn parse(&self, message: &Message<'_>) -> Result<Self::Response, RigError>;
 }
 
 ///
@@ -119,14 +146,14 @@ pub trait ProtocolHandler {
     ///
     /// Attempt to receive a message. If successfull it returns a
     ///
-    fn receive(&mut self) -> Result<Option<Vec<u8>>, RigError>;
+    fn receive(&mut self) -> Result<Option<Message<'_>>, RigError>;
 
     ///
     /// Handle a synatx error, i.e. badly formed message, *or* a state error, i.e. unexpected
     /// message.
     ///
     fn handle_syntax_or_state_error(&mut self) -> Result<Vec<u8>, RigError> {
-        error!("ProtocolHandler::handle_syntax_or_state_error() called");
+        error!("ProtocolHandler::handle_syntax_or_state_error() IGNORED");
         todo!()
     }
 
@@ -134,7 +161,7 @@ pub trait ProtocolHandler {
     /// Handle a transport-specific communication failure.
     ///
     fn handle_communication_error(&mut self) -> Result<Vec<u8>, RigError> {
-        error!("ProtocolHandler::handle_communication_error() called");
+        error!("ProtocolHandler::handle_communication_error() IGNORED");
         todo!()
     }
 
@@ -142,14 +169,14 @@ pub trait ProtocolHandler {
     /// Handle a buffer overflow error reported by the transport or protocol.
     ///
     fn handle_buffer_overflow_error(&mut self) -> Result<Vec<u8>, RigError> {
-        error!("ProtocolHandler::handle_buffer_overflow_error() called");
+        error!("ProtocolHandler::handle_buffer_overflow_error() IGNORED");
         todo!()
     }
 
     ///
     /// Return the underlying connection this handler reads and writes to.
     ///
-    fn port(&mut self) -> &mut ActiveConnectionKind;
+    fn port(&mut self) -> &mut impl Transport;
 
     ///
     /// Return the name of the currently connected rig.
@@ -374,6 +401,7 @@ impl FromStr for SignedFrequency {
     type Err = RigError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Note, FromStr allows leading '+' characters.
         let value = i64::from_str(s).map_err(|e| RigError::ParseFrequency {
             value: s.to_string(),
             error: e,
@@ -397,7 +425,12 @@ impl TryFrom<&[u8]> for SignedFrequency {
 
 impl From<SignedFrequency> for Vec<u8> {
     fn from(frequency: SignedFrequency) -> Vec<u8> {
-        format!("{:011}", frequency.0).into_bytes()
+        format!(
+            "{}{:011}",
+            if frequency.0.is_negative() { '-' } else { '+' },
+            frequency.0.abs()
+        )
+        .into_bytes()
     }
 }
 
@@ -441,10 +474,18 @@ impl SignedFrequency {
     }
 
     pub fn to_bytes_with_floor(&self, floor: usize) -> Vec<u8> {
-        self.to_string_with_floor(floor)
-            .chars()
-            .map(|c| c as u8 - b'0')
-            .collect()
+        if self.is_negative() {
+            iter::once(b'-')
+        } else {
+            iter::once(b'+')
+        }
+        .chain(
+            self.to_string_with_floor(floor)
+                .chars()
+                .skip(1)
+                .map(|c| c as u8 - b'0'),
+        )
+        .collect()
     }
 
     #[inline(always)]

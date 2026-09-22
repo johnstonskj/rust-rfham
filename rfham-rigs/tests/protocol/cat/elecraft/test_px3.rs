@@ -118,7 +118,7 @@ fn set_calibration_signal_state_encodes_off() {
 fn get_move_marker_a_frequency_encodes_none() {
     assert_eq!(
         MoveMarkerAFrequency { step: None }.to_message().unwrap(),
-        b"#MAA;".to_vec()
+        b"#MAA;"
     );
 }
 
@@ -130,7 +130,7 @@ fn get_move_marker_a_frequency_encodes() {
         }
         .to_message()
         .unwrap(),
-        b"#MAA+1;".to_vec()
+        b"#MAA+1;"
     );
 }
 
@@ -140,7 +140,7 @@ fn get_move_marker_a_frequency_encodes() {
 fn get_move_marker_b_frequency_encodes() {
     assert_eq!(
         MoveMarkerBFrequency { step: None }.to_message().unwrap(),
-        b"#MBA;".to_vec()
+        b"#MBA;"
     );
 }
 
