@@ -625,19 +625,19 @@ mod tests {
             ZoneDefinition::one_of(
                 vec![
                     ZoneAssertion::new(2)
-                        .with_south_of(Latitude::from_str("80").unwrap().into())
-                        .with_west_of(Longitude::from_str("110W").unwrap().into()),
+                        .with_south_of(Latitude::from_str("80").unwrap())
+                        .with_west_of(Longitude::from_str("110W").unwrap()),
                     ZoneAssertion::new(3)
-                        .with_south_of(Latitude::from_str("80").unwrap().into())
+                        .with_south_of(Latitude::from_str("80").unwrap())
                         .with_longitude_between(
-                            Longitude::from_str("90W").unwrap().into(),
-                            Longitude::from_str("110W").unwrap().into(),
+                            Longitude::from_str("90W").unwrap(),
+                            Longitude::from_str("110W").unwrap(),
                         ),
                     ZoneAssertion::new(4)
-                        .with_south_of(Latitude::from_str("80").unwrap().into())
+                        .with_south_of(Latitude::from_str("80").unwrap())
                         .with_longitude_between(
-                            Longitude::from_str("70W").unwrap().into(),
-                            Longitude::from_str("90W").unwrap().into(),
+                            Longitude::from_str("70W").unwrap(),
+                            Longitude::from_str("90W").unwrap(),
                         ),
                 ]
                 .into(),
