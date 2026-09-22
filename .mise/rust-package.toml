@@ -1,0 +1,51 @@
+
+[tasks."lint:check"]
+extends = "lint:check"
+
+[tasks."lint:clippy"]
+extends = "lint:clippy"
+
+[tasks."lint:format"]
+extends = "lint:format"
+
+[tasks.lint]
+extends = "lint"
+
+[tasks."lint:format:check"]
+extends = "lint:format:check"
+
+[tasks.build]
+extends = "build"
+
+[tasks.clean]
+extends = "clean"
+
+[tasks."deps:audit"]
+extends = "deps:audit"
+
+[tasks."deps:outdated"]
+extends = "deps:outdated"
+
+[tasks."test:nextest"]
+extends = "test:nextest"
+
+[tasks."test:test"]
+extends = "test:test"
+
+[tasks."test:coverage"]
+extends = "test:coverage"
+
+[tasks."test:flamegraph"]
+extends = "test:flamegraph"
+
+[tasks."readme:lint"]
+extends = "readme:lint"
+
+[tasks."docs:lint"]
+extends = "docs:lint"
+
+[tasks.rustdoc]
+extends = "rustdoc"
+
+[tasks.pre-commit]
+extends = "pre-commit"

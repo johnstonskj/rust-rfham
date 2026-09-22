@@ -1,9 +1,126 @@
+monorepo_root = true
+
+[monorepo]
+config_roots = [
+    "rfham",
+    "rfham-antennas",
+    "rfham-bands",
+    "rfham-cli",
+    "rfham-config",
+    "rfham-core",
+    "rfham-geo",
+    "rfham-iri",
+    "rfham-itu",
+    "rfham-maidenhead",
+    "rfham-markdown",
+    "rfham-rigs",
+    "rfham-rigs/examples/*",
+    "rfham-services",
+]
+lockfile = true
+
 [tools]
-"cargo:cargo-audit" = "latest"
-"cargo:cargo-nextest" = "latest"
-"cargo:cargo-tarpaulin" = "latest"
-"cargo:flamegraph" = "latest"
-mdbook = "latest"
-rust = "latest"
-taplo = "latest"
-markdownlint-cli2 = "latest"
+rust = {
+     version = "latest",
+     components = ["rust-src", "clippy-preview"],
+     mr_boxington = true
+}
+mr-boxington = "latest"
+
+"cargo:bacon" = "latest"
+"cargo:cargo-edit" = "latest"
+
+[task_templates."lint:check"]
+description = "Check the code for any linting issues using cargo check"
+alias = "check"
+run = "cargo check --all-targets --future-incompat-report --workspace"
+
+[task_templates."lint:clippy"]
+description = "Check the code for any linting issues using cargo clippy"
+alias = "clippy"
+run = "cargo clippy --no-deps --all-targets"
+
+[task_templates."lint:format"]
+description = "Format the code using cargo fmt"
+alias = "fmt"
+run = "cargo fmt --all"
+
+[task_templates."lint"]
+description = "Run all linting tasks"
+alias = "lint"
+run = { tasks = ["lint:check", "lint:clippy", "lint:format"] }
+
+[task_templates."lint:format:check"]
+description = "Check if the code is properly formatted using cargo fmt"
+alias = "fmt-check"
+run = "cargo fmt --all --check"
+
+[task_templates."build"]
+description = "Build the project using cargo build"
+depends = ["lint:check", "lint:clippy", "lint:format:check"]
+run = "cargo build"
+
+[task_templates."clean"]
+description = "Clean the project using cargo clean"
+run = "cargo clean"
+
+[task_templates."deps:audit"]
+description = "Audit the project's dependencies for security issues using cargo audit"
+tools."cargo:cargo-audit" = "latest"
+alias = "audit"
+sources = ["Cargo.toml"]
+run = "cargo audit --file {{config_root | quote}}/Cargo.lock"
+
+[task_templates."deps:outdated"]
+description = "Check for outdated dependencies using cargo outdated"
+tools."cargo:cargo-outdated" = "latest"
+alias = "outdated"
+sources = ["Cargo.toml"]
+run = "cargo outdated --workspace --root-deps-only"
+
+[task_templates."test:nextest"]
+description = "Run tests using cargo nextest"
+depends = ["build"]
+tools."cargo:cargo-nextest" = "latest"
+alias = "nt"
+run = "cargo nextest run --all-targets"
+
+[task_templates."test:test"]
+description = "Run all tests using cargo test"
+depends = ["build"]
+alias = "test"
+run = "cargo test --all-targets"
+
+[task_templates."test:coverage"]
+description = "Run all tests, with coverage, using cargo tarpaulin"
+depends = ["build"]
+tools."cargo:cargo-tarpaulin" = "latest"
+alias = "coverage"
+run = "cargo tarpaulin --all-targets --command test"
+
+[task_templates."test:flamegraph"]
+description = "Generate a flamegraph for the tests using cargo flamegraph"
+depends = ["build"]
+tools."cargo:flamegraph" = "latest"
+run = "cargo flamegraph"
+
+[task_templates."readme:lint"]
+description = "Lint all the README.md files in the project using markdownlint-cli2"
+tools.markdownlint-cli2 = "latest"
+run = "markdownlint-cli2 \"**/README.md\""
+
+[task_templates."docs:lint"]
+description = "Lint all the documentation files, in 'doc/', using markdownlint-cli2"
+tools.markdownlint-cli2 = "latest"
+run = [
+    { task = "readme:lint" },
+    "markdownlint-cli2 \"docs/**/*.md\""
+]
+
+[task_templates."rustdoc"]
+description = "Generate rustdoc for the project"
+run = "cargo rustdoc --lib"
+
+[task_templates."pre-commit"]
+description = "Run all tasks that should be executed before committing code"
+run = { tasks = ["lint", "deps:audit", "deps:outdated", "test:test"] }
