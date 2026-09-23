@@ -29,13 +29,9 @@ rfham-bands = { version = "0.1", path = "../rfham-bands" }
 rfham-core = { version = "0.1", path = "../rfham-core" }
 rfham-itu = { version = "0.1", path = "../rfham-itu" }
 rfham-markdown = { version = "0.1", path = "../rfham-markdown" }
-uom = { version = "0.38", default-features = false, features = [
-    "autoconvert",
-    "f64",
-    "serde",
-    "si",
-] }
-colored = { version = "3.1", optional = true }
+
+colored = { workspace = true, optional = true }
+uom = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = "1.4"

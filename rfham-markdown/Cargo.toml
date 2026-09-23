@@ -23,8 +23,8 @@ std = ["colored"]
 no-color = ["std", "colored/no-color"]
 
 [dependencies]
-colored = { version = "3.1", optional = true }
-thiserror = { version = "2.0", default-features = false }
+colored = { workspace = true, optional = true }
+thiserror = { workspace = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies.wasm-bindgen-test]
 version = "0.3"

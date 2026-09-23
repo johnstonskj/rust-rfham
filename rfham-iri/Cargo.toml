@@ -27,13 +27,12 @@ serde = ["dep:serde", "alloc"]
 std = ["serde?/std"]
 
 [dependencies]
-document-features = "0.2"
 rfham-core = { version = "0.1.1", path = "../rfham-core" }
-serde = { version = "1.0", default-features = false, features = [
-    "derive",
-], optional = true }
-strum = { version = "0.28", features = ["derive"] }
-thiserror = { version = "2.0", default-features = false }
+
+document-features = { workspace = true }
+serde = { workspace = true, optional = true }
+strum = { workspace = true }
+thiserror = { workspace = true }
 
 [lints]
 workspace = true

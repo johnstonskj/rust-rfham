@@ -29,25 +29,16 @@ default = ["std"]
 std = []
 
 [dependencies]
-lat-long = { version = "0.1", features = [
-    "serde",
-], path = "../../rust-lat-long/" }
 rfham-core = { version = "0.1.1", path = "../rfham-core" }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
-serde_with = { version = "3.18", default-features = false, features = [
-    "alloc",
-    "macros",
-] }
-strum = { version = "0.28", features = ["derive"] }
-thiserror = { version = "2.0", default-features = false }
-tracing = "0.1.44"
-uom = { version = "0.38", default-features = false, features = [
-    "autoconvert",
-    "f64",
-    "serde",
-    "si",
-] }
+
+lat-long = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+strum = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+uom = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = "1.4"

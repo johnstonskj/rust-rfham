@@ -16,23 +16,22 @@ keywords.workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-language-tags = { version = "0.3", features = ["serde"] }
 rfham-bands = { version = "0.1.1", path = "../rfham-bands" }
 rfham-core = { version = "0.1.1", path = "../rfham-core" }
 rfham-geo = { version = "0.1.1", path = "../rfham-geo" }
 rfham-itu = { version = "0.1.2", path = "../rfham-itu" }
 rfham-maidenhead = { version = "0.1.0", path = "../rfham-maidenhead" }
 rfham-markdown = { version = "0.1.1", path = "../rfham-markdown" }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_with = { version = "3.18", default-features = false, features = [
-    "alloc",
-    "macros",
-] }
-serialport = { version = "4.9.0", features = ["serde"] }
-strum = { version = "0.28", features = ["derive"] }
-thiserror = { version = "2.0", default-features = false }
-toml = "1.1"
-tracing = "0.1"
+
+language-tags = { workspace = true }
+serde = { workspace = true }
+serde_with = { workspace = true }
+serialport = { workspace = true }
+strum = { workspace = true }
+thiserror = { workspace = true }
+toml = { workspace = true }
+tracing = { workspace = true }
+
 xdirs = "0.1"
 
 [dev-dependencies]

@@ -17,17 +17,6 @@ name = "rfham"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "4.6", features = ["derive", "env"] }
-clap_complete = "4.6"
-clap-verbosity-flag = { version = "3", default-features = false, features = [
-    "tracing",
-] }
-colorchoice = "1.0"
-colorchoice-clap = "1.0"
-colored = "3.1"
-crossterm = { version = "0.29.0", default-features = false }
-icu_locale_core = { version = "2.2", features = ["alloc"] }
-inquire = { version = "0.9", features = ["date"] }
 rfham-antennas = { version = "0.1.1", path = "../rfham-antennas" }
 rfham-bands = { version = "0.1.1", path = "../rfham-bands" }
 rfham-config = { version = "0.1.1", path = "../rfham-config" }
@@ -38,10 +27,23 @@ rfham-maidenhead = { version = "0.1.0", path = "../rfham-maidenhead" }
 rfham-markdown = { version = "0.1.1", path = "../rfham-markdown" }
 rfham-rigs = { version = "0.1.0", path = "../rfham-rigs" }
 rfham-services = { version = "0.1.0", path = "../rfham-services" }
+
+colored = { workspace = true}
+strum = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+clap = { version = "4.6", features = ["derive", "env"] }
+clap_complete = "4.6"
+clap-verbosity-flag = { version = "3", default-features = false, features = [
+    "tracing",
+] }
+colorchoice = "1.0"
+colorchoice-clap = "1.0"
+crossterm = { version = "0.29.0", default-features = false }
+icu_locale_core = { version = "2.2", features = ["alloc"] }
+inquire = { version = "0.9", features = ["date"] }
 search_path = "0.1"
-strum = { version = "0.28", features = ["derive"] }
 sys-locale = "0.3"
-thiserror = { version = "2.0", default-features = false }
-tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 whoami = "2.1"

@@ -103,24 +103,22 @@ yaesu = []
 entity-api = []
 
 [dependencies]
-chrono = { version = "0.4.45", default-features = false, features = [
-    "alloc",
-    "clock",
-    "now",
-] }
-document-features = "0.2"
-num = "0.4"
-pastey = "0.2.3"
 rfham-config = { version = "0.1.1", path = "../rfham-config" }
 rfham-core = { version = "0.1.1", path = "../rfham-core" }
 rfham-iri = { version = "0.1.0", path = "../rfham-iri" }
 rfham-itu = { version = "0.1.2", path = "../rfham-itu" }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-serialport = { version = "4.10", features = ["serde"], optional = true }
-strum = { version = "0.28", features = ["derive"] }
-thiserror = { version = "2.0", default-features = false }
-toml = { version = "1.1", features = ["serde"] }
-tracing = "0.1"
+
+chrono = { workspace = true }
+document-features = { workspace = true }
+num = { workspace = true }
+serde = { workspace = true }
+serialport = { workspace = true, optional = true }
+strum = { workspace = true }
+thiserror = { workspace = true }
+toml = { workspace = true }
+tracing = { workspace = true }
+
+pastey = "0.2.3"
 
 # Security overrides
 h2 = "0.4.16"

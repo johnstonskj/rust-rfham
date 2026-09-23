@@ -16,26 +16,17 @@ keywords.workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-colored = { version = "3.1", optional = true }
-lat-long = { version = "0.1", features = [
-    "serde",
-], path = "../../rust-lat-long/" }
 rfham-core = { version = "0.1.1", path = "../rfham-core" }
 rfham-markdown = { version = "0.1.1", path = "../rfham-markdown" }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_json = { version = "1.0" }
-serde_with = { version = "3.18", default-features = false, features = [
-    "alloc",
-    "macros",
-] }
-strum = { version = "0.28", features = ["derive"] }
-thiserror = { version = "2.0", default-features = false }
-uom = { version = "0.38", default-features = false, features = [
-    "autoconvert",
-    "f64",
-    "serde",
-    "si",
-] }
+
+colored = { workspace = true }
+lat-long = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+strum = { workspace = true }
+thiserror = { workspace = true }
+uom = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = "1.4"
