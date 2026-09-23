@@ -7,6 +7,7 @@
 //! - [`Transport`]; a trait defining the interface for transport connections. Transport
 //!   implementations are responsible for managing the underlying connection and implementing the
 //!   standard `Read` and `Write` traits.
+//!   - [`Statistics`]; a trait defining the interface for transport statistics.
 //! - [`connect`] ; a function that establishes a transport connection based on the provided
 //!   configuration.
 //!
@@ -45,6 +46,18 @@
 //! let transport = get_current_transport();
 //! transport.write_message(&message).unwrap();
 //! ```
+//! 
+//! # Logging
+//! 
+//! Note that each transport will log it's statistic periodically based on a configured count.
+//! The count is based on the number of successful operations, every *n* messages sent or
+//! received an *info* level log record is emitted with the transport identifier and statistics.
+//! This count can be configured via the `RFHAM_LOG_TRANSPORT_STATS_COUNT` environment variable,
+//! otherwise it's default is 100.
+//! 
+//! ```text
+//! 2026-09-23T16:16:15Z [INFO] statistics /dev/cu.usbserial-A10KMJZB:38400, 4, 42, 0, 0, 6, 83, 0, 0
+//! ```
 //!
 
 use crate::error::RigError;
@@ -53,7 +66,8 @@ use serialport::{
     DataBits, Error as SerialError, FlowControl, Parity, SerialPort, SerialPortBuilder, StopBits,
 };
 use std::{
-    fmt::Debug,
+    env,
+    fmt::{Debug, Display},
     io::{Error as IoError, ErrorKind, Read, Write},
     net::{SocketAddr, TcpStream, ToSocketAddrs},
     sync::Mutex,
@@ -83,6 +97,61 @@ pub trait Transport: Debug + Read + Write {
         self.write_all(message.as_bytes())?;
         self.flush()
     }
+
+    /// 
+    /// Return a reference to the transport's statistics.
+    ///
+    /// This allows clients to query various metrics about the transport's usage, such as the
+    /// number of commands sent, bytes transmitted, and any errors or timeouts encountered.
+    /// 
+    fn statistics(&self) -> impl Statistics;
+}
+
+pub trait Statistics {
+    /// 
+    /// Number of messages successfully sent.
+    /// 
+    fn messages_sent(&self) -> u64;
+    /// 
+    /// Number of bytes successfully sent.
+    /// 
+    fn bytes_sent(&self) -> u64;
+    /// 
+    /// Number of write timeouts encountered.
+    /// 
+    fn write_timeouts(&self) -> u64;
+    /// 
+    /// Number of write errors encountered.
+    /// 
+    fn write_errors(&self) -> u64;
+    /// 
+    /// Number of messages successfully received.
+    /// 
+    fn messages_received(&self) -> u64;
+    /// 
+    /// Number of bytes successfully received.
+    /// 
+    fn bytes_received(&self) -> u64;
+    /// 
+    /// Number of read timeouts encountered.
+    /// 
+    fn read_timeouts(&self) -> u64;
+    /// 
+    /// Number of read errors encountered.
+    /// 
+    fn read_errors(&self) -> u64;
+
+    /// 
+    /// Return a snapshot of the transport's statistics as an array of `u64` values.
+    /// 
+    /// This allows a client to quickly capture the current state of the transport's statistics
+    /// without having to individually query each statistic. It also allows for metrics to be easily
+    /// logged or transmitted for analysis.
+    /// 
+    /// The order of the values in the array is: `messages_sent`, `bytes_sent`, `write_timeouts`, 
+    /// `write_errors`, `messages_received`, `bytes_received`, `read_timeouts`, `read_errors`.
+    /// 
+    fn snapshot(&self) -> [u64;8];
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -108,9 +177,18 @@ pub trait Transport: Debug + Read + Write {
 /// ```
 ///
 pub fn connect(config: &Connection) -> Result<impl Transport, RigError> {
-    Ok(ConnectedTransport::new(ConnectedTransportKind::connect(
-        config,
-    )?))
+    Ok(ConnectedTransport::new(
+        ConnectedTransportKind::connect(
+            config,
+        )?,
+        match config {
+            Connection::Serial(conn) => format!("{}:{}", conn.path().display(), conn.baud_rate()),
+            Connection::Ip(conn) => match conn.host() {
+                Host::HostName(name) => format!("{}:{}",name, conn.port()),
+                Host::Address(addr) => format!("{}:{}", addr, conn.port()),
+            },
+        },
+    ))
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -118,12 +196,31 @@ pub fn connect(config: &Connection) -> Result<impl Transport, RigError> {
 // ------------------------------------------------------------------------------------------------
 
 #[derive(Debug)]
-struct ConnectedTransport(Mutex<ConnectedTransportKind>);
+struct ConnectedTransport(Mutex<Inner>);
+
+#[derive(Debug)]
+struct Inner {
+    conn: ConnectedTransportKind,
+    label: String,
+    stats: Stats,
+}
 
 #[derive(Debug, EnumIs, EnumTryAs)]
 enum ConnectedTransportKind {
     Serial { port: Box<dyn SerialPort> },
     Ip { stream: TcpStream },
+}
+
+#[derive(Copy, Clone, Debug, Default)]
+struct Stats {
+    messages_sent: u64,
+    bytes_sent: u64,
+    write_timeouts: u64,
+    write_errors: u64,
+    messages_received: u64,
+    bytes_received: u64,
+    read_timeouts: u64,
+    read_errors: u64,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -132,6 +229,117 @@ enum ConnectedTransportKind {
 
 const DEFAULT_SERIAL_TIMEOUT: Duration = Duration::from_millis(200);
 const DEFAULT_IP_CONNECT_TIMEOUT: Duration = Duration::new(15, 0);
+
+const LOG_TRANSPORT_STATS_COUNT: u64 = 100;
+
+// ------------------------------------------------------------------------------------------------
+
+impl Read for ConnectedTransport {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let mut inner = self.0.lock().map_err(|_| ErrorKind::Other)?;
+        match inner.conn.read(buf) {
+            Ok(bytes_read) => {
+                inner.stats.messages_received += 1;
+                inner.stats.bytes_received += bytes_read as u64;
+                self.log_statistics();
+                Ok(bytes_read)
+            } 
+            Err(e) if e.kind() == ErrorKind::TimedOut => {
+                inner.stats.read_timeouts += 1;
+                Err(e)
+            }
+            Err(e) => {
+                inner.stats.read_errors += 1;
+                Err(e)
+            }
+        }
+    }
+}
+
+impl Write for ConnectedTransport {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let mut inner = self.0.lock().map_err(|_| ErrorKind::Other)?;
+        match inner.conn.write(buf) {
+            Ok(bytes_written) => {
+                inner.stats.messages_sent += 1;
+                inner.stats.bytes_sent += bytes_written as u64;
+                self.log_statistics();
+                Ok(bytes_written)
+            }
+            Err(e) if e.kind() == ErrorKind::TimedOut => {
+                inner.stats.write_timeouts += 1;
+                Err(e)
+            }
+            Err(e) => {
+                inner.stats.write_errors += 1;
+                Err(e)
+            }
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        let mut inner = self.0.lock().map_err(|_| ErrorKind::Other)?;
+        inner.conn.flush()
+    }
+}
+
+impl Transport for ConnectedTransport {
+    fn statistics(&self) -> impl Statistics {
+        let transport = self.0.lock().map_err(|_| ErrorKind::Other).unwrap();
+        transport.stats
+    }
+}
+
+impl ConnectedTransport {
+    fn new(conn: ConnectedTransportKind, label: String) -> Self {
+        Self(Mutex::new(Inner { conn, label, stats: Default::default() }))
+    }
+
+    #[allow(dead_code)]
+    fn read_all(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let mut inner = self.0.lock().map_err(|_| ErrorKind::Other)?;
+        let expected = buf.len();
+        let mut total_read = 0;
+        while total_read < expected {
+            match inner.conn.read(&mut buf[total_read..]) {
+                Ok(0) => break,
+                Ok(n) => total_read += n,
+                Err(e) if e.kind() == ErrorKind::TimedOut => {
+                    inner.stats.read_timeouts += 1;
+                    return Err(e);
+                }
+                Err(e) => {
+                    inner.stats.read_errors += 1;
+                    return Err(e);
+                }
+            }
+        }
+        inner.stats.bytes_received += total_read as u64;
+        inner.stats.messages_received += 1;
+        self.log_statistics();
+        Ok(total_read)
+    }
+
+    fn log_statistics(&self) {
+        let log_trace_count = env::var("RFHAM_LOG_TRANSPORT_STATS_COUNT")
+            .map(|v| v.parse::<u64>().unwrap_or(LOG_TRANSPORT_STATS_COUNT))
+            .unwrap_or(LOG_TRANSPORT_STATS_COUNT);
+        let transport = self.0.lock().map_err(|_| ErrorKind::Other).unwrap();
+        if (transport.stats.messages_received + transport.stats.messages_sent) % log_trace_count == 0 {
+            tracing::info!(
+                "statistics {}, {}", 
+                transport.label, 
+                transport.stats.snapshot()
+                    .iter()
+                    .map(u64::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
 
 impl Read for ConnectedTransportKind {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
@@ -184,45 +392,76 @@ impl ConnectedTransportKind {
 
 // ------------------------------------------------------------------------------------------------
 
-impl Read for ConnectedTransport {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let mut inner = self.0.lock().map_err(|_| ErrorKind::Other)?;
-        inner.read(buf)
+impl Display for Stats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Statistics {{ Read: {}, {}, {}, {}, Write: {}, {}, {}, {} }}",
+            self.messages_received(),
+            self.bytes_received(),
+            self.read_errors(),
+            self.read_timeouts(),
+            self.messages_sent(),
+            self.bytes_sent(),
+            self.write_errors(),
+            self.write_timeouts()
+        )
     }
 }
 
-impl Write for ConnectedTransport {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let mut inner = self.0.lock().map_err(|_| ErrorKind::Other)?;
-        inner.write(buf)
+impl Statistics for Stats {
+    #[inline(always)]
+    fn messages_received(&self) -> u64 {
+        self.messages_received
     }
 
-    fn flush(&mut self) -> std::io::Result<()> {
-        let mut inner = self.0.lock().map_err(|_| ErrorKind::Other)?;
-        inner.flush()
-    }
-}
-
-impl Transport for ConnectedTransport {}
-
-impl ConnectedTransport {
-    fn new(inner: ConnectedTransportKind) -> Self {
-        Self(Mutex::new(inner))
+    #[inline(always)]
+    fn bytes_received(&self) -> u64 {
+        self.bytes_received
     }
 
-    #[allow(dead_code)]
-    fn read_all(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let mut inner = self.0.lock().map_err(|_| ErrorKind::Other)?;
-        let expected = buf.len();
-        let mut total_read = 0;
-        while total_read < expected {
-            match inner.read(&mut buf[total_read..]) {
-                Ok(0) => break,
-                Ok(n) => total_read += n,
-                Err(e) => return Err(e),
-            }
-        }
-        Ok(total_read)
+    #[inline(always)]
+    fn read_errors(&self) -> u64 {
+        self.read_errors
+    }
+
+    #[inline(always)]
+    fn read_timeouts(&self) -> u64 {
+        self.read_timeouts
+    }
+
+    #[inline(always)]
+    fn messages_sent(&self) -> u64 {
+        self.messages_sent
+    }
+
+    #[inline(always)]
+    fn bytes_sent(&self) -> u64 {
+        self.bytes_sent
+    }
+
+    #[inline(always)]
+    fn write_errors(&self) -> u64 {
+        self.write_errors
+    }
+
+    #[inline(always)]
+    fn write_timeouts(&self) -> u64 {
+        self.write_timeouts
+    }
+
+    #[inline(always)]
+    fn snapshot(&self) -> [u64; 8] {
+        [
+            self.messages_received,
+            self.bytes_received,
+            self.read_errors,
+            self.read_timeouts,
+            self.messages_sent,
+            self.bytes_sent,
+            self.write_errors,
+            self.write_timeouts,
+        ]
     }
 }
 
