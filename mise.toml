@@ -13,6 +13,7 @@ config_roots = [
     "rfham-itu",
     "rfham-maidenhead",
     "rfham-markdown",
+    "rfham-qsolog",
     "rfham-rigs",
     "rfham-rigs/examples/*",
     "rfham-services",
