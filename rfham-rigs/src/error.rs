@@ -1,3 +1,4 @@
+//!
 //! Error and result types for `rfham-radios`.
 //!
 
