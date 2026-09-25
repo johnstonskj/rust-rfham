@@ -16,13 +16,39 @@ keywords.workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [features]
-default = ["adif", "sql"]
+default = ["adif", "sql", "std"]
 adif = []
-sql = []
+alloc = []
+sql = ["rusqlite", "std", "uuid"]
+std = []
 
 [dependencies]
+rfham-core = { version = "0.1.1", path = "../rfham-core" }
+#rfham-geo = { version = "0.1.1", path = "../rfham-geo" }
+#rfham-itu = { version = "0.1.2", path = "../rfham-itu" }
+rfham-maidenhead = { version = "0.1.0", path = "../rfham-maidenhead" }
+
+chrono = { workspace = true }
+regex = { workspace = true }
 serde = { workspace = true }
 serde_with = { workspace = true }
 strum = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+xdirs = { workspace = true }
+
+rusqlite = { 
+    version = "0.40", 
+    features = ["backup", "bundled", "chrono", "functions", "uuid"], 
+    optional = true 
+}
+uuid = {
+    version = "1.26",
+    default-features = false,
+    features = ["serde", "v7"],
+    optional = true
+}
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tempfile = "3.27"
