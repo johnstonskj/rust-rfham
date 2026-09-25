@@ -55,7 +55,7 @@ uom = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
-pretty_assertions = "1.4"
+pretty_assertions = { workspace = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies.wasm-bindgen-test]
 version = "0.3"
