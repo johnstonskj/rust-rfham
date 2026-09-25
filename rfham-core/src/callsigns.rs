@@ -106,7 +106,7 @@ use std::{fmt::Display, str::FromStr, sync::LazyLock};
 /// refix, suffix, and ancillary qualifiers. The `Display` implementation formats the callsign
 /// in the standard manner.
 ///
-#[derive(Clone, Debug, PartialEq, Eq, DeserializeFromStr, SerializeDisplay)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, DeserializeFromStr, SerializeDisplay)]
 pub struct CallSign {
     ancillary_prefix: Option<String>,
     prefix: String,
