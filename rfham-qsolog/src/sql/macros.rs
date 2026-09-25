@@ -5,6 +5,7 @@
 
 macro_rules! ddl {
     ($conn:expr, $ddl:expr) => {
+        println!("Executing DDL: {}", $ddl.replace("\n", " "));
         tracing::trace!("Executing DDL: {}", $ddl.replace("\n", " "));
         $conn.execute(
             &$ddl, ()
@@ -153,7 +154,7 @@ macro_rules! row {
             "    {} TEXT{}{}",
             stringify!($field),
             row!(@modifiers $( $modifiers )* ),
-            check!(length $field = 32)
+            check!(length $field = 36)
         )
     };
     (
@@ -177,6 +178,25 @@ macro_rules! row {
                 check!(regexp: 
                     stringify!($field), 
                     "^[0-9]+(\\.[0-9]+(\\.[0-9]+)?)?(-[a-zA-Z][a-zA-Z0-9_]*)?$"
+                )
+            )
+        )
+    };
+    (
+        grid $field:ident $( $modifiers:ident )*
+    ) => {
+        format!(
+            "    {} TEXT{}{}",
+            stringify!($field),
+            row!(@modifiers $( $modifiers )* ),
+            check!(
+                check!(and:
+                    check!(regexp: 
+                        stringify!($field), 
+                        "^[a-rA-R]{2}([0-9]{2}([a-xA-X]{2}([0-9]{2})?)?([a-xA-X]{2}([0-9]{2})?([a-xA-X]{2}([0-9]{2})?)?)?)?$"
+                    ),
+                    check!(gte: check!(length: $field), 2),
+                    check!(lte: check!(length: $field), 10)
                 )
             )
         )
@@ -252,7 +272,7 @@ macro_rules! row {
         " DEFAULT CURRENT_TIMESTAMP"
     };
     (@modifier genid) => {
-        " GENERATED ALWAYS AS (generate_random_uuid()) STORED"
+        " GENERATED ALWAYS AS (gen_random_uuid()) STORED"
     };
     (@modifier unique) => {
         " UNIQUE"
@@ -349,10 +369,10 @@ mod tests {
         assert_eq!(
             "CREATE TABLE IF NOT EXISTS TestTable (
     id INTEGER PRIMARY KEY,
-    uuid_1 TEXT CHECK (length(uuid_1) = 32),
-    uuid_2 TEXT UNIQUE CHECK (length(uuid_2) = 32),
-    uuid_3 TEXT NOT NULL CHECK (length(uuid_3) = 32),
-    uuid_4 TEXT UNIQUE NOT NULL CHECK (length(uuid_4) = 32)
+    uuid_1 TEXT CHECK (length(uuid_1) = 36),
+    uuid_2 TEXT UNIQUE CHECK (length(uuid_2) = 36),
+    uuid_3 TEXT NOT NULL CHECK (length(uuid_3) = 36),
+    uuid_4 TEXT UNIQUE NOT NULL CHECK (length(uuid_4) = 36)
 )",
             create_table!(TestTable (
                 row!(primary_key id),
@@ -369,10 +389,10 @@ mod tests {
         assert_eq!(
             "CREATE TABLE IF NOT EXISTS TestTable (
     id INTEGER PRIMARY KEY,
-    uuid_1 TEXT GENERATED ALWAYS AS (generate_random_uuid()) STORED CHECK (length(uuid_1) = 32),
-    uuid_2 TEXT UNIQUE GENERATED ALWAYS AS (generate_random_uuid()) STORED CHECK (length(uuid_2) = 32),
-    uuid_3 TEXT NOT NULL GENERATED ALWAYS AS (generate_random_uuid()) STORED CHECK (length(uuid_3) = 32),
-    uuid_4 TEXT UNIQUE NOT NULL GENERATED ALWAYS AS (generate_random_uuid()) STORED CHECK (length(uuid_4) = 32)
+    uuid_1 TEXT GENERATED ALWAYS AS (gen_random_uuid()) STORED CHECK (length(uuid_1) = 36),
+    uuid_2 TEXT UNIQUE GENERATED ALWAYS AS (gen_random_uuid()) STORED CHECK (length(uuid_2) = 36),
+    uuid_3 TEXT NOT NULL GENERATED ALWAYS AS (gen_random_uuid()) STORED CHECK (length(uuid_3) = 36),
+    uuid_4 TEXT UNIQUE NOT NULL GENERATED ALWAYS AS (gen_random_uuid()) STORED CHECK (length(uuid_4) = 36)
 )",
             create_table!(TestTable (
                 row!(primary_key id),
@@ -389,8 +409,8 @@ mod tests {
         assert_eq!(
             "CREATE TABLE IF NOT EXISTS TestTable (
     id INTEGER PRIMARY KEY,
-    external_id TEXT UNIQUE NOT NULL GENERATED ALWAYS AS (generate_random_uuid()) STORED CHECK (length(external_id) = 32),
-    sync_id TEXT UNIQUE NOT NULL GENERATED ALWAYS AS (generate_random_uuid()) STORED CHECK (length(sync_id) = 32)
+    external_id TEXT UNIQUE NOT NULL GENERATED ALWAYS AS (gen_random_uuid()) STORED CHECK (length(external_id) = 36),
+    sync_id TEXT UNIQUE NOT NULL GENERATED ALWAYS AS (gen_random_uuid()) STORED CHECK (length(sync_id) = 36)
 )",
             create_table!(TestTable (
                 row!(primary_key id),
