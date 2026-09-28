@@ -261,6 +261,7 @@ impl Database {
             conn,
             create_table!(version_info(
                 row!(timestamp created now),
+                row!(semver previous_schema_version),
                 row!(semver schema_version not_null),
                 row!(text extensions)
             ))
