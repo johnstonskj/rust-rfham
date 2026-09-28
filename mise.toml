@@ -27,7 +27,7 @@ rust = {
      mr_boxington = true
 }
 mr-boxington = "latest"
-
+watchexec = "latest"
 "cargo:bacon" = "latest"
 #"cargo:cargo-edit" = "latest"
 
