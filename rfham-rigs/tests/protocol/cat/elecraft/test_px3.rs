@@ -56,9 +56,9 @@ fn get_beacon_text_memory_location_encodes() {
 }
 
 #[test]
-fn set_beacon_text_memory_location_encodes_on() {
+fn set_beacon_text_memory_location_encodes() {
     let cmd = SetBeaconTextMemoryLocation { location: 1 };
-    assert_eq!(cmd.to_message().unwrap(), b"#BCL1;".to_vec());
+    assert_eq!(cmd.to_message().unwrap(), b"#BCL01;".to_vec());
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -115,17 +115,23 @@ fn set_calibration_signal_state_encodes_off() {
 // ------------------------------------------------------------------------------------------------
 
 #[test]
-fn get_move_marker_a_frequency_encodes_none() {
+fn move_marker_a_frequency_encodes_none() {
     assert_eq!(
-        MoveMarkerAFrequency { step: None }.to_message().unwrap(),
-        b"#MAA;"
+        MoveMarkerAFrequency {
+            decrement: false,
+            step: None
+        }
+        .to_message()
+        .unwrap(),
+        b"#MAA+;"
     );
 }
 
 #[test]
-fn get_move_marker_a_frequency_encodes() {
+fn move_marker_a_frequency_encodes() {
     assert_eq!(
         MoveMarkerAFrequency {
+            decrement: false,
             step: Some(VfoFrequencyChangeStep::Step10Hz)
         }
         .to_message()
@@ -137,10 +143,28 @@ fn get_move_marker_a_frequency_encodes() {
 // ------------------------------------------------------------------------------------------------
 
 #[test]
-fn get_move_marker_b_frequency_encodes() {
+fn move_marker_b_frequency_encodes_none() {
     assert_eq!(
-        MoveMarkerBFrequency { step: None }.to_message().unwrap(),
-        b"#MBA;"
+        MoveMarkerBFrequency {
+            decrement: true,
+            step: None
+        }
+        .to_message()
+        .unwrap(),
+        b"#MBA-;"
+    );
+}
+
+#[test]
+fn move_marker_b_frequency_encodes() {
+    assert_eq!(
+        MoveMarkerBFrequency {
+            decrement: true,
+            step: Some(VfoFrequencyChangeStep::Step10Hz)
+        }
+        .to_message()
+        .unwrap(),
+        b"#MBA-1;"
     );
 }
 

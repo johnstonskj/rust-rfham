@@ -294,6 +294,7 @@ The step size is automatically determined by the current span and mode:
   * Span 50-99.1 kHz, step = 50 Hz
   * Span 100-200 kHz, step = 100 Hz" =>
     MoveMarkerAFrequency {
+        decrement: bool,
         step: Option<VfoFrequencyChangeStep>
     }
 );
@@ -350,6 +351,7 @@ The step size is automatically determined by the current span and mode:
   * Span 50-99.1 kHz, step = 50 Hz
   * Span 100-200 kHz, step = 100 Hz" =>
     MoveMarkerBFrequency {
+        decrement: bool,
         step: Option<VfoFrequencyChangeStep>
     }
 );
@@ -618,13 +620,17 @@ impl_cat_command!(SetFunctionKeyLabelDisplayState => b"#LBL" for as byte state);
 // ------------------------------------------------------------------------------------------------
 
 impl_cat_command!(MoveMarkerAFrequency => b"#MAA"  with Some |cmd: &MoveMarkerAFrequency| {
-    cmd.step.map(|step| vec![step as u8]).unwrap_or_default()
+    let sign = if cmd.decrement { b'-' } else { b'+' };
+    cmd.step.map(|step| vec![sign, step as u8]).unwrap_or(vec![sign])
+
 });
 
 // ------------------------------------------------------------------------------------------------
 
-impl_cat_command!(MoveMarkerBFrequency => b"#MAB"  with Some |cmd: &MoveMarkerBFrequency| {
-    cmd.step.map(|step| vec![step as u8]).unwrap_or_default()
+impl_cat_command!(MoveMarkerBFrequency => b"#MBA"  with Some |cmd: &MoveMarkerBFrequency| {
+    let sign = if cmd.decrement { b'-' } else { b'+' };
+    cmd.step.map(|step| vec![sign, step as u8]).unwrap_or(vec![sign])
+
 });
 
 // ------------------------------------------------------------------------------------------------
