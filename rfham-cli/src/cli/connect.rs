@@ -4,7 +4,6 @@ use crate::{
     error::CliError,
 };
 use clap::{Args, Subcommand};
-use rfham_config::load_global_config;
 use std::{path::PathBuf, process::ExitCode};
 
 // ------------------------------------------------------------------------------------------------

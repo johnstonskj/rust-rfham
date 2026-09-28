@@ -19,7 +19,7 @@
 //! ```text
 //! ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?(-[a-zA-Z][a-zA-Z0-9_+/]*)?$
 //! ```
-//! 
+//!
 //! The previous schema version allows this table to store the details of the time and
 //! version of schema upgrades to the current database.
 //!

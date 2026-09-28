@@ -327,8 +327,8 @@ impl ConnectedTransport {
             .map(|v| v.parse::<u64>().unwrap_or(LOG_TRANSPORT_STATS_COUNT))
             .unwrap_or(LOG_TRANSPORT_STATS_COUNT);
         let transport = self.0.lock().map_err(|_| ErrorKind::Other).unwrap();
-        if (transport.stats.messages_received + transport.stats.messages_sent) % log_trace_count
-            == 0
+        if (transport.stats.messages_received + transport.stats.messages_sent)
+            .is_multiple_of(log_trace_count)
         {
             tracing::info!(
                 "statistics {}, {}",
