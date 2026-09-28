@@ -43,7 +43,7 @@ pub mod error;
 pub mod model;
 
 #[cfg(feature = "adif")]
-pub mod adif; 
+pub mod adif;
 
 #[cfg(feature = "sql")]
 pub mod sql;

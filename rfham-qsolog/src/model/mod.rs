@@ -7,11 +7,11 @@
 //!
 
 use crate::error::LogError;
+use chrono::NaiveDateTime;
+use core::fmt::Display;
 use rfham_core::{callsigns::CallSign, frequencies::Frequency};
 use rfham_maidenhead::MaidenheadLocator;
-use chrono::NaiveDateTime;
-use strum::{EnumIs,EnumIter,FromRepr};
-use core::fmt::Display;
+use strum::{EnumIs, EnumIter, FromRepr};
 
 // ------------------------------------------------------------------------------------------------
 // Public Macros
@@ -24,7 +24,6 @@ use core::fmt::Display;
 pub trait Log {
     type EntryId;
     type Entry: LogEntry<Id = Self::EntryId>;
-
 
     fn owner(&self) -> &<Self::Entry as LogEntry>::Contact;
     fn label(&self) -> Option<&String>;
@@ -44,14 +43,14 @@ pub trait LogEntry {
 
     fn id(&self) -> Option<&Self::Id>;
     fn start_time(&self) -> &NaiveDateTime;
-    fn end_time(&self) -> &NaiveDateTime; 
+    fn end_time(&self) -> &NaiveDateTime;
 
     fn contact(&self) -> &Self::Contact;
     fn contact_rst(&self) -> SignalReport;
 
     fn frequency(&self) -> &Frequency;
     fn mode(&self) -> &String;
-    
+
     fn reported_rst(&self) -> SignalReport;
 }
 
@@ -103,7 +102,7 @@ pub enum Readability {
     /// Readable with practically no difficulty.
     PracticallyReadable = 4,
     /// Perfectly readable
-    PerfectlyReadable = 5
+    PerfectlyReadable = 5,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIs, EnumIter, FromRepr)]
@@ -162,32 +161,36 @@ pub enum Tone {
 
 impl Display for SignalReport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "{}{}", self.readability as u8, self.signal_strength as u8)?;
+        write!(
+            f,
+            "{}{}",
+            self.readability as u8, self.signal_strength as u8
+        )?;
         if let Some(db_over_s9) = self.db_over_s9 {
             write!(f, "(+{db_over_s9})")?;
         }
         if let Some(tone) = self.tone {
             write!(f, "{}", tone as u8)?;
         }
-        if self.signal_distorted_by_auroral_propagation { 
-            write!(f, "A")?; 
+        if self.signal_distorted_by_auroral_propagation {
+            write!(f, "A")?;
         }
-        if self.frequency_shift_at_key_on_off { 
+        if self.frequency_shift_at_key_on_off {
             write!(f, "C")?;
         }
-        if self.frequency_drift { 
+        if self.frequency_drift {
             write!(f, "D")?;
         }
-        if self.key_clicks { 
+        if self.key_clicks {
             write!(f, "K")?;
         }
-        if self.signal_distorted_by_multipath_propagation { 
+        if self.signal_distorted_by_multipath_propagation {
             write!(f, "M")?;
         }
-        if self.signal_distorted_by_scatter_propagation { 
+        if self.signal_distorted_by_scatter_propagation {
             write!(f, "S")?;
         }
-        if self.exceptionally_stable_frequency { 
+        if self.exceptionally_stable_frequency {
             write!(f, "X")?;
         }
         Ok(())
@@ -195,10 +198,7 @@ impl Display for SignalReport {
 }
 
 impl SignalReport {
-    pub fn new(
-        readability: Readability,
-        signal_strength: SignalStrength,
-    ) -> Self {
+    pub fn new(readability: Readability, signal_strength: SignalStrength) -> Self {
         Self {
             readability,
             signal_strength,
@@ -212,13 +212,9 @@ impl SignalReport {
             signal_distorted_by_scatter_propagation: false,
             exceptionally_stable_frequency: false,
         }
-    }    
-    
-    pub fn new_cw(
-        readability: Readability,
-        signal_strength: SignalStrength,
-        tone: Tone
-    ) -> Self {
+    }
+
+    pub fn new_cw(readability: Readability, signal_strength: SignalStrength, tone: Tone) -> Self {
         Self {
             readability,
             signal_strength,
@@ -289,16 +285,18 @@ impl SignalReport {
 
 #[cfg(test)]
 mod tests {
-    use super::*; 
+    use super::*;
 
     #[test]
     fn test_signal_report_display_simple() {
         assert_eq!(
             "59",
             SignalReport::new(
-                Readability::PerfectlyReadable, 
+                Readability::PerfectlyReadable,
                 SignalStrength::ExtremelyStrong,
-            ).to_string().as_str()
+            )
+            .to_string()
+            .as_str()
         )
     }
 
@@ -307,7 +305,7 @@ mod tests {
         assert_eq!(
             "59(+10)",
             SignalReport::new(
-                Readability::PerfectlyReadable, 
+                Readability::PerfectlyReadable,
                 SignalStrength::ExtremelyStrong,
             )
             .with_db_over_s9(10)
@@ -321,10 +319,12 @@ mod tests {
         assert_eq!(
             "599",
             SignalReport::new_cw(
-                Readability::PerfectlyReadable, 
+                Readability::PerfectlyReadable,
                 SignalStrength::ExtremelyStrong,
                 Tone::Perfect
-            ).to_string().as_str()
+            )
+            .to_string()
+            .as_str()
         )
     }
 
@@ -333,7 +333,7 @@ mod tests {
         assert_eq!(
             "599K",
             SignalReport::new_cw(
-                Readability::PerfectlyReadable, 
+                Readability::PerfectlyReadable,
                 SignalStrength::ExtremelyStrong,
                 Tone::Perfect
             )

@@ -1,4 +1,3 @@
-
 // ------------------------------------------------------------------------------------------------
 // Public Macros
 // ------------------------------------------------------------------------------------------------
@@ -7,13 +6,9 @@ macro_rules! ddl {
     ($conn:expr, $ddl:expr) => {
         println!("Executing DDL: {}", $ddl.replace("\n", " "));
         tracing::trace!("Executing DDL: {}", $ddl.replace("\n", " "));
-        $conn.execute(
-            &$ddl, ()
-        ).map_err(|e|{
+        $conn.execute(&$ddl, ()).map_err(|e| {
             tracing::error!("SQlite error executing DDL: {e}");
-            $crate::error::LogError::SqlDefinition(
-                $ddl.replace("\n", " "), e
-            )
+            $crate::error::LogError::SqlDefinition($ddl.replace("\n", " "), e)
         })?;
     };
 }
@@ -25,7 +20,7 @@ macro_rules! create_table {
         )
     ) => {
         format!(
-            "CREATE TABLE IF NOT EXISTS {} (\n{}\n)", 
+            "CREATE TABLE IF NOT EXISTS {} (\n{}\n)",
             stringify!($name),
             [
                 $(
@@ -44,7 +39,7 @@ macro_rules! check {
         length $field:ident = $len:literal
     ) => {
         check!(
-            check!(and: 
+            check!(and:
                 check!(eq: check!(length: $field), $len)
             )
         )
@@ -53,7 +48,7 @@ macro_rules! check {
         length $field:ident >= $len:literal
     ) => {
         check!(
-            check!(and: 
+            check!(and:
                 check!(gte: check!(length: $field), $len)
             )
         )
@@ -62,7 +57,7 @@ macro_rules! check {
         length $field:ident <= $len:literal
     ) => {
         check!(
-            check!(and: 
+            check!(and:
                 check!(lte: check!(length: $field), $len)
             )
         )
@@ -71,7 +66,7 @@ macro_rules! check {
         length $min:literal <= $field:ident <= $max:literal
     ) => {
         check!(
-            check!(and: 
+            check!(and:
                 check!(gte: check!(length: $field), $min),
                 check!(lte: check!(length: $field), $max)
             )
@@ -175,8 +170,8 @@ macro_rules! row {
             stringify!($field),
             row!(@modifiers $( $modifiers )* ),
             check!(
-                check!(regexp: 
-                    stringify!($field), 
+                check!(regexp:
+                    stringify!($field),
                     "^[0-9]+(\\.[0-9]+(\\.[0-9]+)?)?(-[a-zA-Z][a-zA-Z0-9_]*)?$"
                 )
             )
@@ -191,8 +186,8 @@ macro_rules! row {
             row!(@modifiers $( $modifiers )* ),
             check!(
                 check!(and:
-                    check!(regexp: 
-                        stringify!($field), 
+                    check!(regexp:
+                        stringify!($field),
                         "^[a-rA-R]{2}([0-9]{2}([a-xA-X]{2}([0-9]{2})?)?([a-xA-X]{2}([0-9]{2})?([a-xA-X]{2}([0-9]{2})?)?)?)?$"
                     ),
                     check!(gte: check!(length: $field), 2),
@@ -318,7 +313,7 @@ macro_rules! insert_into {
         );
         tracing::trace!("Executing insert: {}", sql.replace("\n", " "));
         $conn.execute(
-            &sql, 
+            &sql,
             (
                 $(
                     &$value,
@@ -331,7 +326,7 @@ macro_rules! insert_into {
             )
         })?;
 
-        
+
     }};
 }
 
@@ -349,18 +344,14 @@ mod tests {
             "CREATE TABLE IF NOT EXISTS TestTable (
     id INTEGER PRIMARY KEY
 )",
-            create_table!(TestTable (
-                row!(primary_key id)
-            ))
+            create_table!(TestTable(row!(primary_key id)))
         );
-     
+
         assert_eq!(
             "CREATE TABLE IF NOT EXISTS TestTable (
     id INTEGER PRIMARY KEY
 )",
-            create_table!(TestTable (
-                row!(primary_key)
-            ))
+            create_table!(TestTable(row!(primary_key)))
         );
     }
 
@@ -374,7 +365,7 @@ mod tests {
     uuid_3 TEXT NOT NULL CHECK (length(uuid_3) = 36),
     uuid_4 TEXT UNIQUE NOT NULL CHECK (length(uuid_4) = 36)
 )",
-            create_table!(TestTable (
+            create_table!(TestTable(
                 row!(primary_key id),
                 row!(uuid uuid_1),
                 row!(uuid uuid_2 unique),
@@ -430,7 +421,7 @@ mod tests {
     label_3 TEXT NOT NULL CHECK (length(label_3) <= 40),
     label_4 TEXT UNIQUE NOT NULL CHECK (length(label_4) <= 40)
 )",
-            create_table!(TestTable (
+            create_table!(TestTable(
                 row!(primary_key id),
                 row!(label label_1),
                 row!(label label_2 unique),
@@ -492,7 +483,7 @@ mod tests {
     other_id INTEGER,
     FOREIGN KEY (other_id) REFERENCES OtherTable(id)
 )",
-            create_table!(TestTable (
+            create_table!(TestTable(
                 row!(primary_key id),
                 row!(integer other_id),
                 row!(foreign_key other_id => OtherTable : id)

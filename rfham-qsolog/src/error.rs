@@ -20,7 +20,7 @@ pub enum LogError {
     #[cfg(feature = "sql")]
     #[error("An error occurred connecting to the QSO log database at `{0}`; error: {1}.")]
     SqlConnection(std::path::PathBuf, rusqlite::Error),
-    
+
     #[cfg(feature = "sql")]
     #[error("An error occurred executing DDL statement '{0}'; error: {1}.")]
     SqlDefinition(String, rusqlite::Error),

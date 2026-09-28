@@ -46,15 +46,15 @@
 //! let transport = get_current_transport();
 //! transport.write_message(&message).unwrap();
 //! ```
-//! 
+//!
 //! # Logging
-//! 
+//!
 //! Note that each transport will log it's statistic periodically based on a configured count.
 //! The count is based on the number of successful operations, every *n* messages sent or
 //! received an *info* level log record is emitted with the transport identifier and statistics.
 //! This count can be configured via the `RFHAM_LOG_TRANSPORT_STATS_COUNT` environment variable,
 //! otherwise it's default is 100.
-//! 
+//!
 //! ```text
 //! 2026-09-23T16:16:15Z [INFO] statistics /dev/cu.usbserial-A10KMJZB:38400, 4, 42, 0, 0, 6, 83, 0, 0
 //! ```
@@ -98,60 +98,60 @@ pub trait Transport: Debug + Read + Write {
         self.flush()
     }
 
-    /// 
+    ///
     /// Return a reference to the transport's statistics.
     ///
     /// This allows clients to query various metrics about the transport's usage, such as the
     /// number of commands sent, bytes transmitted, and any errors or timeouts encountered.
-    /// 
+    ///
     fn statistics(&self) -> impl Statistics;
 }
 
 pub trait Statistics {
-    /// 
+    ///
     /// Number of messages successfully sent.
-    /// 
+    ///
     fn messages_sent(&self) -> u64;
-    /// 
+    ///
     /// Number of bytes successfully sent.
-    /// 
+    ///
     fn bytes_sent(&self) -> u64;
-    /// 
+    ///
     /// Number of write timeouts encountered.
-    /// 
+    ///
     fn write_timeouts(&self) -> u64;
-    /// 
+    ///
     /// Number of write errors encountered.
-    /// 
+    ///
     fn write_errors(&self) -> u64;
-    /// 
+    ///
     /// Number of messages successfully received.
-    /// 
+    ///
     fn messages_received(&self) -> u64;
-    /// 
+    ///
     /// Number of bytes successfully received.
-    /// 
+    ///
     fn bytes_received(&self) -> u64;
-    /// 
+    ///
     /// Number of read timeouts encountered.
-    /// 
+    ///
     fn read_timeouts(&self) -> u64;
-    /// 
+    ///
     /// Number of read errors encountered.
-    /// 
+    ///
     fn read_errors(&self) -> u64;
 
-    /// 
+    ///
     /// Return a snapshot of the transport's statistics as an array of `u64` values.
-    /// 
+    ///
     /// This allows a client to quickly capture the current state of the transport's statistics
     /// without having to individually query each statistic. It also allows for metrics to be easily
     /// logged or transmitted for analysis.
-    /// 
-    /// The order of the values in the array is: `messages_sent`, `bytes_sent`, `write_timeouts`, 
+    ///
+    /// The order of the values in the array is: `messages_sent`, `bytes_sent`, `write_timeouts`,
     /// `write_errors`, `messages_received`, `bytes_received`, `read_timeouts`, `read_errors`.
-    /// 
-    fn snapshot(&self) -> [u64;8];
+    ///
+    fn snapshot(&self) -> [u64; 8];
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -178,13 +178,11 @@ pub trait Statistics {
 ///
 pub fn connect(config: &Connection) -> Result<impl Transport, RigError> {
     Ok(ConnectedTransport::new(
-        ConnectedTransportKind::connect(
-            config,
-        )?,
+        ConnectedTransportKind::connect(config)?,
         match config {
             Connection::Serial(conn) => format!("{}:{}", conn.path().display(), conn.baud_rate()),
             Connection::Ip(conn) => match conn.host() {
-                Host::HostName(name) => format!("{}:{}",name, conn.port()),
+                Host::HostName(name) => format!("{}:{}", name, conn.port()),
                 Host::Address(addr) => format!("{}:{}", addr, conn.port()),
             },
         },
@@ -243,7 +241,7 @@ impl Read for ConnectedTransport {
                 inner.stats.bytes_received += bytes_read as u64;
                 self.log_statistics();
                 Ok(bytes_read)
-            } 
+            }
             Err(e) if e.kind() == ErrorKind::TimedOut => {
                 inner.stats.read_timeouts += 1;
                 Err(e)
@@ -292,7 +290,11 @@ impl Transport for ConnectedTransport {
 
 impl ConnectedTransport {
     fn new(conn: ConnectedTransportKind, label: String) -> Self {
-        Self(Mutex::new(Inner { conn, label, stats: Default::default() }))
+        Self(Mutex::new(Inner {
+            conn,
+            label,
+            stats: Default::default(),
+        }))
     }
 
     #[allow(dead_code)]
@@ -325,11 +327,15 @@ impl ConnectedTransport {
             .map(|v| v.parse::<u64>().unwrap_or(LOG_TRANSPORT_STATS_COUNT))
             .unwrap_or(LOG_TRANSPORT_STATS_COUNT);
         let transport = self.0.lock().map_err(|_| ErrorKind::Other).unwrap();
-        if (transport.stats.messages_received + transport.stats.messages_sent) % log_trace_count == 0 {
+        if (transport.stats.messages_received + transport.stats.messages_sent) % log_trace_count
+            == 0
+        {
             tracing::info!(
-                "statistics {}, {}", 
-                transport.label, 
-                transport.stats.snapshot()
+                "statistics {}, {}",
+                transport.label,
+                transport
+                    .stats
+                    .snapshot()
                     .iter()
                     .map(u64::to_string)
                     .collect::<Vec<_>>()
