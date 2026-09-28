@@ -7,17 +7,21 @@
 //!
 //! ## Table `version_info`
 //!
-//! | Column           | Type | Unique | Null | Default             | Generated | Constraints                         |
-//! |------------------|------|--------|------|---------------------|-----------|-------------------------------------|
-//! | `created`        | TEXT |        | No   | `CURRENT_TIMESTAMP` |           | `length() >= 19 AND length() <= 30` |
-//! | `schema_version` | TEXT |        | No   |                     |           | `REGEXP '...'`                      |
-//! | `extensions`     | TEXT |        | Yes  |                     |           |                                     |
+//! | Column                    | Type | Unique | Null | Default             | Generated | Constraints                         |
+//! |---------------------------|------|--------|------|---------------------|-----------|-------------------------------------|
+//! | `created`                 | TEXT |        | No   | `CURRENT_TIMESTAMP` |           | `length() >= 19 AND length() <= 30` |
+//! | `previous_schema_version` | TEXT | Yes    | Yes  |                     |           | `REGEXP '...'`                      |
+//! | `schema_version`          | TEXT | Yes    | No   |                     |           | `REGEXP '...'`                      |
+//! | `extensions`              | TEXT |        | Yes  |                     |           |                                     |
 //!
 //! The regular expression used for validating the `schema_version` as a semantic version ID column is:
 //!
 //! ```text
 //! ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?(-[a-zA-Z][a-zA-Z0-9_+/]*)?$
 //! ```
+//! 
+//! The previous schema version allows this table to store the details of the time and
+//! version of schema upgrades to the current database.
 //!
 //! ## Table `logs`
 //!
@@ -261,8 +265,8 @@ impl Database {
             conn,
             create_table!(version_info(
                 row!(timestamp created now),
-                row!(semver previous_schema_version),
-                row!(semver schema_version not_null),
+                row!(semver previous_schema_version unique),
+                row!(semver schema_version unique not_null),
                 row!(text extensions)
             ))
         );
