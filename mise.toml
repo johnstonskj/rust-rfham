@@ -29,7 +29,7 @@ rust = {
 mr-boxington = "latest"
 
 "cargo:bacon" = "latest"
-"cargo:cargo-edit" = "latest"
+#"cargo:cargo-edit" = "latest"
 
 [task_templates."lint:check"]
 description = "Check the code for any linting issues using cargo check"
